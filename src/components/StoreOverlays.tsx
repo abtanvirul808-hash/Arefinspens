@@ -53,9 +53,9 @@ export const CartDrawer: React.FC = () => {
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          {cart.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-center py-12 space-y-4">
+        {cart.length === 0 ? (
+          <>
+            <div className="flex-1 overflow-y-auto p-5 flex flex-col items-center justify-center text-center space-y-4">
               <div className="w-16 h-16 rounded-full border border-accent/40 bg-accent/10 flex items-center justify-center text-accent-bright">
                 <ShoppingBag className="w-7 h-7" />
               </div>
@@ -74,7 +74,7 @@ export const CartDrawer: React.FC = () => {
                     setIsCartDrawerOpen(false);
                     navigate('shop', { category: 'all' });
                   }}
-                  className="px-5 py-2.5 rounded-xl text-sm font-semibold text-white cta-glow-red"
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold text-[var(--accent-cta-text)] cta-glow-red"
                 >
                   Start Shopping
                 </button>
@@ -90,117 +90,172 @@ export const CartDrawer: React.FC = () => {
                 </button>
               </div>
             </div>
-          ) : (
-            cart.map((item) => {
-              const product = products.find((p) => p.id === item.productId);
-              if (!product) return null;
-              const variant = product.colors.find((c) => c.id === item.colorId);
-              const thumb = variant?.image || product.images[0];
 
-              return (
-                <div
-                  key={item.key}
-                  className="p-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] flex gap-3.5"
-                >
-                  <div className="w-20 h-16 rounded-lg overflow-hidden shrink-0 bg-[#050505]">
-                    <SafeImage src={thumb} alt={product.name} className="w-full h-full object-cover" />
-                  </div>
-                  <div className="flex-1 min-w-0 space-y-1.5">
-                    <div className="flex items-start justify-between gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setIsCartDrawerOpen(false);
-                          navigate('product', { productSlug: product.slug });
-                        }}
-                        className="text-sm font-semibold text-[var(--text-main)] hover:text-accent-bright text-left line-clamp-1"
-                      >
-                        {product.name}
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => removeFromCart(item.key)}
-                        className="text-[var(--text-muted)] hover:text-accent-bright p-1"
-                        aria-label={`Remove ${product.name}`}
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
+            <div className="px-5 pt-4 pb-5 border-t border-[var(--border-subtle)] bg-[var(--bg-secondary)] space-y-2.5 shrink-0">
+              <h3 className="font-display text-xs font-bold tracking-wide text-[var(--text-main)]">
+                How to Order — Step by Step
+              </h3>
+              <ol className="space-y-1.5 text-xs text-[var(--text-secondary)] leading-relaxed">
+                <li className="flex items-start gap-2">
+                  <span className="font-mono-num font-bold text-accent shrink-0">01.</span>
+                  <span>Choose a pen, select your colour &amp; quantity, and click Add to Cart.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="font-mono-num font-bold text-accent shrink-0">02.</span>
+                  <span>Open your cart and click Checkout (or View Cart to review items).</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="font-mono-num font-bold text-accent shrink-0">03.</span>
+                  <span>Enter your name, phone number, and select Al Amanah Academy or Home Delivery.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="font-mono-num font-bold text-accent shrink-0">04.</span>
+                  <span>Click Place Order to get your Order ID (#1, #2…) — pay Cash on Delivery.</span>
+                </li>
+              </ol>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {cart.map((item) => {
+                const product = products.find((p) => p.id === item.productId);
+                if (!product) return null;
+                const variant = product.colors.find((c) => c.id === item.colorId);
+                const thumb = variant?.image || product.images[0];
+
+                return (
+                  <div
+                    key={item.key}
+                    className="p-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] flex gap-3.5"
+                  >
+                    <div className="w-20 h-16 rounded-lg overflow-hidden shrink-0 bg-[#050505]">
+                      <SafeImage src={thumb} alt={product.name} className="w-full h-full object-cover" />
                     </div>
-                    <div className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
-                      <span
-                        className="w-3 h-3 rounded-full border border-white/25 inline-block"
-                        style={{ backgroundColor: item.colorHex }}
-                      />
-                      <span>{item.colorName}</span>
-                    </div>
-                    <div className="flex items-center justify-between pt-1">
-                      <div className="inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-input)]">
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      <div className="flex items-start justify-between gap-2">
                         <button
                           type="button"
-                          onClick={() => updateCartQuantity(item.key, item.quantity - 1)}
-                          className="w-7 h-7 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
-                          aria-label="Decrease quantity"
+                          onClick={() => {
+                            setIsCartDrawerOpen(false);
+                            navigate('product', { productSlug: product.slug });
+                          }}
+                          className="text-sm font-semibold text-[var(--text-main)] hover:text-accent-bright text-left line-clamp-1"
                         >
-                          <Minus className="w-3 h-3" />
+                          {product.name}
                         </button>
-                        <span className="px-2.5 text-xs font-mono-num font-semibold text-[var(--text-main)]">
-                          {item.quantity}
-                        </span>
                         <button
                           type="button"
-                          onClick={() => updateCartQuantity(item.key, item.quantity + 1)}
-                          className="w-7 h-7 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
-                          aria-label="Increase quantity"
+                          onClick={() => removeFromCart(item.key)}
+                          className="text-[var(--text-muted)] hover:text-accent-bright p-1"
+                          aria-label={`Remove ${product.name}`}
                         >
-                          <Plus className="w-3 h-3" />
+                          <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                      <span className="text-sm font-bold font-mono-num text-[var(--text-main)]">
-                        ৳{(product.priceBdt * item.quantity).toLocaleString('en-US')}
-                      </span>
+                      <div className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
+                        <span
+                          className="w-3 h-3 rounded-full border border-white/25 inline-block"
+                          style={{ backgroundColor: item.colorHex }}
+                        />
+                        <span>{item.colorName}</span>
+                      </div>
+                      <div className="flex items-center justify-between pt-1">
+                        <div className="inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-input)]">
+                          <button
+                            type="button"
+                            onClick={() => updateCartQuantity(item.key, item.quantity - 1)}
+                            className="w-7 h-7 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
+                            aria-label="Decrease quantity"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <span className="px-2.5 text-xs font-mono-num font-semibold text-[var(--text-main)]">
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => updateCartQuantity(item.key, item.quantity + 1)}
+                            className="w-7 h-7 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
+                            aria-label="Increase quantity"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                        <span className="text-sm font-bold font-mono-num text-[var(--text-main)]">
+                          ৳{(product.priceBdt * item.quantity).toLocaleString('en-US')}
+                        </span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })
-          )}
-        </div>
+                );
+              })}
+            </div>
 
-        {cart.length > 0 && (
-          <div className="p-5 border-t border-[var(--border-subtle)] bg-[var(--bg-secondary)] space-y-3.5">
-            <div className="flex items-center justify-between text-sm">
-              <span className="text-[var(--text-secondary)]">Subtotal</span>
-              <span className="text-lg font-bold font-mono-num text-[var(--text-main)]">
-                ৳{cartSubtotal.toLocaleString('en-US')}
-              </span>
+            <div className="px-5 pt-4 pb-6 border-t border-[var(--border-subtle)] bg-[var(--bg-secondary)] space-y-4 shrink-0">
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-sm">
+                  <span className="text-[var(--text-secondary)]">Subtotal</span>
+                  <span className="text-lg font-bold font-mono-num text-[var(--text-main)]">
+                    ৳{cartSubtotal.toLocaleString('en-US')}
+                  </span>
+                </div>
+                <p className="text-xs text-[var(--text-muted)]">
+                  Cash on Delivery available across Bangladesh · Zero extra delivery fee.
+                </p>
+              </div>
+
+              {/* Elevated Action Buttons positioned mid-lower for comfortable reach */}
+              <div className="grid grid-cols-2 gap-2.5 pb-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCartDrawerOpen(false);
+                    navigate('cart');
+                  }}
+                  className="py-2.5 px-4 rounded-xl border border-[var(--border-strong)] text-sm font-semibold text-[var(--text-main)] hover:bg-accent/10 transition-colors whitespace-nowrap"
+                >
+                  View Cart
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsCartDrawerOpen(false);
+                    navigate('checkout');
+                  }}
+                  className="py-2.5 px-4 rounded-xl text-sm font-semibold text-[var(--accent-cta-text)] cta-glow-red inline-flex items-center justify-center gap-1.5 whitespace-nowrap"
+                >
+                  <span>Checkout</span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Step-by-Step How to Order Guide below action buttons */}
+              <div className="pt-3.5 border-t border-[var(--border-subtle)] space-y-2">
+                <h3 className="font-display text-xs font-bold tracking-wide text-[var(--text-main)]">
+                  How to Order — Step by Step
+                </h3>
+                <ol className="space-y-1.5 text-xs text-[var(--text-secondary)] leading-relaxed">
+                  <li className="flex items-start gap-2">
+                    <span className="font-mono-num font-bold text-accent shrink-0">01.</span>
+                    <span>Review your pen colours &amp; quantities, or click View Cart to edit.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="font-mono-num font-bold text-accent shrink-0">02.</span>
+                    <span>Tap Checkout above to go to the order form.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="font-mono-num font-bold text-accent shrink-0">03.</span>
+                    <span>Fill in your name, phone, and pick Al Amanah Academy or Home Delivery.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="font-mono-num font-bold text-accent shrink-0">04.</span>
+                    <span>Tap Place Order to receive your Order ID (#1, #2…) — pay Cash on Delivery.</span>
+                  </li>
+                </ol>
+              </div>
             </div>
-            <p className="text-xs text-[var(--text-muted)]">
-              Cash on Delivery available across Bangladesh.
-            </p>
-            <div className="grid grid-cols-2 gap-2.5">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsCartDrawerOpen(false);
-                  navigate('cart');
-                }}
-                className="py-2.5 px-4 rounded-xl border border-[var(--border-strong)] text-sm font-semibold text-[var(--text-main)] hover:bg-accent/10 transition-colors"
-              >
-                View Cart
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setIsCartDrawerOpen(false);
-                  navigate('checkout');
-                }}
-                className="py-2.5 px-4 rounded-xl text-sm font-semibold text-white cta-glow-red inline-flex items-center justify-center gap-1.5"
-              >
-                <span>Checkout</span>
-                <ArrowRight className="w-4 h-4" />
-              </button>
-            </div>
-          </div>
+          </>
         )}
       </div>
     </div>
