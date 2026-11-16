@@ -50,9 +50,12 @@ export const CheckoutPage: React.FC = () => {
   const [confirmedOrder, setConfirmedOrder] = useState<TrackedOrder | null>(null);
 
   useEffect(() => {
-    if (!demoUser) return;
+    if (!demoUser) {
+      setEmail('');
+      return;
+    }
     setFullName((prev) => prev || demoUser.name || '');
-    setEmail((prev) => prev || demoUser.email || '');
+    setEmail(demoUser.email || '');
     setPhone((prev) => prev || demoUser.phone || '');
     setFormError((prev) =>
       prev.toLowerCase().includes('sign in') ? '' : prev
@@ -114,11 +117,6 @@ export const CheckoutPage: React.FC = () => {
     const phoneDigits = normalizedPhone.replace(/\D/g, '');
     if (phoneDigits.length < 8 || phoneDigits.length > 15) {
       failValidation('Please enter a valid mobile number (e.g. 017XXXXXXXX).');
-      return;
-    }
-
-    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
-      failValidation('Please enter a valid email address or leave it blank.');
       return;
     }
 
@@ -367,15 +365,18 @@ export const CheckoutPage: React.FC = () => {
 
               <div>
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Email Address (Optional)
+                  Sign-In Email (Linked to Order)
                 </label>
                 <input
                   type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                  readOnly
+                  value={isCustomerSignedIn ? email : ''}
+                  placeholder="Sign in to link your account email"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] opacity-90 cursor-not-allowed focus:outline-none"
                 />
+                <p className="text-[11px] text-[var(--text-muted)] mt-1">
+                  Only an account signed in with this same email can view this order.
+                </p>
               </div>
 
               <div>

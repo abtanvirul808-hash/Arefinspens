@@ -63,7 +63,7 @@
     },
     "Order": {
       "title": "Order",
-      "description": "An authenticated customer Cash on Delivery order record visible strictly to its owner and verified admins.",
+      "description": "An authenticated customer Cash on Delivery order record visible strictly to the placing user (matching uid or verified sign-in email) and verified admins in the Admin Panel.",
       "type": "object",
       "properties": {
         "orderId": { "type": "string", "minLength": 2, "maxLength": 32, "pattern": "^#[0-9]+$" },
@@ -88,6 +88,7 @@
         "orderId",
         "serialNumber",
         "userId",
+        "userEmail",
         "phone",
         "phoneSuffix",
         "customerName",
@@ -121,7 +122,7 @@
     },
     "/orders/{orderId}": {
       "schema": { "$ref": "#/entities/Order" },
-      "description": "Customer orders isolated strictly to the placing user (userId == auth.uid) and verified admins."
+      "description": "Customer orders isolated strictly to the placing user (userId == auth.uid or userEmail == auth.token.email) and verified admins."
     },
     "/meta/{metaId}": {
       "schema": { "$ref": "#/entities/StoreMeta" },

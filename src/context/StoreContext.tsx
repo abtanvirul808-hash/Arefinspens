@@ -126,6 +126,7 @@ interface StoreContextValue {
   deleteAdminProduct: (productId: string) => Promise<void>;
 
   orders: TrackedOrder[];
+  adminOrders: TrackedOrder[];
   nextOrderId: string;
   createOrder: (order: TrackedOrder) => Promise<TrackedOrder>;
   findOrder: (orderId: string, phone: string) => Promise<TrackedOrder | undefined>;
@@ -307,6 +308,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [cloudProducts, setCloudProducts] = useState<Product[] | null>(null);
   const [catalogSeeded, setCatalogSeeded] = useState(false);
   const [cloudOrders, setCloudOrders] = useState<(TrackedOrder & { serialNumber?: number })[]>([]);
+  const [cloudAdminOrders, setCloudAdminOrders] = useState<
+    (TrackedOrder & { serialNumber?: number })[]
+  >([]);
   const [cloudLastOrderNumber, setCloudLastOrderNumber] = useState<number>(0);
   const autoSeedingRef = useRef(false);
 
@@ -421,19 +425,86 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
-  // Subscribe to live Firestore orders: Admins see all orders; signed-in customers see ONLY their own orders
+  // Subscribe to live Firestore orders for the signed-in user ONLY (matched by uid or sign-in email)
   useEffect(() => {
     if (!firebaseUser || !firebaseUser.emailVerified) {
       setCloudOrders([]);
       return;
     }
 
-    const ordersQuery = isFirebaseAdmin
-      ? query(collection(db, 'orders'), orderBy('serialNumber', 'desc'))
-      : query(collection(db, 'orders'), where('userId', '==', firebaseUser.uid));
+    let uidOrders: (TrackedOrder & { serialNumber?: number })[] = [];
+    let emailOrders: (TrackedOrder & { serialNumber?: number })[] = [];
 
-    const unsubOrders = onSnapshot(
-      ordersQuery,
+    const syncMergedOrders = () => {
+      const mergedMap = new Map<string, TrackedOrder & { serialNumber?: number }>();
+      for (const ord of [...uidOrders, ...emailOrders]) {
+        if (ord.orderId) {
+          mergedMap.set(ord.orderId, ord);
+        }
+      }
+      const merged = Array.from(mergedMap.values());
+      merged.sort((a, b) => (b.serialNumber || 0) - (a.serialNumber || 0));
+      setCloudOrders(merged);
+    };
+
+    const uidQuery = query(collection(db, 'orders'), where('userId', '==', firebaseUser.uid));
+    const unsubUidOrders = onSnapshot(
+      uidQuery,
+      (snapshot) => {
+        uidOrders = snapshot.docs.map((d) => {
+          const data = d.data() as TrackedOrder & { serialNumber?: number };
+          return {
+            ...data,
+            orderId: data.orderId,
+          };
+        });
+        syncMergedOrders();
+      },
+      (error) => {
+        handleFirestoreError(error, OperationType.LIST, 'orders');
+      }
+    );
+
+    let unsubEmailOrders: (() => void) | null = null;
+    if (firebaseUser.email) {
+      const emailQuery = query(
+        collection(db, 'orders'),
+        where('userEmail', '==', firebaseUser.email)
+      );
+      unsubEmailOrders = onSnapshot(
+        emailQuery,
+        (snapshot) => {
+          emailOrders = snapshot.docs.map((d) => {
+            const data = d.data() as TrackedOrder & { serialNumber?: number };
+            return {
+              ...data,
+              orderId: data.orderId,
+            };
+          });
+          syncMergedOrders();
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.LIST, 'orders');
+        }
+      );
+    }
+
+    return () => {
+      unsubUidOrders();
+      if (unsubEmailOrders) unsubEmailOrders();
+    };
+  }, [firebaseUser]);
+
+  // Subscribe to ALL customer orders exclusively for verified Admins inside the Admin Panel
+  useEffect(() => {
+    if (!isFirebaseAdmin) {
+      setCloudAdminOrders([]);
+      return;
+    }
+
+    const adminQuery = query(collection(db, 'orders'), orderBy('serialNumber', 'desc'));
+    const unsubAdminOrders = onSnapshot(
+      adminQuery,
       (snapshot) => {
         const list = snapshot.docs.map((d) => {
           const data = d.data() as TrackedOrder & { serialNumber?: number };
@@ -443,15 +514,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           };
         });
         list.sort((a, b) => (b.serialNumber || 0) - (a.serialNumber || 0));
-        setCloudOrders(list);
+        setCloudAdminOrders(list);
       },
       (error) => {
         handleFirestoreError(error, OperationType.LIST, 'orders');
       }
     );
 
-    return () => unsubOrders();
-  }, [firebaseUser, isFirebaseAdmin]);
+    return () => unsubAdminOrders();
+  }, [isFirebaseAdmin]);
 
   // Auto-seed initial catalogue (Neucose B) to Firestore the first time Firebase Admin connects
   useEffect(() => {
@@ -904,6 +975,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       await signOut(auth).catch(() => {});
     }
     setCloudOrders([]);
+    setCloudAdminOrders([]);
     showToast('Signed out');
   };
 
@@ -912,17 +984,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return cloudOrders;
   }, [isCustomerSignedIn, cloudOrders]);
 
+  const adminOrders = useMemo(() => {
+    if (!isFirebaseAdmin) return [];
+    return cloudAdminOrders;
+  }, [isFirebaseAdmin, cloudAdminOrders]);
+
   const nextOrderId = useMemo(() => {
     return `#${Math.max(0, cloudLastOrderNumber) + 1}`;
   }, [cloudLastOrderNumber]);
 
   const createOrder = async (order: TrackedOrder): Promise<TrackedOrder> => {
-    if (!firebaseUser || !firebaseUser.emailVerified) {
+    if (!firebaseUser || !firebaseUser.emailVerified || !firebaseUser.email) {
       throw new Error('Please sign in or create your account first before placing an order.');
     }
 
+    const verifiedUid = firebaseUser.uid;
+    const verifiedEmail = firebaseUser.email;
+
     if (order.phone.trim()) {
-      setSavedPhonesByUid((prev) => ({ ...prev, [firebaseUser.uid]: order.phone.trim() }));
+      setSavedPhonesByUid((prev) => ({ ...prev, [verifiedUid]: order.phone.trim() }));
     }
 
     try {
@@ -952,7 +1032,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const orderPayload: Record<string, unknown> = {
           orderId: nextOrderIdStr,
           serialNumber: nextNum,
-          userId: firebaseUser.uid,
+          userId: verifiedUid,
+          userEmail: verifiedEmail.slice(0, 200),
           phone: order.phone.trim().slice(0, 20),
           phoneSuffix,
           customerName: order.customerName.trim().slice(0, 100),
@@ -972,10 +1053,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           updatedAt: serverTimestamp(),
         };
 
-        if (firebaseUser.email && firebaseUser.email.trim()) {
-          orderPayload.userEmail = firebaseUser.email.trim().slice(0, 200);
-        }
-
         if (order.city === 'Al Amanah Academy' && order.academyClass) {
           orderPayload.academyClass = order.academyClass;
         }
@@ -989,8 +1066,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         ...order,
         orderId: String(assigned.orderPayload.orderId),
         serialNumber: assigned.nextNum,
-        userId: firebaseUser.uid,
-        userEmail: firebaseUser.email || undefined,
+        userId: verifiedUid,
+        userEmail: verifiedEmail,
         placedAt: String(assigned.orderPayload.placedAt),
         currentStageIndex: 1,
         isDemoRecord: false,
@@ -1388,6 +1465,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const logoutAdmin = async () => {
     setIsLocalAdmin(false);
     setCloudAdminAllowed(false);
+    setCloudAdminOrders([]);
     if (auth.currentUser) {
       await signOut(auth).catch(() => {});
     }
@@ -1457,6 +1535,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toggleProductOutOfStock,
         deleteAdminProduct,
         orders,
+        adminOrders,
         nextOrderId,
         createOrder,
         findOrder,

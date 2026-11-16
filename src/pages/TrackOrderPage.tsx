@@ -23,9 +23,12 @@ export const TrackOrderPage: React.FC = () => {
   const {
     orders,
     findOrder,
+    demoUser,
     isCustomerSignedIn,
+    isAdmin,
     authLoading,
     setIsAuthModalOpen,
+    setIsAdminModalOpen,
     navigate,
   } = useStore();
   const [orderIdInput, setOrderIdInput] = useState('');
@@ -78,8 +81,23 @@ export const TrackOrderPage: React.FC = () => {
           Track Your <span className="text-accent">Order</span>
         </h1>
         <p className="text-sm sm:text-base text-[var(--text-secondary)]">
-          Only the account that placed an order can view its details and live progress.
+          {isCustomerSignedIn && demoUser?.email
+            ? `Showing private orders placed with ${demoUser.email}. Other customers' orders cannot be viewed here.`
+            : 'Only the account and email that placed an order can view its details and live progress.'}
         </p>
+        {isAdmin && (
+          <p className="text-xs text-[var(--text-muted)]">
+            Store admin? Manage all customer orders exclusively in the{' '}
+            <button
+              type="button"
+              onClick={() => setIsAdminModalOpen(true)}
+              className="text-accent dark:text-accent-bright font-semibold hover:underline"
+            >
+              Admin Panel
+            </button>
+            .
+          </p>
+        )}
       </div>
 
       {!authLoading && !isCustomerSignedIn ? (

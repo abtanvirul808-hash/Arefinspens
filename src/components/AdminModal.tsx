@@ -100,7 +100,7 @@ export const AdminModal: React.FC = () => {
     loginAdmin,
     loginAdminWithGoogle,
     logoutAdmin,
-    orders,
+    adminOrders,
     updateOrderStage,
     deleteOrder,
     products,
@@ -156,22 +156,22 @@ export const AdminModal: React.FC = () => {
 
   const filteredOrders = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
-    return orders.filter((ord) => {
+    return adminOrders.filter((ord) => {
       if (stageFilter !== 'all' && ord.currentStageIndex !== stageFilter) return false;
       if (!q) return true;
-      const hay = `${ord.orderId} ${ord.customerName} ${ord.phone} ${ord.address} ${ord.city} ${ord.itemsSummary}`.toLowerCase();
+      const hay = `${ord.orderId} ${ord.customerName} ${ord.userEmail || ''} ${ord.phone} ${ord.address} ${ord.city} ${ord.itemsSummary}`.toLowerCase();
       return hay.includes(q);
     });
-  }, [orders, searchTerm, stageFilter]);
+  }, [adminOrders, searchTerm, stageFilter]);
 
   const counts = useMemo(() => {
     return {
-      total: orders.length,
-      preparing: orders.filter((o) => o.currentStageIndex === 2).length,
-      shipped: orders.filter((o) => o.currentStageIndex === 3).length,
-      delivered: orders.filter((o) => o.currentStageIndex === 4).length,
+      total: adminOrders.length,
+      preparing: adminOrders.filter((o) => o.currentStageIndex === 2).length,
+      shipped: adminOrders.filter((o) => o.currentStageIndex === 3).length,
+      delivered: adminOrders.filter((o) => o.currentStageIndex === 4).length,
     };
-  }, [orders]);
+  }, [adminOrders]);
 
   const filteredProducts = useMemo(() => {
     const q = prodSearchTerm.trim().toLowerCase();
@@ -558,7 +558,7 @@ export const AdminModal: React.FC = () => {
                 }`}
               >
                 <Package className="w-4 h-4 shrink-0" />
-                <span>Order Management ({orders.length})</span>
+                <span>Order Management ({adminOrders.length})</span>
               </button>
               <button
                 type="button"
@@ -687,6 +687,11 @@ export const AdminModal: React.FC = () => {
                               <p className="text-sm font-semibold text-[var(--text-main)]">
                                 {order.customerName}
                               </p>
+                              {order.userEmail && (
+                                <p className="text-xs text-[var(--text-muted)] break-all">
+                                  {order.userEmail}
+                                </p>
+                              )}
                             </div>
 
                             <div className="flex items-center gap-3 shrink-0">

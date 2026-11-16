@@ -23,7 +23,10 @@ service cloud.firestore {
     }
 
     function isVerified() {
-      return isSignedIn() && request.auth.token.email_verified == true;
+      return isSignedIn() &&
+        request.auth.token.email_verified == true &&
+        request.auth.token.email is string &&
+        request.auth.token.email.size() >= 3;
     }
 
     function isAdmin() {
@@ -88,7 +91,7 @@ service cloud.firestore {
 
     function isValidOrder(data) {
       return data.keys().hasAll([
-        'orderId', 'serialNumber', 'userId', 'phone', 'phoneSuffix',
+        'orderId', 'serialNumber', 'userId', 'userEmail', 'phone', 'phoneSuffix',
         'customerName', 'city', 'address', 'paymentMethod', 'totalBdt',
         'itemsSummary', 'placedAt', 'currentStageIndex', 'createdAt', 'updatedAt'
       ]) &&
@@ -101,7 +104,7 @@ service cloud.firestore {
       data.orderId.matches('^#[0-9]+$') &&
       data.serialNumber is int && data.serialNumber >= 1 && data.serialNumber <= 10000000 &&
       isValidId(data.userId) &&
-      (!('userEmail' in data) || (data.userEmail is string && data.userEmail.size() >= 3 && data.userEmail.size() <= 200)) &&
+      data.userEmail is string && data.userEmail.size() >= 3 && data.userEmail.size() <= 200 &&
       data.phone is string && data.phone.size() >= 8 && data.phone.size() <= 20 &&
       data.phoneSuffix is string && data.phoneSuffix.size() >= 6 && data.phoneSuffix.size() <= 10 &&
       data.customerName is string && data.customerName.size() >= 2 && data.customerName.size() <= 100 &&
@@ -144,17 +147,26 @@ service cloud.firestore {
       allow delete: if isValidId(productId) && isAdmin();
     }
 
-    // Customer orders (contains PII): strictly isolated to owner (userId == auth.uid) or verified admin
+    // Customer orders (contains PII): strictly isolated to owner (matching uid or verified sign-in email) or verified admin
     match /orders/{orderId} {
       allow get: if isValidId(orderId) && (
         isAdmin() ||
-        (isVerified() && existing().userId == request.auth.uid)
+        (isVerified() && (
+          existing().userId == request.auth.uid ||
+          existing().userEmail == request.auth.token.email
+        ))
       );
-      allow list: if isAdmin() || (isVerified() && resource.data.userId == request.auth.uid);
+      allow list: if isAdmin() || (
+        isVerified() && (
+          resource.data.userId == request.auth.uid ||
+          resource.data.userEmail == request.auth.token.email
+        )
+      );
       allow create: if isVerified() &&
         isValidId(orderId) &&
         isValidOrder(incoming()) &&
         incoming().userId == request.auth.uid &&
+        incoming().userEmail == request.auth.token.email &&
         incoming().currentStageIndex == 1 &&
         incoming().createdAt == request.time &&
         incoming().updatedAt == request.time &&
@@ -164,6 +176,7 @@ service cloud.firestore {
       allow update: if isValidId(orderId) &&
         isValidOrder(incoming()) &&
         incoming().userId == existing().userId &&
+        incoming().userEmail == existing().userEmail &&
         incoming().orderId == existing().orderId &&
         incoming().serialNumber == existing().serialNumber &&
         incoming().createdAt == existing().createdAt &&
