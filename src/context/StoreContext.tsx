@@ -1439,7 +1439,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         await signOut(auth);
         return {
           ok: false,
-          error: `Please sign in with your authorized admin Google account (${ADMIN_ACCOUNT.email} or a.b.tanvirul808@gmail.com).`,
+          error: 'Please sign in with an authorized admin Google account.',
         };
       }
       setCloudAdminAllowed(true);

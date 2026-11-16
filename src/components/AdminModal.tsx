@@ -94,7 +94,6 @@ export const AdminModal: React.FC = () => {
   const {
     isAdmin,
     isFirebaseAdmin,
-    adminEmail,
     isAdminModalOpen,
     setIsAdminModalOpen,
     loginAdmin,
@@ -391,8 +390,10 @@ export const AdminModal: React.FC = () => {
               <h2 className="font-display text-lg font-bold text-[var(--text-main)] truncate">
                 {isAdmin ? 'Admin Control Panel' : 'Admin Portal'}
               </h2>
-              {isAdmin && adminEmail && (
-                <p className="text-xs text-[var(--text-muted)] truncate">{adminEmail}</p>
+              {isAdmin && (
+                <p className="text-xs text-[var(--text-muted)] truncate">
+                  {isFirebaseAdmin ? 'Live Cloud Sync Connected' : 'Local Admin Session'}
+                </p>
               )}
             </div>
           </div>
