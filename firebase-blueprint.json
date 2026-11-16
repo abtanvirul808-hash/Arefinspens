@@ -1,0 +1,156 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "A writing instrument product listed in Arefin's Pen storefront.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "slug": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 120 },
+        "brand": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "category": {
+          "type": "string",
+          "enum": [
+            "gel-pens",
+            "ballpoint-pens",
+            "fountain-pens",
+            "marker-pens",
+            "mechanical-pencils",
+            "highlighters"
+          ]
+        },
+        "categoryLabel": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "shortDescription": { "type": "string", "minLength": 1, "maxLength": 400 },
+        "description": { "type": "string", "minLength": 1, "maxLength": 2000 },
+        "priceBdt": { "type": "number" },
+        "originalPriceBdt": { "type": "number" },
+        "rating": { "type": "number" },
+        "reviewCount": { "type": "integer" },
+        "popularityScore": { "type": "integer" },
+        "featured": { "type": "boolean" },
+        "isNew": { "type": "boolean" },
+        "inStock": { "type": "boolean" },
+        "stockCount": { "type": "integer" },
+        "images": { "type": "array" },
+        "colors": { "type": "array" },
+        "specs": { "type": "object" },
+        "sampleReviews": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "slug",
+        "name",
+        "brand",
+        "category",
+        "categoryLabel",
+        "shortDescription",
+        "description",
+        "priceBdt",
+        "rating",
+        "reviewCount",
+        "popularityScore",
+        "inStock",
+        "stockCount",
+        "images",
+        "colors",
+        "specs",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "A customer Cash on Delivery order record visible to admins.",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string", "minLength": 2, "maxLength": 32 },
+        "serialNumber": { "type": "integer" },
+        "phone": { "type": "string", "minLength": 8, "maxLength": 20 },
+        "phoneSuffix": { "type": "string", "minLength": 6, "maxLength": 10 },
+        "customerName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "city": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "address": { "type": "string", "minLength": 3, "maxLength": 400 },
+        "paymentMethod": { "type": "string", "enum": ["cod"] },
+        "totalBdt": { "type": "number" },
+        "itemsSummary": { "type": "string", "minLength": 2, "maxLength": 1000 },
+        "placedAt": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "currentStageIndex": { "type": "integer" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "orderId",
+        "serialNumber",
+        "phone",
+        "phoneSuffix",
+        "customerName",
+        "city",
+        "address",
+        "paymentMethod",
+        "totalBdt",
+        "itemsSummary",
+        "placedAt",
+        "currentStageIndex",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "OrderTracking": {
+      "title": "OrderTracking",
+      "description": "Publicly queryable single-order status record keyed by order number and phone suffix without exposing street address or full phone.",
+      "type": "object",
+      "properties": {
+        "orderId": { "type": "string", "minLength": 2, "maxLength": 32 },
+        "customerName": { "type": "string", "minLength": 2, "maxLength": 100 },
+        "city": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "totalBdt": { "type": "number" },
+        "itemsSummary": { "type": "string", "minLength": 2, "maxLength": 1000 },
+        "placedAt": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "currentStageIndex": { "type": "integer" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "orderId",
+        "customerName",
+        "city",
+        "totalBdt",
+        "itemsSummary",
+        "placedAt",
+        "currentStageIndex",
+        "updatedAt"
+      ]
+    },
+    "StoreMeta": {
+      "title": "StoreMeta",
+      "description": "Metadata document for catalog seeding and serial order counters.",
+      "type": "object",
+      "properties": {
+        "seeded": { "type": "boolean" },
+        "lastOrderNumber": { "type": "integer" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["updatedAt"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Live storefront product catalogue readable by all visitors and managed by admins."
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Full customer orders containing PII, restricted to admin reads and status updates."
+    },
+    "/orderTracking/{trackingKey}": {
+      "schema": { "$ref": "#/entities/OrderTracking" },
+      "description": "Order status lookup document keyed by serialNumber_phoneSuffix for cross-device order tracking."
+    },
+    "/meta/{metaId}": {
+      "schema": { "$ref": "#/entities/StoreMeta" },
+      "description": "Storefront metadata including serial order counter and initial seed flag."
+    }
+  }
+}

@@ -23,19 +23,28 @@ export const TrackOrderPage: React.FC = () => {
   const [orderIdInput, setOrderIdInput] = useState(orders[0]?.orderId || '#1');
   const [phoneInput, setPhoneInput] = useState(orders[0]?.phone || '01711000000');
   const [searched, setSearched] = useState(false);
+  const [searching, setSearching] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(
     () => orders[0]?.orderId || null
   );
+  const [remoteResult, setRemoteResult] = useState<TrackedOrder | undefined>(undefined);
 
-  const result: TrackedOrder | undefined = selectedOrderId
+  const localResult = selectedOrderId
     ? orders.find((o) => o.orderId === selectedOrderId)
     : undefined;
+  const result: TrackedOrder | undefined = localResult || remoteResult;
 
-  const handleTrack = (e: React.FormEvent) => {
+  const handleTrack = async (e: React.FormEvent) => {
     e.preventDefault();
     setSearched(true);
-    const found = findOrder(orderIdInput, phoneInput);
-    setSelectedOrderId(found ? found.orderId : null);
+    setSearching(true);
+    try {
+      const found = await findOrder(orderIdInput, phoneInput);
+      setSelectedOrderId(found ? found.orderId : null);
+      setRemoteResult(found);
+    } finally {
+      setSearching(false);
+    }
   };
 
   return (
@@ -113,10 +122,11 @@ export const TrackOrderPage: React.FC = () => {
 
           <button
             type="submit"
-            className="px-6 py-2.5 rounded-xl text-sm font-semibold cta-glow-red inline-flex items-center justify-center gap-2 shrink-0"
+            disabled={searching}
+            className="px-6 py-2.5 rounded-xl text-sm font-semibold cta-glow-red inline-flex items-center justify-center gap-2 shrink-0 disabled:opacity-60"
           >
             <Search className="w-4 h-4" />
-            <span>Track Order</span>
+            <span>{searching ? 'Searching...' : 'Track Order'}</span>
           </button>
         </div>
       </form>
@@ -220,7 +230,8 @@ export const TrackOrderPage: React.FC = () => {
           </div>
         </div>
       ) : (
-        searched && (
+        searched &&
+        !searching && (
           <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-8 text-center space-y-3">
             <XCircle className="w-10 h-10 text-accent-bright mx-auto" />
             <h2 className="font-display text-lg font-bold text-[var(--text-main)]">

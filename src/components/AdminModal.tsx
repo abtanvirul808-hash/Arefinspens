@@ -1,7 +1,9 @@
 import React, { useMemo, useRef, useState } from 'react';
 import {
+  AlertTriangle,
   Check,
   CheckCircle2,
+  Cloud,
   Copy,
   Download,
   Eye,
@@ -60,7 +62,7 @@ function compressImageToDataUrl(file: File): Promise<string> {
       const img = new Image();
       img.onerror = () => resolve(rawUrl);
       img.onload = () => {
-        const maxDim = 900;
+        const maxDim = 700;
         let { width, height } = img;
         if (width > maxDim || height > maxDim) {
           if (width >= height) {
@@ -80,7 +82,7 @@ function compressImageToDataUrl(file: File): Promise<string> {
           return;
         }
         ctx.drawImage(img, 0, 0, width, height);
-        resolve(canvas.toDataURL('image/jpeg', 0.82));
+        resolve(canvas.toDataURL('image/jpeg', 0.72));
       };
       img.src = rawUrl;
     };
@@ -91,15 +93,18 @@ function compressImageToDataUrl(file: File): Promise<string> {
 export const AdminModal: React.FC = () => {
   const {
     isAdmin,
+    isFirebaseAdmin,
     adminEmail,
     isAdminModalOpen,
     setIsAdminModalOpen,
     loginAdmin,
+    loginAdminWithGoogle,
     logoutAdmin,
     orders,
     updateOrderStage,
     deleteOrder,
     products,
+    isCloudSynced,
     hasUnpublishedProductChanges,
     exportLiveProductsJson,
     syncWithLiveCatalog,
@@ -115,6 +120,8 @@ export const AdminModal: React.FC = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [savingProduct, setSavingProduct] = useState(false);
 
   // Admin modal tabs
   const [activeTab, setActiveTab] = useState<'orders' | 'products'>('orders');
@@ -189,6 +196,19 @@ export const AdminModal: React.FC = () => {
     setEmail('');
     setPassword('');
     setShowPassword(false);
+  };
+
+  const handleGoogleAdminLogin = async () => {
+    setError('');
+    setGoogleLoading(true);
+    try {
+      const res = await loginAdminWithGoogle();
+      if (!res.ok) {
+        setError(res.error || 'Google Admin sign-in failed.');
+      }
+    } finally {
+      setGoogleLoading(false);
+    }
   };
 
   const handleAddColorDraft = () => {
@@ -292,7 +312,7 @@ export const AdminModal: React.FC = () => {
     }
   };
 
-  const handleSaveProduct = (e: React.FormEvent) => {
+  const handleSaveProduct = async (e: React.FormEvent) => {
     e.preventDefault();
     const parsedPrice = Number(prodPrice);
     const parsedOriginal = prodOriginalPrice.trim() ? Number(prodOriginalPrice) : undefined;
@@ -319,18 +339,29 @@ export const AdminModal: React.FC = () => {
       })),
     };
 
-    const result = editingProductId
-      ? updateAdminProduct(editingProductId, payload)
-      : addAdminProduct(payload);
+    setSavingProduct(true);
+    try {
+      const result = editingProductId
+        ? await updateAdminProduct(editingProductId, payload)
+        : await addAdminProduct(payload);
 
-    if (!result.ok) {
-      setProdFormError(result.error || 'Please fill in all required product fields.');
-      return;
+      if (!result.ok) {
+        setProdFormError(result.error || 'Please fill in all required product fields.');
+        return;
+      }
+
+      const savedCategory = prodCategory;
+      resetProductForm();
+      setCatalogListFilter(savedCategory);
+    } catch (err) {
+      setProdFormError(
+        err instanceof Error
+          ? err.message
+          : 'Could not save product to live cloud database. Please try again.'
+      );
+    } finally {
+      setSavingProduct(false);
     }
-
-    const savedCategory = prodCategory;
-    resetProductForm();
-    setCatalogListFilter(savedCategory);
   };
 
   return (
@@ -370,7 +401,7 @@ export const AdminModal: React.FC = () => {
             {isAdmin && (
               <button
                 type="button"
-                onClick={logoutAdmin}
+                onClick={() => void logoutAdmin()}
                 className="px-3 py-1.5 rounded-xl bg-accent/15 border border-accent/40 text-xs font-semibold text-accent-bright hover:bg-accent/25 inline-flex items-center gap-1.5 transition-colors"
               >
                 <LogOut className="w-3.5 h-3.5" />
@@ -389,81 +420,132 @@ export const AdminModal: React.FC = () => {
         </div>
 
         {!isAdmin ? (
-          <form onSubmit={handleLogin} className="space-y-4" noValidate>
+          <div className="space-y-4">
             <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
-              Sign in with your administrator Gmail and password to manage orders and add products
-              to any pen category.
+              Sign in with your authorized Google account for real-time cloud sync across all
+              devices, or unlock with your admin Gmail and password.
             </p>
 
-            <div>
-              <label
-                htmlFor="admin-login-email"
-                className="block text-xs font-medium text-[var(--text-secondary)] mb-1"
-              >
-                Admin Gmail
-              </label>
-              <input
-                id="admin-login-email"
-                type="email"
-                required
-                autoComplete="email"
-                value={email}
-                onChange={(e) => {
-                  setEmail(e.target.value);
-                  if (error) setError('');
-                }}
-                placeholder="Enter admin Gmail"
-                className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
-              />
+            <button
+              type="button"
+              onClick={() => void handleGoogleAdminLogin()}
+              disabled={googleLoading}
+              className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold cta-glow-red inline-flex items-center justify-center gap-2 disabled:opacity-60"
+            >
+              <Cloud className="w-4 h-4" />
+              <span>
+                {googleLoading
+                  ? 'Connecting Google Admin...'
+                  : 'Sign in with Google (Live Sync)'}
+              </span>
+            </button>
+
+            <div className="flex items-center gap-3">
+              <div className="h-px flex-1 bg-[var(--border-subtle)]" />
+              <span className="text-[11px] font-medium text-[var(--text-muted)] uppercase tracking-wider">
+                or
+              </span>
+              <div className="h-px flex-1 bg-[var(--border-subtle)]" />
             </div>
 
-            <div>
-              <label
-                htmlFor="admin-login-password"
-                className="block text-xs font-medium text-[var(--text-secondary)] mb-1"
-              >
-                Password
-              </label>
-              <div className="relative">
+            <form onSubmit={handleLogin} className="space-y-3.5" noValidate>
+              <div>
+                <label
+                  htmlFor="admin-login-email"
+                  className="block text-xs font-medium text-[var(--text-secondary)] mb-1"
+                >
+                  Admin Gmail
+                </label>
                 <input
-                  id="admin-login-password"
-                  type={showPassword ? 'text' : 'password'}
+                  id="admin-login-email"
+                  type="email"
                   required
-                  autoComplete="current-password"
-                  value={password}
+                  autoComplete="email"
+                  value={email}
                   onChange={(e) => {
-                    setPassword(e.target.value);
+                    setEmail(e.target.value);
                     if (error) setError('');
                   }}
-                  placeholder="Enter admin password"
-                  className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                  placeholder="Enter admin Gmail"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
                 />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((prev) => !prev)}
-                  className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-main)] p-1"
-                  aria-label={showPassword ? 'Hide password' : 'Show password'}
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
               </div>
-            </div>
 
-            {error && (
-              <p className="text-xs font-medium text-rose-500 bg-rose-500/10 border border-rose-500/35 rounded-xl px-3 py-2">
-                {error}
-              </p>
-            )}
+              <div>
+                <label
+                  htmlFor="admin-login-password"
+                  className="block text-xs font-medium text-[var(--text-secondary)] mb-1"
+                >
+                  Password
+                </label>
+                <div className="relative">
+                  <input
+                    id="admin-login-password"
+                    type={showPassword ? 'text' : 'password'}
+                    required
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => {
+                      setPassword(e.target.value);
+                      if (error) setError('');
+                    }}
+                    placeholder="Enter admin password"
+                    className="w-full pl-3.5 pr-10 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword((prev) => !prev)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] hover:text-[var(--text-main)] p-1"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </div>
 
-            <button
-              type="submit"
-              className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold cta-glow-red"
-            >
-              Sign In as Admin
-            </button>
-          </form>
+              {error && (
+                <p className="text-xs font-medium text-rose-500 bg-rose-500/10 border border-rose-500/35 rounded-xl px-3 py-2">
+                  {error}
+                </p>
+              )}
+
+              <button
+                type="submit"
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-main)] hover:border-accent transition-colors"
+              >
+                Sign In with Gmail &amp; Password
+              </button>
+            </form>
+          </div>
         ) : (
           <>
+            {!isFirebaseAdmin && (
+              <div className="rounded-xl border border-amber-500/50 bg-amber-500/10 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shrink-0">
+                <div className="flex items-start gap-2.5 min-w-0">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                  <div className="space-y-0.5 text-xs">
+                    <p className="font-semibold text-amber-700 dark:text-amber-300">
+                      Connect your Google Account to save live changes across all devices
+                    </p>
+                    <p className="text-[11px] text-[var(--text-secondary)]">
+                      Firebase requires verified Google Admin authentication before writing new
+                      products, stock toggles, or order updates to the cloud database.
+                    </p>
+                    {error && <p className="text-[11px] font-medium text-rose-500">{error}</p>}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => void handleGoogleAdminLogin()}
+                  disabled={googleLoading}
+                  className="px-3.5 py-2 rounded-xl text-xs font-semibold cta-glow-red inline-flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-60"
+                >
+                  <Cloud className="w-3.5 h-3.5" />
+                  <span>{googleLoading ? 'Connecting...' : 'Connect Google Account'}</span>
+                </button>
+              </div>
+            )}
+
             {/* Navigation Tabs */}
             <div className="grid grid-cols-2 p-1 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] shrink-0">
               <button
@@ -618,7 +700,7 @@ export const AdminModal: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      deleteOrder(order.orderId);
+                                      void deleteOrder(order.orderId);
                                       setConfirmDeleteOrderId(null);
                                     }}
                                     className="px-2.5 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition-colors"
@@ -682,7 +764,7 @@ export const AdminModal: React.FC = () => {
                                   <button
                                     key={stage.index}
                                     type="button"
-                                    onClick={() => updateOrderStage(order.orderId, stage.index)}
+                                    onClick={() => void updateOrderStage(order.orderId, stage.index)}
                                     aria-pressed={active}
                                     className={`px-2.5 py-2 rounded-xl text-xs font-semibold border inline-flex items-center justify-center gap-1.5 transition-all ${
                                       active
@@ -719,30 +801,29 @@ export const AdminModal: React.FC = () => {
                 ref={productsTabScrollRef}
                 className="flex-1 overflow-y-auto space-y-5 pr-1"
               >
-                {/* Live Netlify GitHub-Sync Publish Bar */}
+                {/* Live Cloud Sync & Catalog Backup Bar */}
                 <div className="rounded-xl border border-accent/45 bg-[var(--bg-card)] p-3.5 sm:p-4 space-y-2.5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="space-y-0.5">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-display text-xs sm:text-sm font-bold text-[var(--text-main)]">
-                          Publish Live Changes to Netlify (GitHub Sync)
+                          Real-Time Cloud Database Sync
                         </h3>
-                        {hasUnpublishedProductChanges && (
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 border border-amber-500/50 text-amber-600 dark:text-amber-400">
-                            Unpublished Edits
+                        {isFirebaseAdmin || isCloudSynced ? (
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/45 text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1">
+                            <Cloud className="w-3 h-3" />
+                            <span>Live Cloud Sync Active</span>
                           </span>
-                        )}
+                        ) : hasUnpublishedProductChanges ? (
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 border border-amber-500/50 text-amber-600 dark:text-amber-400">
+                            Connect Google for Live Sync
+                          </span>
+                        ) : null}
                       </div>
                       <p className="text-[11px] sm:text-xs text-[var(--text-secondary)]">
-                        After editing products or stock, export{' '}
-                        <code className="font-mono-num text-[var(--text-main)]">
-                          products.json
-                        </code>{' '}
-                        and update{' '}
-                        <code className="font-mono-num text-[var(--text-main)]">
-                          public/data/products.json
-                        </code>{' '}
-                        in GitHub so Netlify deploys your changes live for all visitors.
+                        {isFirebaseAdmin
+                          ? 'Every product add, edit, delete, or Out of Stock toggle syncs instantly across all phones, browsers, and your Netlify site.'
+                          : 'Sign in with Google Admin above to sync products, stock switches, and orders live across all devices.'}
                       </p>
                     </div>
                   </div>
@@ -751,10 +832,10 @@ export const AdminModal: React.FC = () => {
                     <button
                       type="button"
                       onClick={handleDownloadCatalogJson}
-                      className="px-3 py-1.5 rounded-lg text-xs font-semibold cta-glow-red inline-flex items-center gap-1.5"
+                      className="px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-main)] hover:border-accent inline-flex items-center gap-1.5 transition-colors"
                     >
                       <Download className="w-3.5 h-3.5" />
-                      <span>Download products.json</span>
+                      <span>Export products.json</span>
                     </button>
 
                     <button
@@ -779,10 +860,10 @@ export const AdminModal: React.FC = () => {
                       type="button"
                       onClick={() => void syncWithLiveCatalog()}
                       className="px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:border-accent inline-flex items-center gap-1.5 transition-colors"
-                      title="Discard unpublished local edits and reload live Netlify catalog"
+                      title="Refresh live product catalog from cloud database"
                     >
                       <RefreshCw className="w-3.5 h-3.5" />
-                      <span>Sync with Live Site</span>
+                      <span>Refresh Live Catalog</span>
                     </button>
                   </div>
                 </div>
@@ -1066,9 +1147,12 @@ export const AdminModal: React.FC = () => {
 
                   <button
                     type="submit"
-                    className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold cta-glow-red inline-flex items-center justify-center gap-2"
+                    disabled={savingProduct}
+                    className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold cta-glow-red inline-flex items-center justify-center gap-2 disabled:opacity-60"
                   >
-                    {editingProductId ? (
+                    {savingProduct ? (
+                      <span>Saving Live Changes...</span>
+                    ) : editingProductId ? (
                       <>
                         <Save className="w-4 h-4" />
                         <span>Save Product Changes</span>
@@ -1181,8 +1265,8 @@ export const AdminModal: React.FC = () => {
                                 role="switch"
                                 aria-checked={isOutOfStock}
                                 onClick={() => {
-                                  toggleProductOutOfStock(prod.id);
-                                  if (isEditingThis) {
+                                  void toggleProductOutOfStock(prod.id);
+                                  if (isEditingThis && isFirebaseAdmin) {
                                     setProdOutOfStock(!isOutOfStock);
                                   }
                                 }}
@@ -1222,7 +1306,7 @@ export const AdminModal: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => {
-                                      deleteAdminProduct(prod.id);
+                                      void deleteAdminProduct(prod.id);
                                       if (isEditingThis) resetProductForm();
                                       setConfirmDeleteProductId(null);
                                     }}

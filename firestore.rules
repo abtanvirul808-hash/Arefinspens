@@ -1,0 +1,230 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Global safety net: default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerified() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isAdmin() {
+      return isVerified() && (
+        request.auth.token.email == 'adminarefin808@gmail.com' ||
+        request.auth.token.email == 'a.b.tanvirul808@gmail.com' ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    function isValidCategory(cat) {
+      return cat in [
+        'gel-pens',
+        'ballpoint-pens',
+        'fountain-pens',
+        'marker-pens',
+        'mechanical-pencils',
+        'highlighters'
+      ];
+    }
+
+    function isValidProduct(data) {
+      return data.keys().hasAll([
+        'id', 'slug', 'name', 'brand', 'category', 'categoryLabel',
+        'shortDescription', 'description', 'priceBdt', 'rating',
+        'reviewCount', 'popularityScore', 'inStock', 'stockCount',
+        'images', 'colors', 'specs', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'slug', 'name', 'brand', 'category', 'categoryLabel',
+        'shortDescription', 'description', 'priceBdt', 'originalPriceBdt',
+        'rating', 'reviewCount', 'popularityScore', 'featured', 'isNew',
+        'inStock', 'stockCount', 'images', 'colors', 'specs', 'sampleReviews',
+        'createdAt', 'updatedAt'
+      ]) &&
+      isValidId(data.id) &&
+      isValidId(data.slug) &&
+      data.name is string && data.name.size() >= 1 && data.name.size() <= 120 &&
+      data.brand is string && data.brand.size() >= 1 && data.brand.size() <= 80 &&
+      data.category is string && isValidCategory(data.category) &&
+      data.categoryLabel is string && data.categoryLabel.size() >= 1 && data.categoryLabel.size() <= 80 &&
+      data.shortDescription is string && data.shortDescription.size() >= 1 && data.shortDescription.size() <= 400 &&
+      data.description is string && data.description.size() >= 1 && data.description.size() <= 2000 &&
+      data.priceBdt is number && data.priceBdt > 0 && data.priceBdt <= 1000000 &&
+      (!('originalPriceBdt' in data) || (data.originalPriceBdt is number && data.originalPriceBdt > 0 && data.originalPriceBdt <= 1000000)) &&
+      data.rating is number && data.rating >= 0 && data.rating <= 5 &&
+      data.reviewCount is int && data.reviewCount >= 0 && data.reviewCount <= 1000000 &&
+      data.popularityScore is int && data.popularityScore >= 0 && data.popularityScore <= 1000 &&
+      (!('featured' in data) || data.featured is bool) &&
+      (!('isNew' in data) || data.isNew is bool) &&
+      data.inStock is bool &&
+      data.stockCount is int && data.stockCount >= 0 && data.stockCount <= 1000000 &&
+      data.images is list && data.images.size() <= 12 &&
+      (data.images.size() == 0 || data.images[0] is string) &&
+      data.colors is list && data.colors.size() >= 1 && data.colors.size() <= 12 &&
+      data.colors[0] is map &&
+      data.specs is map &&
+      (!('sampleReviews' in data) || (data.sampleReviews is list && data.sampleReviews.size() <= 20)) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll([
+        'orderId', 'serialNumber', 'phone', 'phoneSuffix', 'customerName',
+        'city', 'address', 'paymentMethod', 'totalBdt', 'itemsSummary',
+        'placedAt', 'currentStageIndex', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'orderId', 'serialNumber', 'phone', 'phoneSuffix', 'customerName',
+        'city', 'address', 'paymentMethod', 'totalBdt', 'itemsSummary',
+        'placedAt', 'currentStageIndex', 'createdAt', 'updatedAt'
+      ]) &&
+      data.orderId is string && data.orderId.size() >= 2 && data.orderId.size() <= 32 &&
+      data.serialNumber is int && data.serialNumber >= 1 && data.serialNumber <= 10000000 &&
+      data.phone is string && data.phone.size() >= 8 && data.phone.size() <= 20 &&
+      data.phoneSuffix is string && data.phoneSuffix.size() >= 6 && data.phoneSuffix.size() <= 10 &&
+      data.customerName is string && data.customerName.size() >= 2 && data.customerName.size() <= 100 &&
+      data.city is string && data.city.size() >= 2 && data.city.size() <= 80 &&
+      data.address is string && data.address.size() >= 3 && data.address.size() <= 400 &&
+      data.paymentMethod == 'cod' &&
+      data.totalBdt is number && data.totalBdt >= 0 && data.totalBdt <= 10000000 &&
+      data.itemsSummary is string && data.itemsSummary.size() >= 2 && data.itemsSummary.size() <= 1000 &&
+      data.placedAt is string && data.placedAt.size() >= 2 && data.placedAt.size() <= 80 &&
+      data.currentStageIndex is int && data.currentStageIndex >= 0 && data.currentStageIndex <= 4 &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidOrderTracking(data) {
+      return data.keys().hasAll([
+        'orderId', 'customerName', 'city', 'totalBdt',
+        'itemsSummary', 'placedAt', 'currentStageIndex', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'orderId', 'customerName', 'city', 'totalBdt',
+        'itemsSummary', 'placedAt', 'currentStageIndex', 'updatedAt'
+      ]) &&
+      data.orderId is string && data.orderId.size() >= 2 && data.orderId.size() <= 32 &&
+      data.customerName is string && data.customerName.size() >= 2 && data.customerName.size() <= 100 &&
+      data.city is string && data.city.size() >= 2 && data.city.size() <= 80 &&
+      data.totalBdt is number && data.totalBdt >= 0 && data.totalBdt <= 10000000 &&
+      data.itemsSummary is string && data.itemsSummary.size() >= 2 && data.itemsSummary.size() <= 1000 &&
+      data.placedAt is string && data.placedAt.size() >= 2 && data.placedAt.size() <= 80 &&
+      data.currentStageIndex is int && data.currentStageIndex >= 0 && data.currentStageIndex <= 4 &&
+      data.updatedAt is timestamp;
+    }
+
+    function isValidStoreMeta(data) {
+      return data.keys().hasAll(['updatedAt']) &&
+      data.keys().hasOnly(['seeded', 'lastOrderNumber', 'updatedAt']) &&
+      (!('seeded' in data) || data.seeded is bool) &&
+      (!('lastOrderNumber' in data) || (data.lastOrderNumber is int && data.lastOrderNumber >= 0 && data.lastOrderNumber <= 10000000)) &&
+      data.updatedAt is timestamp;
+    }
+
+    // Storefront products: public read, admin-only write
+    match /products/{productId} {
+      allow get, list: if true;
+      allow create: if isValidId(productId) &&
+        isValidProduct(incoming()) &&
+        incoming().id == productId &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+      allow update: if isValidId(productId) &&
+        isValidProduct(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        isAdmin();
+      allow delete: if isValidId(productId) && isAdmin();
+    }
+
+    // Customer orders (contains PII): admin read/update/delete, validated customer create
+    match /orders/{orderId} {
+      allow get: if isValidId(orderId) && isAdmin();
+      allow list: if isAdmin();
+      allow create: if isValidId(orderId) &&
+        isValidOrder(incoming()) &&
+        incoming().currentStageIndex == 1 &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(orderId) &&
+        isValidOrder(incoming()) &&
+        incoming().orderId == existing().orderId &&
+        incoming().serialNumber == existing().serialNumber &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['currentStageIndex', 'updatedAt']) &&
+        isAdmin();
+      allow delete: if isValidId(orderId) && isAdmin();
+    }
+
+    // Non-PII order status lookup keyed by <serialNumber>_<phoneSuffix> (no list allowed)
+    match /orderTracking/{trackingKey} {
+      allow get: if isValidId(trackingKey);
+      allow list: if false;
+      allow create: if isValidId(trackingKey) &&
+        isValidOrderTracking(incoming()) &&
+        incoming().currentStageIndex == 1 &&
+        incoming().updatedAt == request.time;
+      allow update: if isValidId(trackingKey) &&
+        isValidOrderTracking(incoming()) &&
+        incoming().orderId == existing().orderId &&
+        incoming().updatedAt == request.time &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['currentStageIndex', 'updatedAt']) &&
+        isAdmin();
+      allow delete: if isValidId(trackingKey) && isAdmin();
+    }
+
+    // Storefront metadata (serial counter + seed flag)
+    match /meta/{metaId} {
+      allow get: if isValidId(metaId);
+      allow list: if false;
+      allow create: if isValidId(metaId) &&
+        isValidStoreMeta(incoming()) &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() ||
+          (metaId == 'orderCounter' && incoming().keys().hasOnly(['lastOrderNumber', 'updatedAt']) && incoming().lastOrderNumber == 1)
+        );
+      allow update: if isValidId(metaId) &&
+        isValidStoreMeta(incoming()) &&
+        incoming().updatedAt == request.time &&
+        (
+          isAdmin() ||
+          (
+            metaId == 'orderCounter' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['lastOrderNumber', 'updatedAt']) &&
+            incoming().lastOrderNumber == existing().lastOrderNumber + 1
+          )
+        );
+      allow delete: if false;
+    }
+
+    // Admin UID allowlist (read-only by owner/admin)
+    match /admins/{uid} {
+      allow get: if isValidId(uid) && isSignedIn() && request.auth.uid == uid;
+      allow list: if false;
+      allow create, update, delete: if false;
+    }
+  }
+}

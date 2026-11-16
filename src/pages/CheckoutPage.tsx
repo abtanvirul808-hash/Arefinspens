@@ -41,6 +41,7 @@ export const CheckoutPage: React.FC = () => {
   const [customAmountBdt, setCustomAmountBdt] = useState<number>(500);
 
   const [formError, setFormError] = useState('');
+  const [submittingOrder, setSubmittingOrder] = useState(false);
   const [confirmedOrder, setConfirmedOrder] = useState<TrackedOrder | null>(null);
 
   const validCartItems = cart.filter((item) =>
@@ -75,8 +76,9 @@ export const CheckoutPage: React.FC = () => {
     showToast(msg);
   };
 
-  const handleSubmitOrder = (e: React.FormEvent) => {
+  const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (submittingOrder) return;
 
     if (isDirectOrder && (effectiveSubtotal <= 0 || customItemNote.trim().length < 2)) {
       failValidation('Please enter a valid item description and order amount in BDT.');
@@ -105,6 +107,7 @@ export const CheckoutPage: React.FC = () => {
     }
 
     setFormError('');
+    setSubmittingOrder(true);
 
     const summaryParts = isDirectOrder
       ? [`${customItemNote.trim()} (৳${effectiveSubtotal.toLocaleString('en-US')})`]
@@ -118,7 +121,7 @@ export const CheckoutPage: React.FC = () => {
         ? 'Al Amanah Academy'
         : `Home Delivery — ${customLocation.trim()}`;
 
-    const newOrder: TrackedOrder = {
+    const draftOrder: TrackedOrder = {
       orderId: orderNumber,
       phone: normalizedPhone,
       customerName: fullName.trim(),
@@ -127,18 +130,22 @@ export const CheckoutPage: React.FC = () => {
       paymentMethod: 'cod',
       totalBdt: finalTotal,
       itemsSummary: summaryParts.join(', '),
-      placedAt: 'Just now (Demo Order)',
+      placedAt: 'Just now',
       currentStageIndex: 1,
-      isDemoRecord: true,
+      isDemoRecord: false,
     };
 
-    createOrder(newOrder);
-    if (!isDirectOrder) {
-      clearCart();
+    try {
+      const savedOrder = await createOrder(draftOrder);
+      if (!isDirectOrder) {
+        clearCart();
+      }
+      setConfirmedOrder(savedOrder);
+      showToast(`Order ${savedOrder.orderId} placed successfully`);
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    } finally {
+      setSubmittingOrder(false);
     }
-    setConfirmedOrder(newOrder);
-    showToast(`Order ${newOrder.orderId} placed successfully`);
-    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   if (confirmedOrder) {
@@ -500,9 +507,10 @@ export const CheckoutPage: React.FC = () => {
 
           <button
             type="submit"
-            className="w-full py-3.5 px-5 rounded-xl text-sm font-semibold cta-glow-red"
+            disabled={submittingOrder}
+            className="w-full py-3.5 px-5 rounded-xl text-sm font-semibold cta-glow-red disabled:opacity-60"
           >
-            Confirm Order ({orderNumber})
+            {submittingOrder ? 'Placing Order...' : `Confirm Order (${orderNumber})`}
           </button>
 
           <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
