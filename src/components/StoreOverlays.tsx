@@ -416,41 +416,34 @@ export const AuthModal: React.FC = () => {
     isAuthModalOpen,
     setIsAuthModalOpen,
     demoUser,
-    loginDemoUser,
+    isCustomerSignedIn,
+    loginCustomerWithGoogle,
     logoutDemoUser,
     wishlist,
+    orders,
     navigate,
   } = useStore();
 
   const [mode, setMode] = useState<'login' | 'register'>('login');
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
-  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
   if (!isAuthModalOpen) return null;
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleGoogleAuth = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (mode === 'register' && name.trim().length < 2) {
-      setError('Please enter your full name.');
-      return;
-    }
-    if (!email.trim() || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      setError('Please enter a valid email address.');
-      return;
-    }
-    if (password.length < 6) {
-      setError('Password must be at least 6 characters.');
-      return;
-    }
+    if (loading) return;
     setError('');
-    loginDemoUser({
-      name: mode === 'register' ? name.trim() : email.split('@')[0],
-      email: email.trim(),
-      phone: phone.trim() || '01711000000',
-    });
+    setLoading(true);
+    try {
+      const res = await loginCustomerWithGoogle(phone);
+      if (!res.ok) {
+        setError(res.error || 'Could not sign in with Google.');
+      }
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -466,11 +459,11 @@ export const AuthModal: React.FC = () => {
               <User className="w-4 h-4" />
             </div>
             <h2 className="font-display text-lg font-bold text-[var(--text-main)]">
-              {demoUser
+              {isCustomerSignedIn && demoUser
                 ? 'Customer Account'
                 : mode === 'login'
                 ? 'Sign In to Arefin’s Pen'
-                : 'Create Account'}
+                : 'Create Your Account'}
             </h2>
           </div>
           <button
@@ -483,18 +476,19 @@ export const AuthModal: React.FC = () => {
           </button>
         </div>
 
-        {demoUser ? (
+        {isCustomerSignedIn && demoUser ? (
           <div className="space-y-4">
-            <div className="p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] space-y-1">
+            <div className="p-4 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] space-y-1.5">
               <p className="text-sm font-semibold text-[var(--text-main)]">{demoUser.name}</p>
               <p className="text-xs text-[var(--text-secondary)]">{demoUser.email}</p>
-              <p className="text-xs text-[var(--text-muted)]">
-                Saved wishlist items: {wishlist.length}
-              </p>
+              <div className="flex items-center gap-2 pt-1 text-xs text-[var(--text-muted)]">
+                <span>My orders: {orders.length}</span>
+                <span aria-hidden="true">·</span>
+                <span>Wishlist: {wishlist.length}</span>
+              </div>
             </div>
             <p className="text-xs text-[var(--text-muted)]">
-              Local browser demonstration session. Ready to connect to a live authentication
-              provider.
+              Your orders are private to your account — only you and the store admin can view them.
             </p>
             <div className="grid grid-cols-2 gap-2.5">
               <button
@@ -505,11 +499,11 @@ export const AuthModal: React.FC = () => {
                 }}
                 className="py-2.5 px-3 rounded-xl border border-[var(--border-subtle)] text-xs font-semibold text-[var(--text-main)] hover:border-accent"
               >
-                Track Orders
+                View My Orders
               </button>
               <button
                 type="button"
-                onClick={logoutDemoUser}
+                onClick={() => void logoutDemoUser()}
                 className="py-2.5 px-3 rounded-xl bg-accent/15 border border-accent/40 text-xs font-semibold text-accent-bright inline-flex items-center justify-center gap-1.5"
               >
                 <LogOut className="w-3.5 h-3.5" />
@@ -532,7 +526,7 @@ export const AuthModal: React.FC = () => {
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-main)]'
                 }`}
               >
-                Login
+                Sign In
               </button>
               <button
                 type="button"
@@ -546,79 +540,50 @@ export const AuthModal: React.FC = () => {
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-main)]'
                 }`}
               >
-                Register
+                Create Account
               </button>
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-3.5" noValidate>
-              {mode === 'register' && (
-                <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Full Name
-                  </label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="e.g. Arefin Chowdhury"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Email Address
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="you@example.com"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
-                />
-              </div>
-
-              {mode === 'register' && (
-                <div>
-                  <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                    Phone Number (Optional)
-                  </label>
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) => setPhone(e.target.value)}
-                    placeholder="017XXXXXXXX"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
-                  />
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                  Password
-                </label>
-                <input
-                  type="password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  placeholder="At least 6 characters"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
-                />
-              </div>
-
-              {error && <p className="text-xs text-accent-bright">{error}</p>}
-
-              <p className="text-[11px] text-[var(--text-muted)]">
-                Demonstration sign-in stored locally in your browser. Backend authentication is not
-                yet connected.
+            <form onSubmit={handleGoogleAuth} className="space-y-4" noValidate>
+              <p className="text-xs sm:text-sm text-[var(--text-secondary)] leading-relaxed">
+                {mode === 'login'
+                  ? 'Sign in with your Google account before placing an order. Only you can view your own orders.'
+                  : 'Create your customer account in one click with Google so your orders stay private and receive sequential serial IDs (#1, #2…).'}
               </p>
+
+              <div>
+                <label
+                  htmlFor="auth-optional-phone"
+                  className="block text-xs font-medium text-[var(--text-secondary)] mb-1"
+                >
+                  Mobile Number (Optional — pre-fills Checkout)
+                </label>
+                <input
+                  id="auth-optional-phone"
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="017XXXXXXXX"
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent"
+                />
+              </div>
+
+              {error && (
+                <p className="text-xs font-medium text-rose-500 bg-rose-500/10 border border-rose-500/35 rounded-xl px-3 py-2">
+                  {error}
+                </p>
+              )}
 
               <button
                 type="submit"
-                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-white cta-glow-red"
+                disabled={loading}
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-[var(--accent-cta-text)] cta-glow-red disabled:opacity-60"
               >
-                {mode === 'login' ? 'Sign In (Demo)' : 'Create Demo Account'}
+                {loading
+                  ? 'Connecting Google Account...'
+                  : mode === 'login'
+                  ? 'Sign In with Google'
+                  : 'Create Account with Google'}
               </button>
             </form>
           </>

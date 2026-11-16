@@ -100,9 +100,13 @@ export interface OrderTimelineStep {
 
 export interface TrackedOrder {
   orderId: string;
+  serialNumber?: number;
+  userId?: string;
+  userEmail?: string;
   phone: string;
   customerName: string;
   city: string;
+  academyClass?: '5' | '6' | '7';
   address: string;
   paymentMethod: 'cod';
   totalBdt: number;
@@ -122,6 +126,7 @@ export interface StorePreferences {
 }
 
 export interface DemoUser {
+  uid?: string;
   name: string;
   email: string;
   phone: string;

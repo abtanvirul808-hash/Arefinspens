@@ -650,7 +650,9 @@ export const AdminModal: React.FC = () => {
                 <div className="flex-1 overflow-y-auto space-y-3 pr-1">
                   {filteredOrders.length === 0 ? (
                     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-8 text-center text-sm text-[var(--text-secondary)]">
-                      No matching orders found.
+                      {!isFirebaseAdmin
+                        ? 'Connect your Google Admin account above to view and manage live customer orders.'
+                        : 'No matching orders found.'}
                     </div>
                   ) : (
                     filteredOrders.map((order) => {

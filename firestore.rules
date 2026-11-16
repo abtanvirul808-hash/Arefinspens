@@ -88,21 +88,26 @@ service cloud.firestore {
 
     function isValidOrder(data) {
       return data.keys().hasAll([
-        'orderId', 'serialNumber', 'phone', 'phoneSuffix', 'customerName',
-        'city', 'address', 'paymentMethod', 'totalBdt', 'itemsSummary',
-        'placedAt', 'currentStageIndex', 'createdAt', 'updatedAt'
+        'orderId', 'serialNumber', 'userId', 'phone', 'phoneSuffix',
+        'customerName', 'city', 'address', 'paymentMethod', 'totalBdt',
+        'itemsSummary', 'placedAt', 'currentStageIndex', 'createdAt', 'updatedAt'
       ]) &&
       data.keys().hasOnly([
-        'orderId', 'serialNumber', 'phone', 'phoneSuffix', 'customerName',
-        'city', 'address', 'paymentMethod', 'totalBdt', 'itemsSummary',
-        'placedAt', 'currentStageIndex', 'createdAt', 'updatedAt'
+        'orderId', 'serialNumber', 'userId', 'userEmail', 'phone', 'phoneSuffix',
+        'customerName', 'city', 'academyClass', 'address', 'paymentMethod', 'totalBdt',
+        'itemsSummary', 'placedAt', 'currentStageIndex', 'createdAt', 'updatedAt'
       ]) &&
       data.orderId is string && data.orderId.size() >= 2 && data.orderId.size() <= 32 &&
+      data.orderId.matches('^#[0-9]+$') &&
       data.serialNumber is int && data.serialNumber >= 1 && data.serialNumber <= 10000000 &&
+      isValidId(data.userId) &&
+      (!('userEmail' in data) || (data.userEmail is string && data.userEmail.size() >= 3 && data.userEmail.size() <= 200)) &&
       data.phone is string && data.phone.size() >= 8 && data.phone.size() <= 20 &&
       data.phoneSuffix is string && data.phoneSuffix.size() >= 6 && data.phoneSuffix.size() <= 10 &&
       data.customerName is string && data.customerName.size() >= 2 && data.customerName.size() <= 100 &&
       data.city is string && data.city.size() >= 2 && data.city.size() <= 80 &&
+      (!('academyClass' in data) || (data.academyClass is string && data.academyClass in ['5', '6', '7'])) &&
+      (data.city != 'Al Amanah Academy' || ('academyClass' in data && data.academyClass in ['5', '6', '7'])) &&
       data.address is string && data.address.size() >= 3 && data.address.size() <= 400 &&
       data.paymentMethod == 'cod' &&
       data.totalBdt is number && data.totalBdt >= 0 && data.totalBdt <= 10000000 &&
@@ -110,25 +115,6 @@ service cloud.firestore {
       data.placedAt is string && data.placedAt.size() >= 2 && data.placedAt.size() <= 80 &&
       data.currentStageIndex is int && data.currentStageIndex >= 0 && data.currentStageIndex <= 4 &&
       data.createdAt is timestamp &&
-      data.updatedAt is timestamp;
-    }
-
-    function isValidOrderTracking(data) {
-      return data.keys().hasAll([
-        'orderId', 'customerName', 'city', 'totalBdt',
-        'itemsSummary', 'placedAt', 'currentStageIndex', 'updatedAt'
-      ]) &&
-      data.keys().hasOnly([
-        'orderId', 'customerName', 'city', 'totalBdt',
-        'itemsSummary', 'placedAt', 'currentStageIndex', 'updatedAt'
-      ]) &&
-      data.orderId is string && data.orderId.size() >= 2 && data.orderId.size() <= 32 &&
-      data.customerName is string && data.customerName.size() >= 2 && data.customerName.size() <= 100 &&
-      data.city is string && data.city.size() >= 2 && data.city.size() <= 80 &&
-      data.totalBdt is number && data.totalBdt >= 0 && data.totalBdt <= 10000000 &&
-      data.itemsSummary is string && data.itemsSummary.size() >= 2 && data.itemsSummary.size() <= 1000 &&
-      data.placedAt is string && data.placedAt.size() >= 2 && data.placedAt.size() <= 80 &&
-      data.currentStageIndex is int && data.currentStageIndex >= 0 && data.currentStageIndex <= 4 &&
       data.updatedAt is timestamp;
     }
 
@@ -158,17 +144,26 @@ service cloud.firestore {
       allow delete: if isValidId(productId) && isAdmin();
     }
 
-    // Customer orders (contains PII): admin read/update/delete, validated customer create
+    // Customer orders (contains PII): strictly isolated to owner (userId == auth.uid) or verified admin
     match /orders/{orderId} {
-      allow get: if isValidId(orderId) && isAdmin();
-      allow list: if isAdmin();
-      allow create: if isValidId(orderId) &&
+      allow get: if isValidId(orderId) && (
+        isAdmin() ||
+        (isVerified() && existing().userId == request.auth.uid)
+      );
+      allow list: if isAdmin() || (isVerified() && resource.data.userId == request.auth.uid);
+      allow create: if isVerified() &&
+        isValidId(orderId) &&
         isValidOrder(incoming()) &&
+        incoming().userId == request.auth.uid &&
         incoming().currentStageIndex == 1 &&
         incoming().createdAt == request.time &&
-        incoming().updatedAt == request.time;
+        incoming().updatedAt == request.time &&
+        incoming().orderId == ('#' + string(incoming().serialNumber)) &&
+        orderId == ('order-' + string(incoming().serialNumber)) &&
+        getAfter(/databases/$(database)/documents/meta/orderCounter).data.lastOrderNumber == incoming().serialNumber;
       allow update: if isValidId(orderId) &&
         isValidOrder(incoming()) &&
+        incoming().userId == existing().userId &&
         incoming().orderId == existing().orderId &&
         incoming().serialNumber == existing().serialNumber &&
         incoming().createdAt == existing().createdAt &&
@@ -178,35 +173,20 @@ service cloud.firestore {
       allow delete: if isValidId(orderId) && isAdmin();
     }
 
-    // Non-PII order status lookup keyed by <serialNumber>_<phoneSuffix> (no list allowed)
-    match /orderTracking/{trackingKey} {
-      allow get: if isValidId(trackingKey);
-      allow list: if false;
-      allow create: if isValidId(trackingKey) &&
-        isValidOrderTracking(incoming()) &&
-        incoming().currentStageIndex == 1 &&
-        incoming().updatedAt == request.time;
-      allow update: if isValidId(trackingKey) &&
-        isValidOrderTracking(incoming()) &&
-        incoming().orderId == existing().orderId &&
-        incoming().updatedAt == request.time &&
-        incoming().diff(existing()).affectedKeys().hasOnly(['currentStageIndex', 'updatedAt']) &&
-        isAdmin();
-      allow delete: if isValidId(trackingKey) && isAdmin();
-    }
-
-    // Storefront metadata (serial counter + seed flag)
+    // Storefront metadata (serial counter starting from 1 + catalog seed flag)
     match /meta/{metaId} {
       allow get: if isValidId(metaId);
       allow list: if false;
-      allow create: if isValidId(metaId) &&
+      allow create: if isVerified() &&
+        isValidId(metaId) &&
         isValidStoreMeta(incoming()) &&
         incoming().updatedAt == request.time &&
         (
           isAdmin() ||
           (metaId == 'orderCounter' && incoming().keys().hasOnly(['lastOrderNumber', 'updatedAt']) && incoming().lastOrderNumber == 1)
         );
-      allow update: if isValidId(metaId) &&
+      allow update: if isVerified() &&
+        isValidId(metaId) &&
         isValidStoreMeta(incoming()) &&
         incoming().updatedAt == request.time &&
         (
@@ -220,7 +200,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Admin UID allowlist (read-only by owner/admin)
+    // Admin UID allowlist (read-only by owner)
     match /admins/{uid} {
       allow get: if isValidId(uid) && isSignedIn() && request.auth.uid == uid;
       allow list: if false;

@@ -12,6 +12,7 @@ import {
   serverTimestamp,
   setDoc,
   updateDoc,
+  where,
 } from 'firebase/firestore';
 import {
   CartItem,
@@ -23,7 +24,6 @@ import {
   StorePreferences,
   TrackedOrder,
 } from '../types';
-import { DEMO_TRACKING_ORDERS } from '../data/storeConfig';
 import { CATALOGUE_CATEGORIES, PRODUCTS } from '../data/products';
 import {
   auth,
@@ -102,10 +102,13 @@ interface StoreContextValue {
   setIsSettingsOpen: (open: boolean) => void;
 
   demoUser: DemoUser | null;
+  isCustomerSignedIn: boolean;
+  authLoading: boolean;
   isAuthModalOpen: boolean;
   setIsAuthModalOpen: (open: boolean) => void;
   loginDemoUser: (user: DemoUser) => void;
-  logoutDemoUser: () => void;
+  loginCustomerWithGoogle: (phone?: string) => Promise<{ ok: boolean; error?: string }>;
+  logoutDemoUser: () => Promise<void>;
 
   products: Product[];
   isCloudSynced: boolean;
@@ -156,7 +159,7 @@ const STORAGE_KEYS = {
   productOverrides: 'arefin_pen_product_overrides_v1',
   deletedProducts: 'arefin_pen_deleted_products_v1',
   catalogDraftAt: 'arefin_pen_catalog_draft_at_v1',
-  adminSession: 'arefin_pen_admin_session_v2',
+  userPhones: 'arefin_pen_user_phones_v1',
 };
 
 const ADMIN_ACCOUNT = {
@@ -178,17 +181,6 @@ const DEFAULT_PREFS: StorePreferences = {
   reducedMotion: false,
   textSize: 'standard',
 };
-
-function getNextSerialOrderId(orders: TrackedOrder[], deletedIds: string[] = []): string {
-  const allIds = [...orders.map((o) => o.orderId), ...deletedIds];
-  const maxNum = allIds.reduce((max, id) => {
-    const match = id.trim().match(/^#?(\d+)$/);
-    if (!match) return max;
-    const num = Number.parseInt(match[1], 10);
-    return Number.isFinite(num) && num > max ? num : max;
-  }, 0);
-  return `#${maxNum + 1}`;
-}
 
 function parseSerialNumber(orderId: string): number {
   const match = orderId.trim().match(/^#?(\d+)$/);
@@ -289,17 +281,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     ...DEFAULT_PREFS,
     ...readStorage<Partial<StorePreferences>>(STORAGE_KEYS.prefs, DEFAULT_PREFS),
   }));
-  const [demoUser, setDemoUser] = useState<DemoUser | null>(() =>
-    readStorage(STORAGE_KEYS.user, null)
-  );
-  const [savedOrders, setSavedOrders] = useState<TrackedOrder[]>(() =>
-    readStorage(STORAGE_KEYS.orders, [])
-  );
-  const [deletedOrderIds, setDeletedOrderIds] = useState<string[]>(() =>
-    readStorage(STORAGE_KEYS.deletedOrders, [])
-  );
-  const [stageOverrides, setStageOverrides] = useState<Record<string, number>>(() =>
-    readStorage(STORAGE_KEYS.orderStages, {})
+  const [savedPhonesByUid, setSavedPhonesByUid] = useState<Record<string, string>>(() =>
+    readStorage('arefin_pen_user_phones_v1', {})
   );
   const [liveCatalog, setLiveCatalog] = useState<{ updatedAt: string; products: Product[] } | null>(
     null
@@ -319,27 +302,41 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   // Firebase Auth & Real-Time Firestore State
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
   const [cloudAdminAllowed, setCloudAdminAllowed] = useState(false);
   const [cloudProducts, setCloudProducts] = useState<Product[] | null>(null);
   const [catalogSeeded, setCatalogSeeded] = useState(false);
-  const [cloudOrders, setCloudOrders] = useState<(TrackedOrder & { serialNumber?: number })[] | null>(
-    null
-  );
+  const [cloudOrders, setCloudOrders] = useState<(TrackedOrder & { serialNumber?: number })[]>([]);
   const [cloudLastOrderNumber, setCloudLastOrderNumber] = useState<number>(0);
   const autoSeedingRef = useRef(false);
 
   const [isLocalAdmin, setIsLocalAdmin] = useState<boolean>(() => {
-    const stored = readStorage<{ verified?: boolean } | boolean>(STORAGE_KEYS.adminSession, false);
+    const stored = readStorage<{ verified?: boolean } | boolean>(
+      'arefin_pen_admin_session_v2',
+      false
+    );
     if (typeof stored === 'boolean') return stored;
     return typeof stored === 'object' && stored !== null ? Boolean(stored.verified) : false;
   });
 
+  const isCustomerSignedIn = Boolean(firebaseUser && firebaseUser.emailVerified);
   const isFirebaseAdmin = Boolean(
     firebaseUser &&
       firebaseUser.emailVerified &&
       (isAuthorizedAdminEmail(firebaseUser.email) || cloudAdminAllowed)
   );
   const isAdmin = isLocalAdmin || isFirebaseAdmin;
+
+  const demoUser: DemoUser | null = useMemo(() => {
+    if (!firebaseUser || !firebaseUser.emailVerified) return null;
+    const email = firebaseUser.email || '';
+    return {
+      uid: firebaseUser.uid,
+      name: firebaseUser.displayName || email.split('@')[0] || 'Customer',
+      email,
+      phone: savedPhonesByUid[firebaseUser.uid] || '',
+    };
+  }, [firebaseUser, savedPhonesByUid]);
 
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -354,6 +351,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (user && user.emailVerified) {
         if (isAuthorizedAdminEmail(user.email)) {
           setCloudAdminAllowed(true);
+          setAuthLoading(false);
           return;
         }
         try {
@@ -361,9 +359,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setCloudAdminAllowed(adminDoc.exists());
         } catch {
           setCloudAdminAllowed(false);
+        } finally {
+          setAuthLoading(false);
         }
       } else {
         setCloudAdminAllowed(false);
+        setAuthLoading(false);
       }
     });
     return () => unsub();
@@ -420,14 +421,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
-  // Subscribe to live Firestore orders ONLY when authenticated as Firebase Admin
+  // Subscribe to live Firestore orders: Admins see all orders; signed-in customers see ONLY their own orders
   useEffect(() => {
-    if (!isFirebaseAdmin) {
-      setCloudOrders(null);
+    if (!firebaseUser || !firebaseUser.emailVerified) {
+      setCloudOrders([]);
       return;
     }
 
-    const ordersQuery = query(collection(db, 'orders'), orderBy('serialNumber', 'desc'));
+    const ordersQuery = isFirebaseAdmin
+      ? query(collection(db, 'orders'), orderBy('serialNumber', 'desc'))
+      : query(collection(db, 'orders'), where('userId', '==', firebaseUser.uid));
+
     const unsubOrders = onSnapshot(
       ordersQuery,
       (snapshot) => {
@@ -438,6 +442,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             orderId: data.orderId,
           };
         });
+        list.sort((a, b) => (b.serialNumber || 0) - (a.serialNumber || 0));
         setCloudOrders(list);
       },
       (error) => {
@@ -446,7 +451,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
 
     return () => unsubOrders();
-  }, [isFirebaseAdmin]);
+  }, [firebaseUser, isFirebaseAdmin]);
 
   // Auto-seed initial catalogue (Neucose B) to Firestore the first time Firebase Admin connects
   useEffect(() => {
@@ -522,39 +527,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     try {
-      if (demoUser) {
-        localStorage.setItem(STORAGE_KEYS.user, JSON.stringify(demoUser));
-      } else {
-        localStorage.removeItem(STORAGE_KEYS.user);
-      }
+      localStorage.setItem('arefin_pen_user_phones_v1', JSON.stringify(savedPhonesByUid));
     } catch {
       // ignore
     }
-  }, [demoUser]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.orders, JSON.stringify(savedOrders));
-    } catch {
-      // ignore
-    }
-  }, [savedOrders]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.deletedOrders, JSON.stringify(deletedOrderIds));
-    } catch {
-      // ignore
-    }
-  }, [deletedOrderIds]);
-
-  useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEYS.orderStages, JSON.stringify(stageOverrides));
-    } catch {
-      // ignore
-    }
-  }, [stageOverrides]);
+  }, [savedPhonesByUid]);
 
   useEffect(() => {
     try {
@@ -616,9 +593,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     try {
       if (isLocalAdmin) {
-        localStorage.setItem(STORAGE_KEYS.adminSession, JSON.stringify(true));
+        localStorage.setItem('arefin_pen_admin_session_v2', JSON.stringify(true));
       } else {
-        localStorage.removeItem(STORAGE_KEYS.adminSession);
+        localStorage.removeItem('arefin_pen_admin_session_v2');
       }
     } catch {
       // ignore
@@ -883,43 +860,74 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   };
 
   const loginDemoUser = (user: DemoUser) => {
-    setDemoUser(user);
+    if (firebaseUser?.uid && user.phone.trim()) {
+      setSavedPhonesByUid((prev) => ({ ...prev, [firebaseUser.uid]: user.phone.trim() }));
+    }
     setIsAuthModalOpen(false);
     showToast(`Signed in as ${user.name}`);
   };
 
-  const logoutDemoUser = () => {
-    setDemoUser(null);
+  const loginCustomerWithGoogle = async (phone?: string) => {
+    try {
+      const cred = await signInWithPopup(auth, googleProvider);
+      if (!cred.user.emailVerified) {
+        await signOut(auth);
+        return {
+          ok: false,
+          error: 'Please use a verified Google account to place and track orders.',
+        };
+      }
+      if (phone && phone.trim()) {
+        setSavedPhonesByUid((prev) => ({ ...prev, [cred.user.uid]: phone.trim() }));
+      }
+      setIsAuthModalOpen(false);
+      showToast(`Signed in as ${cred.user.displayName || cred.user.email || 'Customer'}`);
+      return { ok: true };
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      if (msg.includes('auth/unauthorized-domain')) {
+        return {
+          ok: false,
+          error:
+            'Add this site domain in Firebase Console → Authentication → Settings → Authorized domains.',
+        };
+      }
+      if (msg.includes('auth/popup-closed-by-user')) {
+        return { ok: false, error: 'Google sign-in window was closed.' };
+      }
+      return { ok: false, error: 'Could not sign in with Google. Please try again.' };
+    }
+  };
+
+  const logoutDemoUser = async () => {
+    if (auth.currentUser) {
+      await signOut(auth).catch(() => {});
+    }
+    setCloudOrders([]);
     showToast('Signed out');
   };
 
   const orders = useMemo(() => {
-    if (isFirebaseAdmin && cloudOrders !== null) {
-      return cloudOrders;
-    }
-    const deletedSet = new Set(deletedOrderIds);
-    return [...savedOrders, ...DEMO_TRACKING_ORDERS]
-      .filter((o) => !deletedSet.has(o.orderId))
-      .map((order) =>
-        stageOverrides[order.orderId] !== undefined
-          ? { ...order, currentStageIndex: stageOverrides[order.orderId] }
-          : order
-      );
-  }, [isFirebaseAdmin, cloudOrders, savedOrders, deletedOrderIds, stageOverrides]);
+    if (!isCustomerSignedIn) return [];
+    return cloudOrders;
+  }, [isCustomerSignedIn, cloudOrders]);
 
   const nextOrderId = useMemo(() => {
-    if (cloudLastOrderNumber > 0) {
-      return `#${cloudLastOrderNumber + 1}`;
-    }
-    const localNext = getNextSerialOrderId(orders, deletedOrderIds);
-    const localNum = parseSerialNumber(localNext);
-    return `#${Math.max(1, localNum)}`;
-  }, [cloudLastOrderNumber, orders, deletedOrderIds]);
+    return `#${Math.max(0, cloudLastOrderNumber) + 1}`;
+  }, [cloudLastOrderNumber]);
 
   const createOrder = async (order: TrackedOrder): Promise<TrackedOrder> => {
+    if (!firebaseUser || !firebaseUser.emailVerified) {
+      throw new Error('Please sign in or create your account first before placing an order.');
+    }
+
+    if (order.phone.trim()) {
+      setSavedPhonesByUid((prev) => ({ ...prev, [firebaseUser.uid]: order.phone.trim() }));
+    }
+
     try {
       const counterRef = doc(db, 'meta', 'orderCounter');
-      const assignedNum = await runTransaction(db, async (transaction) => {
+      const assigned = await runTransaction(db, async (transaction) => {
         const counterSnap = await transaction.get(counterRef);
         const currentNum = counterSnap.exists()
           ? Number(counterSnap.data()?.lastOrderNumber || 0)
@@ -928,7 +936,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const nextOrderIdStr = `#${nextNum}`;
         const docId = `order-${nextNum}`;
         const phoneSuffix = getPhoneSuffix(order.phone);
-        const trackingKey = `${nextNum}_${phoneSuffix}`;
 
         if (counterSnap.exists()) {
           transaction.update(counterRef, {
@@ -942,9 +949,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           });
         }
 
-        const orderPayload = {
+        const orderPayload: Record<string, unknown> = {
           orderId: nextOrderIdStr,
           serialNumber: nextNum,
+          userId: firebaseUser.uid,
           phone: order.phone.trim().slice(0, 20),
           phoneSuffix,
           customerName: order.customerName.trim().slice(0, 100),
@@ -964,109 +972,73 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           updatedAt: serverTimestamp(),
         };
 
-        const trackingPayload = {
-          orderId: nextOrderIdStr,
-          customerName: orderPayload.customerName,
-          city: orderPayload.city,
-          totalBdt: orderPayload.totalBdt,
-          itemsSummary: orderPayload.itemsSummary,
-          placedAt: orderPayload.placedAt,
-          currentStageIndex: 1,
-          updatedAt: serverTimestamp(),
-        };
+        if (firebaseUser.email && firebaseUser.email.trim()) {
+          orderPayload.userEmail = firebaseUser.email.trim().slice(0, 200);
+        }
+
+        if (order.city === 'Al Amanah Academy' && order.academyClass) {
+          orderPayload.academyClass = order.academyClass;
+        }
 
         transaction.set(doc(db, 'orders', docId), orderPayload);
-        transaction.set(doc(db, 'orderTracking', trackingKey), trackingPayload);
 
         return { nextNum, orderPayload };
       });
 
       const finalOrder: TrackedOrder = {
         ...order,
-        orderId: assignedNum.orderPayload.orderId,
-        placedAt: assignedNum.orderPayload.placedAt,
+        orderId: String(assigned.orderPayload.orderId),
+        serialNumber: assigned.nextNum,
+        userId: firebaseUser.uid,
+        userEmail: firebaseUser.email || undefined,
+        placedAt: String(assigned.orderPayload.placedAt),
         currentStageIndex: 1,
         isDemoRecord: false,
       };
-      setSavedOrders((prev) => [
-        finalOrder,
-        ...prev.filter((o) => o.orderId !== finalOrder.orderId),
-      ]);
       return finalOrder;
     } catch (err) {
-      console.error('Firestore createOrder error:', err);
-      // Local fallback if offline
-      setDeletedOrderIds((prev) =>
-        prev.includes(order.orderId) ? prev.filter((id) => id !== order.orderId) : prev
-      );
-      setSavedOrders((prev) => [order, ...prev.filter((o) => o.orderId !== order.orderId)]);
-      return order;
+      handleFirestoreError(err, OperationType.CREATE, `orders/${order.orderId}`);
     }
   };
 
   const updateOrderStage = async (orderId: string, stageIndex: number) => {
     if (!isAdmin) return;
     const clamped = Math.max(0, Math.min(4, stageIndex));
-    const target = orders.find((o) => o.orderId === orderId);
     const serialNumber = parseSerialNumber(orderId);
 
-    if (isFirebaseAdmin && serialNumber > 0) {
-      const docId = `order-${serialNumber}`;
-      try {
-        await updateDoc(doc(db, 'orders', docId), {
-          currentStageIndex: clamped,
-          updatedAt: serverTimestamp(),
-        });
-        if (target?.phone) {
-          const trackingKey = `${serialNumber}_${getPhoneSuffix(target.phone)}`;
-          await updateDoc(doc(db, 'orderTracking', trackingKey), {
-            currentStageIndex: clamped,
-            updatedAt: serverTimestamp(),
-          }).catch(() => {});
-        }
-        showToast(`Order ${orderId} marked as ${STAGE_LABELS[clamped]}`);
-        return;
-      } catch (err) {
-        handleFirestoreError(err, OperationType.UPDATE, `orders/${docId}`);
-      }
+    if (!isFirebaseAdmin || serialNumber <= 0) {
+      showToast('Connect your Google Admin account to update orders live');
+      return;
     }
 
-    setStageOverrides((prev) => ({
-      ...prev,
-      [orderId]: clamped,
-    }));
-    showToast(`Order ${orderId} marked as ${STAGE_LABELS[clamped]}`);
+    const docId = `order-${serialNumber}`;
+    try {
+      await updateDoc(doc(db, 'orders', docId), {
+        currentStageIndex: clamped,
+        updatedAt: serverTimestamp(),
+      });
+      showToast(`Order ${orderId} marked as ${STAGE_LABELS[clamped]}`);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `orders/${docId}`);
+    }
   };
 
   const deleteOrder = async (orderId: string) => {
     if (!isAdmin) return;
-    const target = orders.find((o) => o.orderId === orderId);
     const serialNumber = parseSerialNumber(orderId);
 
-    if (isFirebaseAdmin && serialNumber > 0) {
-      const docId = `order-${serialNumber}`;
-      try {
-        await deleteDoc(doc(db, 'orders', docId));
-        if (target?.phone) {
-          const trackingKey = `${serialNumber}_${getPhoneSuffix(target.phone)}`;
-          await deleteDoc(doc(db, 'orderTracking', trackingKey)).catch(() => {});
-        }
-        showToast(`Order ${orderId} deleted`);
-        return;
-      } catch (err) {
-        handleFirestoreError(err, OperationType.DELETE, `orders/${docId}`);
-      }
+    if (!isFirebaseAdmin || serialNumber <= 0) {
+      showToast('Connect your Google Admin account to delete orders live');
+      return;
     }
 
-    setSavedOrders((prev) => prev.filter((o) => o.orderId !== orderId));
-    setDeletedOrderIds((prev) => (prev.includes(orderId) ? prev : [...prev, orderId]));
-    setStageOverrides((prev) => {
-      if (prev[orderId] === undefined) return prev;
-      const copy = { ...prev };
-      delete copy[orderId];
-      return copy;
-    });
-    showToast(`Order ${orderId} deleted`);
+    const docId = `order-${serialNumber}`;
+    try {
+      await deleteDoc(doc(db, 'orders', docId));
+      showToast(`Order ${orderId} deleted`);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.DELETE, `orders/${docId}`);
+    }
   };
 
   const ensureCatalogSeeded = async (skipId?: string) => {
@@ -1426,37 +1398,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     orderId: string,
     phone: string
   ): Promise<TrackedOrder | undefined> => {
-    const cleanId = orderId.trim().replace(/^#+/, '').toUpperCase();
-    const cleanPhone = phone.replace(/[\s-]/g, '').trim();
-    const localMatch = orders.find(
-      (o) =>
-        o.orderId.trim().replace(/^#+/, '').toUpperCase() === cleanId &&
-        o.phone.replace(/[\s-]/g, '').endsWith(cleanPhone.slice(-8))
-    );
-    if (localMatch) return localMatch;
-
-    const phoneSuffix = getPhoneSuffix(phone);
-    if (!cleanId || !phoneSuffix) return undefined;
-    try {
-      const trackingKey = `${cleanId}_${phoneSuffix}`;
-      const snap = await getDoc(doc(db, 'orderTracking', trackingKey));
-      if (!snap.exists()) return undefined;
-      const data = snap.data();
-      return {
-        orderId: String(data.orderId || `#${cleanId}`),
-        phone,
-        customerName: String(data.customerName || 'Customer'),
-        city: String(data.city || ''),
-        address: String(data.city || ''),
-        paymentMethod: 'cod',
-        totalBdt: Number(data.totalBdt || 0),
-        itemsSummary: String(data.itemsSummary || ''),
-        placedAt: String(data.placedAt || ''),
-        currentStageIndex: Number(data.currentStageIndex ?? 1),
-      };
-    } catch {
+    if (!firebaseUser || !firebaseUser.emailVerified) {
       return undefined;
     }
+    const cleanId = orderId.trim().replace(/^#+/, '').toUpperCase();
+    const cleanPhone = phone.replace(/[\s-]/g, '').trim();
+    const localMatch = orders.find((o) => {
+      const idMatch = o.orderId.trim().replace(/^#+/, '').toUpperCase() === cleanId;
+      if (!idMatch) return false;
+      if (!cleanPhone) return true;
+      return o.phone.replace(/[\s-]/g, '').endsWith(cleanPhone.slice(-8));
+    });
+    return localMatch;
   };
 
   return (
@@ -1487,9 +1440,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         isSettingsOpen,
         setIsSettingsOpen,
         demoUser,
+        isCustomerSignedIn,
+        authLoading,
         isAuthModalOpen,
         setIsAuthModalOpen,
         loginDemoUser,
+        loginCustomerWithGoogle,
         logoutDemoUser,
         products,
         isCloudSynced: isCloudCatalogActive,

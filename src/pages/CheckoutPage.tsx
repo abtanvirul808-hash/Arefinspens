@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   AlertCircle,
   ArrowLeft,
   Check,
   CheckCircle2,
   Copy,
+  Lock,
   ShieldCheck,
   Truck,
 } from 'lucide-react';
@@ -12,6 +13,7 @@ import { useStore } from '../context/StoreContext';
 import { TrackedOrder } from '../types';
 
 type DeliveryLocationOption = 'Al Amanah Academy' | 'Home Delivery';
+type AcademyClassOption = '' | '5' | '6' | '7';
 
 export const CheckoutPage: React.FC = () => {
   const {
@@ -22,6 +24,8 @@ export const CheckoutPage: React.FC = () => {
     nextOrderId,
     navigate,
     demoUser,
+    isCustomerSignedIn,
+    setIsAuthModalOpen,
     showToast,
     products,
   } = useStore();
@@ -33,6 +37,7 @@ export const CheckoutPage: React.FC = () => {
   const [phone, setPhone] = useState(demoUser?.phone || '');
   const [email, setEmail] = useState(demoUser?.email || '');
   const [locationOption, setLocationOption] = useState<DeliveryLocationOption>('Al Amanah Academy');
+  const [academyClass, setAcademyClass] = useState<AcademyClassOption>('');
   const [customLocation, setCustomLocation] = useState('');
   const [instructions, setInstructions] = useState('');
 
@@ -43,6 +48,16 @@ export const CheckoutPage: React.FC = () => {
   const [formError, setFormError] = useState('');
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [confirmedOrder, setConfirmedOrder] = useState<TrackedOrder | null>(null);
+
+  useEffect(() => {
+    if (!demoUser) return;
+    setFullName((prev) => prev || demoUser.name || '');
+    setEmail((prev) => prev || demoUser.email || '');
+    setPhone((prev) => prev || demoUser.phone || '');
+    setFormError((prev) =>
+      prev.toLowerCase().includes('sign in') ? '' : prev
+    );
+  }, [demoUser]);
 
   const validCartItems = cart.filter((item) =>
     products.some((p) => p.id === item.productId)
@@ -80,6 +95,12 @@ export const CheckoutPage: React.FC = () => {
     e.preventDefault();
     if (submittingOrder) return;
 
+    if (!isCustomerSignedIn) {
+      failValidation('Please sign in or create your account first before placing an order.');
+      setIsAuthModalOpen(true);
+      return;
+    }
+
     if (isDirectOrder && (effectiveSubtotal <= 0 || customItemNote.trim().length < 2)) {
       failValidation('Please enter a valid item description and order amount in BDT.');
       return;
@@ -101,6 +122,11 @@ export const CheckoutPage: React.FC = () => {
       return;
     }
 
+    if (locationOption === 'Al Amanah Academy' && !['5', '6', '7'].includes(academyClass)) {
+      failValidation('Please select your Class (5, 6, or 7) for Al Amanah Academy.');
+      return;
+    }
+
     if (locationOption === 'Home Delivery' && customLocation.trim().length < 3) {
       failValidation('Please write your custom location for Home Delivery.');
       return;
@@ -118,7 +144,7 @@ export const CheckoutPage: React.FC = () => {
 
     const fullAddress =
       locationOption === 'Al Amanah Academy'
-        ? 'Al Amanah Academy'
+        ? `Al Amanah Academy — Class ${academyClass}`
         : `Home Delivery — ${customLocation.trim()}`;
 
     const draftOrder: TrackedOrder = {
@@ -126,6 +152,8 @@ export const CheckoutPage: React.FC = () => {
       phone: normalizedPhone,
       customerName: fullName.trim(),
       city: locationOption,
+      academyClass:
+        locationOption === 'Al Amanah Academy' ? (academyClass as '5' | '6' | '7') : undefined,
       address: fullAddress,
       paymentMethod: 'cod',
       totalBdt: finalTotal,
@@ -143,6 +171,12 @@ export const CheckoutPage: React.FC = () => {
       setConfirmedOrder(savedOrder);
       showToast(`Order ${savedOrder.orderId} placed successfully`);
       window.scrollTo({ top: 0, behavior: 'smooth' });
+    } catch (err) {
+      const msg =
+        err instanceof Error && !err.message.startsWith('{')
+          ? err.message
+          : 'Could not place your order right now. Please make sure you are signed in and try again.';
+      failValidation(msg);
     } finally {
       setSubmittingOrder(false);
     }
@@ -157,14 +191,14 @@ export const CheckoutPage: React.FC = () => {
           </div>
           <div className="space-y-2">
             <p className="text-xs font-semibold uppercase tracking-widest text-accent-bright">
-              Demonstration Order Created
+              Order Confirmed
             </p>
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-[var(--text-main)]">
               Thank you, {confirmedOrder.customerName}
             </h1>
             <p className="text-sm text-[var(--text-secondary)]">
-              Your Cash on Delivery demonstration order has been saved locally. Connect a courier or
-              order API to dispatch live shipments.
+              Your Cash on Delivery order has been saved securely to your account. Only you and the
+              store admin can view this order.
             </p>
           </div>
 
@@ -237,10 +271,34 @@ export const CheckoutPage: React.FC = () => {
         </button>
       </div>
 
+      {!isCustomerSignedIn && (
+        <div className="rounded-2xl border border-rose-500/50 bg-rose-500/10 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-start gap-3">
+            <Lock className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
+            <div className="space-y-1">
+              <h2 className="font-display text-sm sm:text-base font-bold text-[var(--text-main)]">
+                First Sign In or Create Your Account
+              </h2>
+              <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
+                You must sign in or create an account before placing an order. Only you can view
+                your orders — other customers cannot see your order details.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setIsAuthModalOpen(true)}
+            className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-[var(--accent-cta-text)] cta-glow-red whitespace-nowrap shrink-0"
+          >
+            Sign In / Create Account
+          </button>
+        </div>
+      )}
+
       {/* Serial Order ID Bar */}
       <div className="rounded-2xl border border-accent/45 bg-[var(--bg-card)] px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="space-y-0.5">
-          <p className="text-xs text-[var(--text-muted)]">Order ID</p>
+          <p className="text-xs text-[var(--text-muted)]">Next Serial Order ID</p>
           <p className="font-display text-lg font-bold font-mono-num text-[var(--text-main)]">
             {orderNumber}
           </p>
@@ -333,6 +391,9 @@ export const CheckoutPage: React.FC = () => {
                   onChange={(e) => {
                     const next = e.target.value as DeliveryLocationOption;
                     setLocationOption(next);
+                    if (next !== 'Al Amanah Academy') {
+                      setAcademyClass('');
+                    }
                     if (formError) setFormError('');
                   }}
                   className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
@@ -341,6 +402,32 @@ export const CheckoutPage: React.FC = () => {
                   <option value="Home Delivery">Home Delivery</option>
                 </select>
               </div>
+
+              {locationOption === 'Al Amanah Academy' && (
+                <div>
+                  <label
+                    htmlFor="checkout-academy-class"
+                    className="block text-xs font-medium text-[var(--text-secondary)] mb-1"
+                  >
+                    Class *
+                  </label>
+                  <select
+                    id="checkout-academy-class"
+                    required
+                    value={academyClass}
+                    onChange={(e) => {
+                      setAcademyClass(e.target.value as AcademyClassOption);
+                      if (formError) setFormError('');
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                  >
+                    <option value="">Select Class (5, 6, or 7)</option>
+                    <option value="5">Class 5</option>
+                    <option value="6">Class 6</option>
+                    <option value="7">Class 7</option>
+                  </select>
+                </div>
+              )}
 
               {locationOption === 'Home Delivery' && (
                 <div className="sm:col-span-2">
