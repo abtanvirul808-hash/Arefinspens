@@ -1,0 +1,21 @@
+{
+  "name": "Arefin's Pen",
+  "short_name": "Arefin's Pen",
+  "description": "Premium pens, gel pens, fountain pens, markers, mechanical pencils, and fine stationery store in Bangladesh.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#050505",
+  "theme_color": "#ff1428",
+  "icons": [
+    {
+      "src": "/assets/aistudio/Arefin_s_Pen_Neon_Homepage_f0a52358.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/assets/aistudio/Arefin_s_Pen_Neon_Homepage_f0a52358.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
