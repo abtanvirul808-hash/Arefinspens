@@ -1,0 +1,6 @@
+{
+  "name": "Arefin's Pen",
+  "description": "Premium pens, gel pens, fountain pens, markers, mechanical pencils, and fine stationery store in Bangladesh.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
