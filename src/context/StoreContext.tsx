@@ -86,6 +86,9 @@ interface StoreContextValue {
   logoutDemoUser: () => void;
 
   products: Product[];
+  hasUnpublishedProductChanges: boolean;
+  exportLiveProductsJson: () => string;
+  syncWithLiveCatalog: () => Promise<void>;
   addAdminProduct: (input: NewProductInput) => { ok: boolean; error?: string; product?: Product };
   updateAdminProduct: (
     productId: string,
@@ -125,6 +128,7 @@ const STORAGE_KEYS = {
   customProducts: 'arefin_pen_custom_products_v1',
   productOverrides: 'arefin_pen_product_overrides_v1',
   deletedProducts: 'arefin_pen_deleted_products_v1',
+  catalogDraftAt: 'arefin_pen_catalog_draft_at_v1',
   adminSession: 'arefin_pen_admin_session_v2',
 };
 
@@ -205,6 +209,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
   const [stageOverrides, setStageOverrides] = useState<Record<string, number>>(() =>
     readStorage(STORAGE_KEYS.orderStages, {})
+  );
+  const [liveCatalog, setLiveCatalog] = useState<{ updatedAt: string; products: Product[] } | null>(
+    null
+  );
+  const [catalogDraftAt, setCatalogDraftAt] = useState<string | null>(() =>
+    readStorage(STORAGE_KEYS.catalogDraftAt, null)
   );
   const [customProducts, setCustomProducts] = useState<Product[]>(() =>
     readStorage(STORAGE_KEYS.customProducts, [])
@@ -320,6 +330,46 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // ignore
     }
   }, [deletedProductIds]);
+
+  useEffect(() => {
+    try {
+      if (catalogDraftAt) {
+        localStorage.setItem(STORAGE_KEYS.catalogDraftAt, JSON.stringify(catalogDraftAt));
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.catalogDraftAt);
+      }
+    } catch {
+      // ignore
+    }
+  }, [catalogDraftAt]);
+
+  // Fetch live published catalogue from /data/products.json (updated automatically on Netlify deploy)
+  useEffect(() => {
+    let active = true;
+    const loadLiveCatalog = async () => {
+      try {
+        const res = await fetch(`/data/products.json?v=${Date.now()}`, { cache: 'no-store' });
+        if (!res.ok) return;
+        const data = (await res.json()) as { updatedAt?: string; products?: Product[] };
+        if (!active || !Array.isArray(data?.products)) return;
+        const liveUpdatedAt = typeof data.updatedAt === 'string' ? data.updatedAt : '';
+        setLiveCatalog({ updatedAt: liveUpdatedAt, products: data.products });
+
+        if (!catalogDraftAt || (liveUpdatedAt && liveUpdatedAt > catalogDraftAt)) {
+          setCustomProducts([]);
+          setProductOverrides({});
+          setDeletedProductIds([]);
+          setCatalogDraftAt(null);
+        }
+      } catch {
+        // Offline or dev fallback uses bundled PRODUCTS
+      }
+    };
+    void loadLiveCatalog();
+    return () => {
+      active = false;
+    };
+  }, []);
 
   useEffect(() => {
     try {
@@ -483,11 +533,60 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   );
 
   const products = useMemo(() => {
+    const baseProducts = liveCatalog?.products ?? PRODUCTS;
     const deletedSet = new Set(deletedProductIds);
-    return [...customProducts, ...PRODUCTS]
-      .filter((p) => !deletedSet.has(p.id))
-      .map((p) => productOverrides[p.id] || p);
-  }, [customProducts, deletedProductIds, productOverrides]);
+    const seen = new Set<string>();
+    const merged: Product[] = [];
+
+    for (const item of [...customProducts, ...baseProducts]) {
+      if (deletedSet.has(item.id) || seen.has(item.id)) continue;
+      seen.add(item.id);
+      merged.push(productOverrides[item.id] || item);
+    }
+
+    return merged;
+  }, [liveCatalog, customProducts, deletedProductIds, productOverrides]);
+
+  const hasUnpublishedProductChanges = Boolean(
+    catalogDraftAt && (!liveCatalog?.updatedAt || catalogDraftAt > liveCatalog.updatedAt)
+  );
+
+  const exportLiveProductsJson = () => {
+    return JSON.stringify(
+      {
+        updatedAt: new Date().toISOString(),
+        products,
+      },
+      null,
+      2
+    );
+  };
+
+  const syncWithLiveCatalog = async () => {
+    try {
+      const res = await fetch(`/data/products.json?v=${Date.now()}`, { cache: 'no-store' });
+      if (!res.ok) {
+        showToast('Could not fetch live catalogue');
+        return;
+      }
+      const data = (await res.json()) as { updatedAt?: string; products?: Product[] };
+      if (!Array.isArray(data?.products)) {
+        showToast('Invalid live catalogue format');
+        return;
+      }
+      setLiveCatalog({
+        updatedAt: typeof data.updatedAt === 'string' ? data.updatedAt : '',
+        products: data.products,
+      });
+      setCustomProducts([]);
+      setProductOverrides({});
+      setDeletedProductIds([]);
+      setCatalogDraftAt(null);
+      showToast('Synced with live Netlify catalogue');
+    } catch {
+      showToast('Could not connect to live catalogue');
+    }
+  };
 
   const cartSubtotal = useMemo(
     () =>
@@ -664,6 +763,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
 
     setCustomProducts((prev) => [newProduct, ...prev]);
+    setCatalogDraftAt(new Date().toISOString());
     showToast(`Added ${newProduct.name} to ${categoryLabel}`);
     return { ok: true, product: newProduct };
   };
@@ -753,6 +853,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } else {
       setProductOverrides((prev) => ({ ...prev, [productId]: updatedProduct }));
     }
+    setCatalogDraftAt(new Date().toISOString());
 
     showToast(`Updated ${updatedProduct.name}`);
     return { ok: true, product: updatedProduct };
@@ -776,6 +877,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } else {
       setProductOverrides((prev) => ({ ...prev, [productId]: updatedProduct }));
     }
+    setCatalogDraftAt(new Date().toISOString());
 
     showToast(
       nextInStock
@@ -794,6 +896,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return copy;
     });
     setDeletedProductIds((prev) => (prev.includes(productId) ? prev : [...prev, productId]));
+    setCatalogDraftAt(new Date().toISOString());
     showToast('Product removed from catalogue');
   };
 
@@ -855,6 +958,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         loginDemoUser,
         logoutDemoUser,
         products,
+        hasUnpublishedProductChanges,
+        exportLiveProductsJson,
+        syncWithLiveCatalog,
         addAdminProduct,
         updateAdminProduct,
         toggleProductOutOfStock,

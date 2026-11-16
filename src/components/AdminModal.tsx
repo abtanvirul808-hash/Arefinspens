@@ -1,6 +1,9 @@
 import React, { useMemo, useRef, useState } from 'react';
 import {
+  Check,
   CheckCircle2,
+  Copy,
+  Download,
   Eye,
   EyeOff,
   FolderPlus,
@@ -11,6 +14,7 @@ import {
   Pencil,
   Phone,
   Plus,
+  RefreshCw,
   Save,
   Search,
   ShieldCheck,
@@ -96,6 +100,9 @@ export const AdminModal: React.FC = () => {
     updateOrderStage,
     deleteOrder,
     products,
+    hasUnpublishedProductChanges,
+    exportLiveProductsJson,
+    syncWithLiveCatalog,
     addAdminProduct,
     updateAdminProduct,
     toggleProductOutOfStock,
@@ -138,6 +145,7 @@ export const AdminModal: React.FC = () => {
   const [catalogListFilter, setCatalogListFilter] = useState<CategoryId>('all');
   const [prodSearchTerm, setProdSearchTerm] = useState('');
   const [confirmDeleteProductId, setConfirmDeleteProductId] = useState<string | null>(null);
+  const [copiedCatalogJson, setCopiedCatalogJson] = useState(false);
 
   const filteredOrders = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -256,6 +264,32 @@ export const AdminModal: React.FC = () => {
         : [{ id: `c-${Date.now()}`, name: 'Black', hex: '#1E293B', image: '' }]
     );
     productsTabScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleDownloadCatalogJson = () => {
+    const jsonText = exportLiveProductsJson();
+    const blob = new Blob([jsonText], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = 'products.json';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast('Downloaded products.json — replace public/data/products.json in GitHub');
+  };
+
+  const handleCopyCatalogJson = async () => {
+    const jsonText = exportLiveProductsJson();
+    try {
+      await navigator.clipboard.writeText(jsonText);
+      setCopiedCatalogJson(true);
+      window.setTimeout(() => setCopiedCatalogJson(false), 1800);
+      showToast('Copied products.json to clipboard');
+    } catch {
+      showToast('Use Download products.json to save the updated catalog');
+    }
   };
 
   const handleSaveProduct = (e: React.FormEvent) => {
@@ -683,8 +717,76 @@ export const AdminModal: React.FC = () => {
               /* Set Category & Manage Products Tab */
               <div
                 ref={productsTabScrollRef}
-                className="flex-1 overflow-y-auto space-y-6 pr-1"
+                className="flex-1 overflow-y-auto space-y-5 pr-1"
               >
+                {/* Live Netlify GitHub-Sync Publish Bar */}
+                <div className="rounded-xl border border-accent/45 bg-[var(--bg-card)] p-3.5 sm:p-4 space-y-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="space-y-0.5">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-display text-xs sm:text-sm font-bold text-[var(--text-main)]">
+                          Publish Live Changes to Netlify (GitHub Sync)
+                        </h3>
+                        {hasUnpublishedProductChanges && (
+                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 border border-amber-500/50 text-amber-600 dark:text-amber-400">
+                            Unpublished Edits
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] sm:text-xs text-[var(--text-secondary)]">
+                        After editing products or stock, export{' '}
+                        <code className="font-mono-num text-[var(--text-main)]">
+                          products.json
+                        </code>{' '}
+                        and update{' '}
+                        <code className="font-mono-num text-[var(--text-main)]">
+                          public/data/products.json
+                        </code>{' '}
+                        in GitHub so Netlify deploys your changes live for all visitors.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={handleDownloadCatalogJson}
+                      className="px-3 py-1.5 rounded-lg text-xs font-semibold cta-glow-red inline-flex items-center gap-1.5"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                      <span>Download products.json</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleCopyCatalogJson}
+                      className="px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-main)] hover:border-accent inline-flex items-center gap-1.5 transition-colors"
+                    >
+                      {copiedCatalogJson ? (
+                        <>
+                          <Check className="w-3.5 h-3.5 text-emerald-500" />
+                          <span>Copied JSON</span>
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-3.5 h-3.5" />
+                          <span>Copy JSON</span>
+                        </>
+                      )}
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={() => void syncWithLiveCatalog()}
+                      className="px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:border-accent inline-flex items-center gap-1.5 transition-colors"
+                      title="Discard unpublished local edits and reload live Netlify catalog"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      <span>Sync with Live Site</span>
+                    </button>
+                  </div>
+                </div>
+
                 <form
                   onSubmit={handleSaveProduct}
                   className="rounded-xl border border-accent/40 bg-[var(--bg-card)] p-4 sm:p-5 space-y-4"
