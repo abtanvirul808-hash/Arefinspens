@@ -27,6 +27,7 @@ import {
 } from '../types';
 import {
   CATALOGUE_CATEGORIES,
+  getColorAvailableCount,
   getProductInkColors,
   getVariantInkColors,
   PRODUCTS,
@@ -50,6 +51,8 @@ export interface NewProductColorInput {
   id?: string;
   name: string;
   hex: string;
+  inStock?: boolean;
+  stockCount?: number;
   image?: string;
   inkColors?: InkColorOption[];
 }
@@ -145,6 +148,7 @@ interface StoreContextValue {
     input: NewProductInput
   ) => Promise<{ ok: boolean; error?: string; product?: Product }>;
   toggleProductOutOfStock: (productId: string) => Promise<void>;
+  toggleProductColorStock: (productId: string, colorId: string) => Promise<void>;
   deleteAdminProduct: (productId: string) => Promise<void>;
 
   orders: TrackedOrder[];
@@ -262,11 +266,18 @@ function normalizeInkColorsList(
 
 function sanitizeProductForFirestore(product: Product): Record<string, unknown> {
   const cleanColors = product.colors.slice(0, 12).map((c, idx) => {
+    const resolvedStock =
+      typeof c.stockCount === 'number' && Number.isFinite(c.stockCount)
+        ? Math.max(0, Math.round(c.stockCount))
+        : c.inStock
+        ? Math.max(1, getColorAvailableCount(product, c) || 25)
+        : 0;
     const entry: Record<string, unknown> = {
       id: c.id || `color-${idx + 1}`,
       name: c.name.trim().slice(0, 60) || `Colour ${idx + 1}`,
       hex: c.hex || '#FF1428',
       inStock: Boolean(c.inStock),
+      stockCount: resolvedStock,
     };
     if (c.image && c.image.trim()) {
       entry.image = c.image.trim();
@@ -853,8 +864,24 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return;
     }
     const availableColors = product.colors.filter((c) => c.inStock);
+    if (availableColors.length === 0) {
+      showToast(`${product.name} has no colours in stock right now`);
+      return;
+    }
+    if (colorId) {
+      const explicitColor = product.colors.find((c) => c.id === colorId);
+      if (explicitColor && !explicitColor.inStock) {
+        showToast(`${explicitColor.name} colour is currently out of stock`);
+        return;
+      }
+    }
     const chosen =
-      availableColors.find((c) => c.id === colorId) || availableColors[0] || product.colors[0];
+      (colorId ? availableColors.find((c) => c.id === colorId) : undefined) ||
+      availableColors[0];
+    if (!chosen || getColorAvailableCount(product, chosen) <= 0) {
+      showToast(`${chosen?.name || product.name} is currently out of stock`);
+      return;
+    }
     const availableInks = getVariantInkColors(product, chosen);
     const chosenInk =
       availableInks.find((i) => i.id === inkColorId) || availableInks[0];
@@ -910,11 +937,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!product) return;
 
     const availableColors = product.colors.filter((c) => c.inStock);
+    if (availableColors.length === 0) {
+      showToast(`${product.name} has no colours in stock right now`);
+      return;
+    }
+    const explicitColor = product.colors.find((c) => c.id === nextColorId);
+    if (explicitColor && !explicitColor.inStock) {
+      showToast(`${explicitColor.name} colour is currently out of stock`);
+      return;
+    }
     const chosen =
-      availableColors.find((c) => c.id === nextColorId) ||
-      product.colors.find((c) => c.id === nextColorId) ||
-      availableColors[0] ||
-      product.colors[0];
+      availableColors.find((c) => c.id === nextColorId) || availableColors[0];
     if (!chosen) return;
 
     const availableInks = getVariantInkColors(product, chosen);
@@ -1325,17 +1358,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!Number.isFinite(input.priceBdt) || input.priceBdt <= 0) {
       return { ok: false, error: 'Please enter a valid price in ৳ BDT.' };
     }
+    const fallbackPerColor = Math.max(
+      1,
+      Math.round((Number.isFinite(input.stockCount) ? input.stockCount : 50) / Math.max(1, input.colors.length))
+    );
     const validColors = input.colors
-      .map((c) => ({
-        id: c.id,
-        name: c.name.trim(),
-        hex: c.hex.trim() || '#FF1428',
-        image: c.image?.trim() || undefined,
-        inkColors:
-          Array.isArray(c.inkColors) && c.inkColors.length > 0
-            ? normalizeInkColorsList(c.inkColors)
-            : undefined,
-      }))
+      .map((c) => {
+        const hasExplicitCount =
+          typeof c.stockCount === 'number' && Number.isFinite(c.stockCount);
+        const rawCount = hasExplicitCount
+          ? Math.max(0, Math.round(c.stockCount!))
+          : fallbackPerColor;
+        const colorInStock = c.inStock !== false && rawCount > 0;
+        return {
+          id: c.id,
+          name: c.name.trim(),
+          hex: c.hex.trim() || '#FF1428',
+          inStock: colorInStock,
+          stockCount: colorInStock ? Math.max(1, rawCount) : 0,
+          image: c.image?.trim() || undefined,
+          inkColors:
+            Array.isArray(c.inkColors) && c.inkColors.length > 0
+              ? normalizeInkColorsList(c.inkColors)
+              : undefined,
+        };
+      })
       .filter((c) => c.name.length > 0);
 
     if (validColors.length === 0) {
@@ -1366,6 +1413,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       input.inkColorHex
     );
 
+    const totalColorStock = validColors.reduce(
+      (sum, c) => sum + (c.inStock ? c.stockCount : 0),
+      0
+    );
+    const hasAnyColorInStock = validColors.some((c) => c.inStock) && totalColorStock > 0;
+
     const newProduct: Product = {
       id: uniqueSlug,
       slug: uniqueSlug,
@@ -1392,14 +1445,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       popularityScore: 95,
       featured: Boolean(input.featured),
       isNew: true,
-      inStock: input.outOfStock ? false : input.stockCount > 0,
-      stockCount: Math.max(0, Math.round(input.stockCount || 50)),
+      inStock: !input.outOfStock && hasAnyColorInStock,
+      stockCount: input.outOfStock ? 0 : totalColorStock,
       images: mergedImages,
       colors: validColors.map((c, idx) => ({
         id: c.id || `${slugifyProductName(c.name)}-${idx + 1}`,
         name: c.name,
         hex: c.hex,
-        inStock: true,
+        inStock: c.inStock,
+        stockCount: c.stockCount,
         image: c.image || mergedImages[0],
         inkColors: c.inkColors && c.inkColors.length > 0 ? c.inkColors : normalizedInks,
       })),
@@ -1454,17 +1508,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!Number.isFinite(input.priceBdt) || input.priceBdt <= 0) {
       return { ok: false, error: 'Please enter a valid price in ৳ BDT.' };
     }
+    const fallbackPerColor = Math.max(
+      1,
+      Math.round((Number.isFinite(input.stockCount) ? input.stockCount : existing.stockCount || 50) / Math.max(1, input.colors.length))
+    );
     const validColors = input.colors
-      .map((c) => ({
-        id: c.id,
-        name: c.name.trim(),
-        hex: c.hex.trim() || '#FF1428',
-        image: c.image?.trim() || undefined,
-        inkColors:
-          Array.isArray(c.inkColors) && c.inkColors.length > 0
-            ? normalizeInkColorsList(c.inkColors)
-            : undefined,
-      }))
+      .map((c) => {
+        const hasExplicitCount =
+          typeof c.stockCount === 'number' && Number.isFinite(c.stockCount);
+        const rawCount = hasExplicitCount
+          ? Math.max(0, Math.round(c.stockCount!))
+          : fallbackPerColor;
+        const colorInStock = c.inStock !== false && rawCount > 0;
+        return {
+          id: c.id,
+          name: c.name.trim(),
+          hex: c.hex.trim() || '#FF1428',
+          inStock: colorInStock,
+          stockCount: colorInStock ? Math.max(1, rawCount) : 0,
+          image: c.image?.trim() || undefined,
+          inkColors:
+            Array.isArray(c.inkColors) && c.inkColors.length > 0
+              ? normalizeInkColorsList(c.inkColors)
+              : undefined,
+        };
+      })
       .filter((c) => c.name.length > 0);
 
     if (validColors.length === 0) {
@@ -1486,10 +1554,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       new Set([...input.images.filter(Boolean), ...colorImages, ...existing.images].filter(Boolean))
     );
 
-    const parsedStock = Number.isFinite(input.stockCount)
-      ? Math.max(0, Math.round(input.stockCount))
-      : existing.stockCount;
-    const nextInStock = input.outOfStock !== undefined ? !input.outOfStock : parsedStock > 0;
+    const totalColorStock = validColors.reduce(
+      (sum, c) => sum + (c.inStock ? c.stockCount : 0),
+      0
+    );
+    const hasAnyColorInStock = validColors.some((c) => c.inStock) && totalColorStock > 0;
+    const nextInStock = !input.outOfStock && hasAnyColorInStock;
 
     const variantInksFlat = validColors.flatMap((c) => c.inkColors || []);
     const normalizedInks = normalizeInkColorsList(
@@ -1518,13 +1588,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           : undefined,
       featured: Boolean(input.featured),
       inStock: nextInStock,
-      stockCount: nextInStock ? Math.max(1, parsedStock) : parsedStock,
+      stockCount: totalColorStock,
       images: mergedImages.length > 0 ? mergedImages : existing.images,
       colors: validColors.map((c, idx) => ({
         id: c.id || `${slugifyProductName(c.name)}-${idx + 1}`,
         name: c.name,
         hex: c.hex,
-        inStock: true,
+        inStock: c.inStock,
+        stockCount: c.stockCount,
         image: c.image || mergedImages[0] || existing.images[0],
         inkColors: c.inkColors && c.inkColors.length > 0 ? c.inkColors : normalizedInks,
       })),
@@ -1582,26 +1653,53 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     const nextInStock = !existing.inStock;
+    const anyExistingColorInStock = existing.colors.some((c) => c.inStock);
+    const nextColors = existing.colors.map((c) => {
+      const currentCount =
+        typeof c.stockCount === 'number' && Number.isFinite(c.stockCount)
+          ? Math.max(0, Math.round(c.stockCount))
+          : getColorAvailableCount(existing, c);
+      if (nextInStock && !anyExistingColorInStock) {
+        return {
+          ...c,
+          inStock: true,
+          stockCount: Math.max(1, currentCount || 25),
+        };
+      }
+      if (nextInStock && c.inStock && currentCount <= 0) {
+        return {
+          ...c,
+          stockCount: 25,
+        };
+      }
+      return {
+        ...c,
+        stockCount: currentCount,
+      };
+    });
     const nextStockCount = nextInStock
-      ? Math.max(1, existing.stockCount || 25)
+      ? nextColors.reduce((sum, c) => sum + (c.inStock ? c.stockCount || 0 : 0), 0)
       : existing.stockCount;
 
     try {
       await ensureCatalogSeeded(productId);
       const existsInCloud = cloudProducts?.some((p) => p.id === productId);
+      const sanitized = sanitizeProductForFirestore({
+        ...existing,
+        inStock: nextInStock,
+        stockCount: nextStockCount,
+        colors: nextColors,
+      });
       if (existsInCloud) {
         await updateDoc(doc(db, 'products', productId), {
-          inStock: nextInStock,
-          stockCount: nextStockCount,
+          inStock: sanitized.inStock,
+          stockCount: sanitized.stockCount,
+          colors: sanitized.colors,
           updatedAt: serverTimestamp(),
         });
       } else {
         await setDoc(doc(db, 'products', productId), {
-          ...sanitizeProductForFirestore({
-            ...existing,
-            inStock: nextInStock,
-            stockCount: nextStockCount,
-          }),
+          ...sanitized,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
@@ -1619,6 +1717,90 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         // Redacted error logged cleanly
       }
       showToast(formatLiveSyncError(err, 'Could not update stock status in Live Sync.'));
+    }
+  };
+
+  const toggleProductColorStock = async (productId: string, colorId: string) => {
+    if (!isAdmin) return;
+    const existing = products.find((p) => p.id === productId);
+    if (!existing) return;
+
+    const targetColor = existing.colors.find((c) => c.id === colorId);
+    if (!targetColor) return;
+
+    if (!isFirebaseAdmin) {
+      showToast('Click "Connect Google Account" above to sync colour stock live');
+      return;
+    }
+
+    const nextColorInStock = !targetColor.inStock;
+    const updatedColors = existing.colors.map((c) => {
+      const prevCount =
+        typeof c.stockCount === 'number' && Number.isFinite(c.stockCount)
+          ? Math.max(0, Math.round(c.stockCount))
+          : getColorAvailableCount(existing, c);
+      if (c.id === colorId) {
+        return {
+          ...c,
+          inStock: nextColorInStock,
+          stockCount: nextColorInStock ? Math.max(1, prevCount || 25) : prevCount,
+        };
+      }
+      return {
+        ...c,
+        stockCount: prevCount,
+      };
+    });
+    const hasAnyColorInStock = updatedColors.some((c) => c.inStock);
+    const totalColorStock = updatedColors.reduce(
+      (sum, c) => sum + (c.inStock ? Math.max(0, c.stockCount || 0) : 0),
+      0
+    );
+    const nextProductInStock =
+      hasAnyColorInStock && totalColorStock > 0
+        ? nextColorInStock
+          ? true
+          : existing.inStock
+        : false;
+    const nextStockCount = totalColorStock;
+
+    try {
+      await ensureCatalogSeeded(productId);
+      const existsInCloud = cloudProducts?.some((p) => p.id === productId);
+      const updatedProduct: Product = {
+        ...existing,
+        inStock: nextProductInStock,
+        stockCount: nextStockCount,
+        colors: updatedColors,
+      };
+      const sanitized = sanitizeProductForFirestore(updatedProduct);
+      if (existsInCloud) {
+        await updateDoc(doc(db, 'products', productId), {
+          colors: sanitized.colors,
+          inStock: sanitized.inStock,
+          stockCount: sanitized.stockCount,
+          updatedAt: serverTimestamp(),
+        });
+      } else {
+        await setDoc(doc(db, 'products', productId), {
+          ...sanitized,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        });
+      }
+
+      showToast(
+        nextColorInStock
+          ? `${existing.name} (${targetColor.name}) is back In Stock`
+          : `${existing.name} (${targetColor.name}) marked Out of Stock`
+      );
+    } catch (err) {
+      try {
+        handleFirestoreError(err, OperationType.UPDATE, `products/${productId}`);
+      } catch {
+        // Redacted error logged cleanly
+      }
+      showToast(formatLiveSyncError(err, 'Could not update colour stock status in Live Sync.'));
     }
   };
 
@@ -1760,6 +1942,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         addAdminProduct,
         updateAdminProduct,
         toggleProductOutOfStock,
+        toggleProductColorStock,
         deleteAdminProduct,
         orders,
         adminOrders,

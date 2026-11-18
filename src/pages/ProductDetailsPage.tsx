@@ -13,7 +13,12 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { getProductInkColors, getVariantInkColors } from '../data/products';
+import {
+  getColorAvailableCount,
+  getProductInkColors,
+  getProductTotalAvailableCount,
+  getVariantInkColors,
+} from '../data/products';
 import { ProductCard } from '../components/ProductCard';
 import { SafeImage } from '../components/SafeImage';
 
@@ -70,6 +75,16 @@ export const ProductDetailsPage: React.FC = () => {
 
   const activeColor =
     product.colors.find((c) => c.id === selectedColorId) || product.colors[0];
+  const selectedColorAvailable = getColorAvailableCount(product, activeColor);
+  const totalAvailable = getProductTotalAvailableCount(product);
+  const availableColorCount = product.colors.filter(
+    (c) => getColorAvailableCount(product, c) > 0
+  ).length;
+  const totalColorCount = product.colors.length;
+  const effectiveProductInStock =
+    product.inStock && totalAvailable > 0 && availableColorCount > 0;
+  const isSelectedColorInStock = selectedColorAvailable > 0;
+  const canPurchase = effectiveProductInStock && isSelectedColorInStock;
   const variantInkColors = getVariantInkColors(product, activeColor);
   const allProductInkColors = getProductInkColors(product);
   const activeInk =
@@ -92,6 +107,8 @@ export const ProductDetailsPage: React.FC = () => {
     if (variant?.image) {
       switchImageSmoothly(variant.image);
     }
+    const nextColorAvail = getColorAvailableCount(product, variant);
+    setQuantity((q) => Math.max(1, Math.min(q, nextColorAvail || 1)));
     const nextInks = getVariantInkColors(product, variant);
     if (!nextInks.some((i) => i.id === selectedInkId)) {
       setSelectedInkId(nextInks[0]?.id || 'black');
@@ -215,24 +232,39 @@ export const ProductDetailsPage: React.FC = () => {
           </p>
 
           {/* Stock Status */}
-          <div className="flex items-center gap-2 text-sm">
-            {product.inStock ? (
-              <>
-                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                <span className="font-medium text-emerald-600 dark:text-emerald-400">
-                  In Stock
-                </span>
-                <span className="text-[var(--text-muted)] font-mono-num">
-                  ({product.stockCount} available)
-                </span>
-              </>
-            ) : (
+          <div className="flex flex-wrap items-center gap-2 text-sm">
+            {!effectiveProductInStock ? (
               <>
                 <XCircle className="w-4 h-4 text-rose-500 shrink-0" />
                 <span className="font-semibold text-rose-600 dark:text-rose-400">
                   Out of Stock
                 </span>
-                <span className="text-[var(--text-muted)]">(Currently unavailable)</span>
+                <span className="text-[var(--text-muted)] font-mono-num">
+                  · Total available: 0
+                </span>
+              </>
+            ) : !isSelectedColorInStock ? (
+              <>
+                <XCircle className="w-4 h-4 text-rose-500 shrink-0" />
+                <span className="font-semibold text-rose-600 dark:text-rose-400">
+                  {activeColor.name}: 0 available (Out of Stock)
+                </span>
+                <span className="text-[var(--text-secondary)] font-mono-num">
+                  · Total available: {totalAvailable}
+                </span>
+              </>
+            ) : (
+              <>
+                <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
+                <span className="font-medium text-emerald-600 dark:text-emerald-400">
+                  In Stock
+                </span>
+                <span className="text-[var(--text-main)] font-mono-num font-semibold">
+                  · {activeColor.name}: {selectedColorAvailable} available
+                </span>
+                <span className="text-[var(--text-secondary)] font-mono-num">
+                  · Total available: {totalAvailable}
+                </span>
               </>
             )}
           </div>
@@ -241,38 +273,86 @@ export const ProductDetailsPage: React.FC = () => {
           <div className="p-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] space-y-4">
             <div className="space-y-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                <span className="font-semibold text-[var(--text-main)]">Body Colour:</span>
-                <span className="font-semibold text-accent dark:text-accent-bright">
-                  {activeColor.name}
-                </span>
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-semibold text-[var(--text-main)]">Body Colour:</span>
+                  <span
+                    className={`font-semibold ${
+                      isSelectedColorInStock
+                        ? 'text-accent dark:text-accent-bright'
+                        : 'text-rose-500'
+                    }`}
+                  >
+                    {activeColor.name}
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm font-mono-num">
+                  <span
+                    className={`font-semibold ${
+                      isSelectedColorInStock
+                        ? 'text-[var(--text-main)]'
+                        : 'text-rose-500'
+                    }`}
+                  >
+                    {activeColor.name}:{' '}
+                    {isSelectedColorInStock
+                      ? `${selectedColorAvailable} available`
+                      : '0 (Out of Stock)'}
+                  </span>
+                  <span className="text-[var(--text-muted)]" aria-hidden="true">
+                    ·
+                  </span>
+                  <span className="text-[var(--text-secondary)]">
+                    Total available: {totalAvailable}
+                  </span>
+                </div>
               </div>
               <div className="flex flex-wrap items-center gap-3">
-                {product.colors
-                  .filter((c) => c.inStock)
-                  .map((color) => {
-                    const selected = color.id === selectedColorId;
-                    return (
-                      <button
-                        key={color.id}
-                        type="button"
-                        onClick={() => handleSelectColor(color.id)}
-                        aria-label={`Select colour ${color.name}`}
-                        aria-pressed={selected}
-                        className={`group relative w-11 h-11 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all duration-150 ${
-                          selected
-                            ? 'ring-2 ring-accent ring-offset-2 ring-offset-[var(--bg-card)] scale-110 shadow-[0_0_16px_rgba(var(--accent-rgb),0.45)]'
-                            : 'ring-1 ring-black/20 dark:ring-white/25 hover:scale-105'
-                        }`}
-                        style={{ backgroundColor: color.hex }}
-                        title={color.name}
-                      >
-                        {selected && (
-                          <Check className="w-4 h-4 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]" />
-                        )}
-                      </button>
-                    );
-                  })}
+                {product.colors.map((color) => {
+                  const selected = color.id === selectedColorId;
+                  const colorCount = getColorAvailableCount(product, color);
+                  const out = colorCount <= 0;
+                  return (
+                    <button
+                      key={color.id}
+                      type="button"
+                      onClick={() => handleSelectColor(color.id)}
+                      aria-label={
+                        out
+                          ? `${color.name} colour (Out of Stock)`
+                          : `Select colour ${color.name} (${colorCount} available)`
+                      }
+                      aria-pressed={selected}
+                      className={`group relative w-11 h-11 sm:w-10 sm:h-10 rounded-full overflow-hidden flex items-center justify-center transition-all duration-150 ${
+                        selected
+                          ? 'ring-2 ring-accent ring-offset-2 ring-offset-[var(--bg-card)] scale-110 shadow-[0_0_16px_rgba(var(--accent-rgb),0.45)]'
+                          : 'ring-1 ring-black/20 dark:ring-white/25 hover:scale-105'
+                      } ${out ? 'opacity-45' : ''}`}
+                      style={{ backgroundColor: color.hex }}
+                      title={
+                        out
+                          ? `${color.name} (Out of Stock)`
+                          : `${color.name} (${colorCount} available)`
+                      }
+                    >
+                      {out && (
+                        <span
+                          aria-hidden="true"
+                          className="pointer-events-none absolute inset-0 flex items-center justify-center"
+                        >
+                          <span className="w-[140%] h-[2.5px] bg-white shadow-[0_0_2px_rgba(0,0,0,0.9)] -rotate-45" />
+                        </span>
+                      )}
+                      {selected && !out && (
+                        <Check className="w-4 h-4 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
+              <p className="text-xs font-mono-num text-[var(--text-muted)]">
+                {availableColorCount} of {totalColorCount}{' '}
+                {totalColorCount === 1 ? 'colour' : 'colours'} available
+              </p>
             </div>
 
             <div className="pt-3 border-t border-[var(--border-subtle)]/60 space-y-2.5">
@@ -336,9 +416,9 @@ export const ProductDetailsPage: React.FC = () => {
                 </span>
                 <button
                   type="button"
-                  disabled={!product.inStock}
+                  disabled={!canPurchase}
                   onClick={() =>
-                    setQuantity((q) => Math.min(Math.max(1, product.stockCount), q + 1))
+                    setQuantity((q) => Math.min(Math.max(1, selectedColorAvailable), q + 1))
                   }
                   className="w-11 h-full flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)] disabled:opacity-40"
                   aria-label="Increase quantity"
@@ -349,16 +429,22 @@ export const ProductDetailsPage: React.FC = () => {
 
               <button
                 type="button"
-                disabled={!product.inStock}
+                disabled={!canPurchase}
                 onClick={() => addToCart(product, selectedColorId, quantity, true, activeInk.id)}
                 className={`flex-1 min-w-[140px] h-12 px-5 sm:px-6 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2 ${
-                  product.inStock
+                  canPurchase
                     ? 'cta-glow-red'
                     : 'bg-black/10 dark:bg-white/10 text-[var(--text-muted)] border border-[var(--border-subtle)] cursor-not-allowed'
                 }`}
               >
                 <ShoppingBag className="w-4 h-4" />
-                <span>{product.inStock ? 'Add to Cart' : 'Out of Stock'}</span>
+                <span>
+                  {!effectiveProductInStock
+                    ? 'Out of Stock'
+                    : !isSelectedColorInStock
+                    ? 'Colour Out of Stock'
+                    : 'Add to Cart'}
+                </span>
               </button>
 
               <button
@@ -377,19 +463,23 @@ export const ProductDetailsPage: React.FC = () => {
 
             <button
               type="button"
-              disabled={!product.inStock}
+              disabled={!canPurchase}
               onClick={() => {
-                if (!product.inStock) return;
+                if (!canPurchase) return;
                 addToCart(product, selectedColorId, quantity, false, activeInk.id);
                 navigate('checkout');
               }}
               className={`w-full h-12 rounded-xl border text-sm font-semibold transition-colors ${
-                product.inStock
+                canPurchase
                   ? 'border-accent/65 text-[var(--text-main)] hover:bg-accent/10'
                   : 'border-[var(--border-subtle)] text-[var(--text-muted)] opacity-60 cursor-not-allowed'
               }`}
             >
-              {product.inStock ? 'Buy Now — Proceed to Checkout' : 'Currently Out of Stock'}
+              {!effectiveProductInStock
+                ? 'Currently Out of Stock'
+                : !isSelectedColorInStock
+                ? `${activeColor.name} Colour Out of Stock — Select Another Colour`
+                : 'Buy Now — Proceed to Checkout'}
             </button>
           </div>
 

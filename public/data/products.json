@@ -29,6 +29,7 @@
           "name": "Pink",
           "hex": "#F4A9C8",
           "inStock": true,
+          "stockCount": 40,
           "image": "/assets/aistudio/20261115_191701_6025b891.jpg"
         },
         {
@@ -36,6 +37,7 @@
           "name": "Yellow",
           "hex": "#E6D47A",
           "inStock": true,
+          "stockCount": 40,
           "image": "/assets/aistudio/20261115_191311_29fd86e7.jpg"
         },
         {
@@ -43,6 +45,7 @@
           "name": "Aqua",
           "hex": "#3FD0E4",
           "inStock": true,
+          "stockCount": 40,
           "image": "/assets/aistudio/20261115_191847_c391cd06.jpg"
         }
       ],

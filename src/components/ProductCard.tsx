@@ -2,7 +2,11 @@ import React, { useState } from 'react';
 import { Check, Heart, ShoppingBag, Star } from 'lucide-react';
 import { Product } from '../types';
 import { useStore } from '../context/StoreContext';
-import { getVariantInkColors } from '../data/products';
+import {
+  getColorAvailableCount,
+  getProductTotalAvailableCount,
+  getVariantInkColors,
+} from '../data/products';
 import { SafeImage } from './SafeImage';
 
 interface ProductCardProps {
@@ -20,6 +24,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const [selectedInkId, setSelectedInkId] = useState(inkColors[0]?.id || 'black');
   const [justAdded, setJustAdded] = useState(false);
 
+  const selectedColorAvailable = getColorAvailableCount(product, activeColor);
+  const totalAvailable = getProductTotalAvailableCount(product);
+  const availableColorCount = product.colors.filter(
+    (c) => getColorAvailableCount(product, c) > 0
+  ).length;
+  const effectiveInStock =
+    product.inStock && totalAvailable > 0 && availableColorCount > 0;
+  const isSelectedColorInStock = selectedColorAvailable > 0;
+  const canQuickAdd = effectiveInStock && isSelectedColorInStock;
+
   const wishlisted = isWishlisted(product.id);
   const activeInk =
     inkColors.find((i) => i.id === selectedInkId) || inkColors[0];
@@ -34,7 +48,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
 
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (!product.inStock) return;
+    if (!canQuickAdd) return;
     addToCart(product, selectedColorId, 1, true, activeInk?.id);
     setJustAdded(true);
     window.setTimeout(() => setJustAdded(false), 1200);
@@ -54,7 +68,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           alt={product.name}
           fallbackLabel={product.name}
           className={`w-full h-full object-cover transition-transform duration-300 group-hover:scale-[1.04] ${
-            !product.inStock ? 'opacity-65' : ''
+            !effectiveInStock ? 'opacity-65' : ''
           }`}
         />
 
@@ -76,9 +90,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </button>
 
         {/* Quiet Single-Line Discount / Stock Label */}
-        {!product.inStock ? (
+        {!effectiveInStock ? (
           <span className="absolute top-3 left-3 px-2.5 py-1 rounded-md bg-rose-600/90 backdrop-blur-sm border border-rose-400/60 text-[11px] font-bold text-white uppercase tracking-wide">
             Out of Stock
+          </span>
+        ) : !isSelectedColorInStock ? (
+          <span className="absolute top-3 left-3 px-2.5 py-1 rounded-md bg-rose-600/85 backdrop-blur-sm border border-rose-400/60 text-[11px] font-bold text-white tracking-wide">
+            {activeColor?.name} Out of Stock
           </span>
         ) : (
           discountPercent && (
@@ -119,39 +137,84 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
         </div>
 
         <div className="space-y-2.5 sm:space-y-3 pt-1">
-          {/* Available Body Colour Swatches */}
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2 sm:gap-1.5" role="group" aria-label="Available colours">
-              {product.colors.map((color) => {
-                const selected = color.id === selectedColorId;
-                return (
-                  <button
-                    key={color.id}
-                    type="button"
-                    disabled={!color.inStock}
-                    onClick={() => {
-                      setSelectedColorId(color.id);
-                      const nextInks = getVariantInkColors(product, color);
-                      if (!nextInks.some((i) => i.id === selectedInkId)) {
-                        setSelectedInkId(nextInks[0]?.id || 'black');
+          {/* Body Colour Swatches + Selected Colour Qty & Total Available Beside It */}
+          <div className="space-y-1.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-1.5" role="group" aria-label="Pen body colours">
+                {product.colors.map((color) => {
+                  const selected = color.id === selectedColorId;
+                  const colorCount = getColorAvailableCount(product, color);
+                  const out = colorCount <= 0;
+                  return (
+                    <button
+                      key={color.id}
+                      type="button"
+                      onClick={() => {
+                        setSelectedColorId(color.id);
+                        const nextInks = getVariantInkColors(product, color);
+                        if (!nextInks.some((i) => i.id === selectedInkId)) {
+                          setSelectedInkId(nextInks[0]?.id || 'black');
+                        }
+                      }}
+                      title={
+                        out
+                          ? `${color.name} (Out of Stock)`
+                          : `${color.name} (${colorCount} available)`
                       }
-                    }}
-                    title={color.name}
-                    aria-label={`Select ${color.name} colour`}
-                    aria-pressed={selected}
-                    className={`w-6 h-6 sm:w-5 sm:h-5 rounded-full transition-transform ${
-                      selected
-                        ? 'ring-2 ring-accent ring-offset-2 ring-offset-[var(--bg-card)] scale-110'
-                        : 'ring-1 ring-black/20 dark:ring-white/25 hover:scale-105'
-                    }`}
-                    style={{ backgroundColor: color.hex }}
-                  />
-                );
-              })}
+                      aria-label={
+                        out
+                          ? `${color.name} colour (Out of Stock)`
+                          : `Select ${color.name} colour (${colorCount} available)`
+                      }
+                      aria-pressed={selected}
+                      className={`relative w-6 h-6 sm:w-5 sm:h-5 rounded-full overflow-hidden transition-transform ${
+                        selected
+                          ? 'ring-2 ring-accent ring-offset-2 ring-offset-[var(--bg-card)] scale-110'
+                          : 'ring-1 ring-black/20 dark:ring-white/25 hover:scale-105'
+                      } ${out ? 'opacity-45' : ''}`}
+                      style={{ backgroundColor: color.hex }}
+                    >
+                      {out && (
+                        <span
+                          aria-hidden="true"
+                          className="pointer-events-none absolute inset-0 flex items-center justify-center"
+                        >
+                          <span className="w-[140%] h-[2px] bg-white shadow-[0_0_2px_rgba(0,0,0,0.9)] -rotate-45" />
+                        </span>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              <span
+                className={`text-xs truncate ${
+                  !isSelectedColorInStock
+                    ? 'text-rose-500 font-semibold'
+                    : 'text-[var(--text-muted)]'
+                }`}
+              >
+                {activeColor?.name}
+                {!isSelectedColorInStock ? ' · Out' : ''}
+              </span>
             </div>
-            <span className="text-xs text-[var(--text-muted)] truncate">
-              {activeColor?.name}
-            </span>
+
+            <div className="flex flex-wrap items-center justify-between gap-x-2 gap-y-0.5 text-[11px] font-mono-num">
+              <span
+                className={
+                  isSelectedColorInStock
+                    ? 'font-semibold text-[var(--text-main)]'
+                    : 'font-semibold text-rose-500'
+                }
+              >
+                {activeColor?.name}:{' '}
+                {isSelectedColorInStock
+                  ? `${selectedColorAvailable} available`
+                  : '0 (Out of Stock)'}
+              </span>
+              <span className="text-[var(--text-secondary)]">
+                Total available: {totalAvailable}
+              </span>
+            </div>
           </div>
 
           {/* Ink Colour Selector / Indicator */}
@@ -208,16 +271,18 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             <button
               type="button"
               onClick={handleQuickAdd}
-              disabled={!product.inStock}
+              disabled={!canQuickAdd}
               className={`min-h-[40px] px-3 sm:px-3.5 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 ${
-                !product.inStock
+                !canQuickAdd
                   ? 'bg-black/10 dark:bg-white/10 text-[var(--text-muted)] border border-[var(--border-subtle)] cursor-not-allowed'
                   : justAdded
                   ? 'bg-emerald-600 text-white'
                   : 'text-white cta-glow-red'
               }`}
             >
-              {!product.inStock ? (
+              {!effectiveInStock ? (
+                <span>Out of Stock</span>
+              ) : !isSelectedColorInStock ? (
                 <span>Out of Stock</span>
               ) : justAdded ? (
                 <>

@@ -1,6 +1,10 @@
 import React, { useState } from 'react';
 import { Check, Droplets } from 'lucide-react';
-import { getVariantInkColors } from '../data/products';
+import {
+  getColorAvailableCount,
+  getProductTotalAvailableCount,
+  getVariantInkColors,
+} from '../data/products';
 import { Product } from '../types';
 
 interface CartItemVariantEditorProps {
@@ -22,7 +26,10 @@ export const CartItemVariantEditor: React.FC<CartItemVariantEditorProps> = ({
   onSave,
   onCancel,
 }) => {
-  const selectableColors = product.colors.filter((c) => c.inStock);
+  const selectableColors = product.colors.filter(
+    (c) => getColorAvailableCount(product, c) > 0
+  );
+  const totalAvailable = getProductTotalAvailableCount(product);
   const bodyColors = selectableColors.length > 0 ? selectableColors : product.colors;
 
   const initialColor =
@@ -36,6 +43,7 @@ export const CartItemVariantEditor: React.FC<CartItemVariantEditorProps> = ({
 
   const activeBodyColor =
     bodyColors.find((c) => c.id === draftColorId) || bodyColors[0];
+  const selectedColorAvailable = getColorAvailableCount(product, activeBodyColor);
   const variantInks = getVariantInkColors(product, activeBodyColor);
   const activeInk =
     variantInks.find((i) => i.id === draftInkId) ||
@@ -59,10 +67,15 @@ export const CartItemVariantEditor: React.FC<CartItemVariantEditorProps> = ({
     >
       {/* Body Colour Selector */}
       <div className="space-y-1.5">
-        <div className="flex items-center justify-between gap-2 text-xs">
-          <span className="font-semibold text-[var(--text-secondary)]">Body Colour</span>
-          <span className="font-semibold text-accent dark:text-accent-bright truncate">
-            {activeBodyColor?.name}
+        <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
+          <span className="font-semibold text-[var(--text-secondary)]">
+            Body Colour
+          </span>
+          <span className="font-mono-num text-[var(--text-secondary)] truncate">
+            <span className="font-semibold text-accent dark:text-accent-bright">
+              {activeBodyColor?.name}: {selectedColorAvailable}
+            </span>{' '}
+            · Total available: {totalAvailable}
           </span>
         </div>
         <div
@@ -70,23 +83,42 @@ export const CartItemVariantEditor: React.FC<CartItemVariantEditorProps> = ({
           role="group"
           aria-label={`Select body colour for ${product.name}`}
         >
-          {bodyColors.map((color) => {
-            const selected = color.id === activeBodyColor?.id;
+          {product.colors.map((color) => {
+            const colorCount = getColorAvailableCount(product, color);
+            const out = colorCount <= 0;
+            const selected = color.id === activeBodyColor?.id && !out;
             return (
               <button
                 key={color.id}
                 type="button"
+                disabled={out}
                 onClick={() => handleSelectBodyColor(color.id)}
-                title={color.name}
-                aria-label={`Body colour ${color.name}`}
+                title={
+                  out
+                    ? `${color.name} (Out of Stock)`
+                    : `${color.name} (${colorCount} available)`
+                }
+                aria-label={
+                  out
+                    ? `${color.name} colour (Out of Stock)`
+                    : `Body colour ${color.name} (${colorCount} available)`
+                }
                 aria-pressed={selected}
-                className={`w-8 h-8 rounded-full flex items-center justify-center transition-transform ${
+                className={`relative w-8 h-8 rounded-full overflow-hidden flex items-center justify-center transition-transform ${
                   selected
                     ? 'ring-2 ring-accent ring-offset-2 ring-offset-[var(--bg-card)] scale-105'
                     : 'ring-1 ring-black/20 dark:ring-white/25 hover:scale-105'
-                }`}
+                } ${out ? 'opacity-40 cursor-not-allowed' : ''}`}
                 style={{ backgroundColor: color.hex }}
               >
+                {out && (
+                  <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute inset-0 flex items-center justify-center"
+                  >
+                    <span className="w-[140%] h-[2px] bg-white shadow-[0_0_2px_rgba(0,0,0,0.9)] -rotate-45" />
+                  </span>
+                )}
                 {selected && (
                   <Check className="w-3.5 h-3.5 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]" />
                 )}

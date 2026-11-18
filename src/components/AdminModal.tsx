@@ -29,7 +29,9 @@ import {
 import { useStore } from '../context/StoreContext';
 import {
   CATALOGUE_CATEGORIES,
+  getColorAvailableCount,
   getProductInkColors,
+  getProductTotalAvailableCount,
   getVariantInkColors,
 } from '../data/products';
 import { PRODUCT_IMAGES } from '../data/productImages';
@@ -83,6 +85,9 @@ interface ColorDraft {
   colorId?: string;
   name: string;
   hex: string;
+  inStock: boolean;
+  stockCount: string;
+  prevStockCount?: string;
   image: string;
   inkColors: InkColorOption[];
 }
@@ -149,6 +154,7 @@ export const AdminModal: React.FC = () => {
     addAdminProduct,
     updateAdminProduct,
     toggleProductOutOfStock,
+    toggleProductColorStock,
     deleteAdminProduct,
     showToast,
   } = useStore();
@@ -177,7 +183,6 @@ export const AdminModal: React.FC = () => {
   const [prodBrand, setProdBrand] = useState("Arefin's Pen");
   const [prodPrice, setProdPrice] = useState<string>('50');
   const [prodOriginalPrice, setProdOriginalPrice] = useState<string>('');
-  const [prodStock, setProdStock] = useState<string>('100');
   const [prodTipSize, setProdTipSize] = useState('0.5 mm Needle Tip');
   const [prodInkType, setProdInkType] = useState('Smooth Gel Ink');
   const [prodInkColors, setProdInkColors] = useState<InkColorOption[]>([
@@ -193,6 +198,9 @@ export const AdminModal: React.FC = () => {
       id: 'c-1',
       name: 'Black',
       hex: '#1E293B',
+      inStock: true,
+      stockCount: '40',
+      prevStockCount: '40',
       image: '',
       inkColors: [{ id: 'black', name: 'Black', hex: '#111827' }],
     },
@@ -254,6 +262,15 @@ export const AdminModal: React.FC = () => {
     });
   }, [products, catalogListFilter, prodSearchTerm]);
 
+  const autoTotalStock = useMemo(() => {
+    if (prodOutOfStock) return 0;
+    return colorDrafts.reduce((sum, c) => {
+      if (!c.inStock) return sum;
+      const qty = Math.max(0, Math.round(Number(c.stockCount) || 0));
+      return sum + qty;
+    }, 0);
+  }, [colorDrafts, prodOutOfStock]);
+
   if (!isAdminModalOpen) return null;
 
   const handleLogin = (e: React.FormEvent) => {
@@ -301,6 +318,9 @@ export const AdminModal: React.FC = () => {
         id: `c-${Date.now()}-${prev.length}`,
         name: '',
         hex: '#FF1428',
+        inStock: true,
+        stockCount: '25',
+        prevStockCount: '25',
         image: '',
         inkColors: prodInkColors.map((i) => ({ ...i })),
       },
@@ -471,7 +491,6 @@ export const AdminModal: React.FC = () => {
     setProdBrand("Arefin's Pen");
     setProdPrice('50');
     setProdOriginalPrice('');
-    setProdStock('100');
     setProdTipSize('0.5 mm Needle Tip');
     setProdInkType('Smooth Gel Ink');
     setProdInkColors([{ id: 'black', name: 'Black', hex: '#111827' }]);
@@ -487,6 +506,9 @@ export const AdminModal: React.FC = () => {
         id: `c-${Date.now()}`,
         name: 'Black',
         hex: '#1E293B',
+        inStock: true,
+        stockCount: '40',
+        prevStockCount: '40',
         image: '',
         inkColors: [{ id: 'black', name: 'Black', hex: '#111827' }],
       },
@@ -501,7 +523,6 @@ export const AdminModal: React.FC = () => {
     setProdBrand(prod.brand);
     setProdPrice(String(prod.priceBdt));
     setProdOriginalPrice(prod.originalPriceBdt ? String(prod.originalPriceBdt) : '');
-    setProdStock(String(prod.stockCount));
     setProdTipSize(prod.specs.tipSize);
     setProdInkType(prod.specs.inkType);
     const baseInks = getProductInkColors(prod);
@@ -515,19 +536,33 @@ export const AdminModal: React.FC = () => {
     setComboCustomInkByDraft({});
     setColorDrafts(
       prod.colors.length > 0
-        ? prod.colors.map((c, idx) => ({
-            id: `${prod.id}-${c.id}-${idx}`,
-            colorId: c.id,
-            name: c.name,
-            hex: c.hex,
-            image: c.image || '',
-            inkColors: getVariantInkColors(prod, c),
-          }))
+        ? prod.colors.map((c, idx) => {
+            const resolvedQty =
+              typeof c.stockCount === 'number' && Number.isFinite(c.stockCount)
+                ? Math.max(0, Math.round(c.stockCount))
+                : getColorAvailableCount({ ...prod, inStock: true }, c);
+            const activeQty = c.inStock ? resolvedQty : 0;
+            return {
+              id: `${prod.id}-${c.id}-${idx}`,
+              colorId: c.id,
+              name: c.name,
+              hex: c.hex,
+              inStock: c.inStock !== false && resolvedQty > 0,
+              stockCount: String(activeQty),
+              prevStockCount:
+                resolvedQty > 0 ? String(resolvedQty) : undefined,
+              image: c.image || '',
+              inkColors: getVariantInkColors(prod, c),
+            };
+          })
         : [
             {
               id: `c-${Date.now()}`,
               name: 'Black',
               hex: '#1E293B',
+              inStock: true,
+              stockCount: String(Math.max(1, prod.stockCount || 25)),
+              prevStockCount: String(Math.max(1, prod.stockCount || 25)),
               image: '',
               inkColors: baseInks.map((i) => ({ ...i })),
             },
@@ -566,7 +601,6 @@ export const AdminModal: React.FC = () => {
     e.preventDefault();
     const parsedPrice = Number(prodPrice);
     const parsedOriginal = prodOriginalPrice.trim() ? Number(prodOriginalPrice) : undefined;
-    const parsedStock = Number(prodStock || '100');
 
     const mergedInkMap = new Map<string, InkColorOption>();
     for (const ink of [...prodInkColors, ...colorDrafts.flatMap((c) => c.inkColors)]) {
@@ -583,7 +617,7 @@ export const AdminModal: React.FC = () => {
       category: prodCategory,
       priceBdt: parsedPrice,
       originalPriceBdt: parsedOriginal,
-      stockCount: parsedStock,
+      stockCount: autoTotalStock,
       outOfStock: prodOutOfStock,
       shortDescription: prodShortDesc,
       tipSize: prodTipSize,
@@ -593,13 +627,18 @@ export const AdminModal: React.FC = () => {
       inkColors: mergedInks,
       featured: prodFeatured,
       images: colorDrafts.map((c) => c.image).filter(Boolean),
-      colors: colorDrafts.map((c) => ({
-        id: c.colorId,
-        name: c.name,
-        hex: c.hex,
-        image: c.image || undefined,
-        inkColors: c.inkColors.length > 0 ? c.inkColors : prodInkColors,
-      })),
+      colors: colorDrafts.map((c) => {
+        const qty = c.inStock ? Math.max(0, Math.round(Number(c.stockCount) || 0)) : 0;
+        return {
+          id: c.colorId,
+          name: c.name,
+          hex: c.hex,
+          inStock: c.inStock && qty > 0,
+          stockCount: qty,
+          image: c.image || undefined,
+          inkColors: c.inkColors.length > 0 ? c.inkColors : prodInkColors,
+        };
+      }),
     };
 
     setSavingProduct(true);
@@ -1344,15 +1383,14 @@ export const AdminModal: React.FC = () => {
 
                     <div>
                       <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
-                        Stock Quantity
+                        Total Stock (Auto from Colours)
                       </label>
-                      <input
-                        type="number"
-                        min={1}
-                        value={prodStock}
-                        onChange={(e) => setProdStock(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent"
-                      />
+                      <div className="w-full px-3 py-2 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-sm font-mono-num font-bold text-[var(--text-main)] flex items-center justify-between gap-2">
+                        <span>{autoTotalStock.toLocaleString('en-US')} pcs</span>
+                        <span className="text-[11px] font-sans font-normal text-[var(--text-muted)]">
+                          Auto-summed
+                        </span>
+                      </div>
                     </div>
 
                     <div>
@@ -1519,9 +1557,14 @@ export const AdminModal: React.FC = () => {
                   {/* Body / Pen Colour Options + Multi-Select Ink Combo + Visual Pen Image Selector */}
                   <div className="space-y-2.5 pt-2 border-t border-[var(--border-subtle)]">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="text-xs font-semibold text-[var(--text-secondary)]">
-                        Pen Body Colours, Ink Colour Combos &amp; Image Selector *
-                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-xs font-semibold text-[var(--text-secondary)]">
+                          Pen Body Colours, Ink Colour Combos &amp; Image Selector *
+                        </span>
+                        <span className="text-[11px] font-mono-num font-semibold text-accent dark:text-accent-bright">
+                          {colorDrafts.filter((c) => c.inStock).length}/{colorDrafts.length} in stock
+                        </span>
+                      </div>
                       <div className="flex flex-wrap items-center gap-1.5">
                         <button
                           type="button"
@@ -1545,20 +1588,27 @@ export const AdminModal: React.FC = () => {
                     <div className="space-y-2.5">
                       {colorDrafts.map((col, idx) => {
                         const pickerOpen = activeImagePickerId === col.id;
+                        const colorOutOfStock = !col.inStock;
                         return (
                           <div
                             key={col.id}
-                            className="p-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] space-y-2.5"
+                            className={`p-3 rounded-xl border space-y-2.5 transition-colors ${
+                              colorOutOfStock
+                                ? 'border-rose-500/45 bg-rose-500/[0.04]'
+                                : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)]'
+                            }`}
                           >
                             <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
                               {/* Preview + Body Colour Picker + Name */}
                               <div className="flex items-center gap-2">
-                                <div className="w-12 h-10 rounded-lg overflow-hidden border border-[var(--border-subtle)] bg-[#0B0809] shrink-0 flex items-center justify-center">
+                                <div className="w-12 h-10 rounded-lg overflow-hidden border border-[var(--border-subtle)] bg-[#0B0809] shrink-0 flex items-center justify-center relative">
                                   {col.image ? (
                                     <SafeImage
                                       src={col.image}
                                       alt={col.name || `Pen variant ${idx + 1}`}
-                                      className="w-full h-full object-cover"
+                                      className={`w-full h-full object-cover ${
+                                        colorOutOfStock ? 'opacity-45 grayscale-[30%]' : ''
+                                      }`}
                                     />
                                   ) : (
                                     <ImageIcon className="w-4 h-4 text-[var(--text-muted)]" />
@@ -1584,6 +1634,38 @@ export const AdminModal: React.FC = () => {
                                   placeholder="Body colour (e.g. Pink)"
                                   className="flex-1 sm:w-32 px-2.5 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] focus:outline-none focus:border-accent"
                                 />
+
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <span className="text-[10px] font-semibold text-[var(--text-muted)]">
+                                    Qty
+                                  </span>
+                                  <input
+                                    type="number"
+                                    min={0}
+                                    value={col.stockCount}
+                                    onChange={(e) => {
+                                      const raw = e.target.value;
+                                      if (raw === '') {
+                                        handleUpdateColorDraft(col.id, { stockCount: '' });
+                                        return;
+                                      }
+                                      const parsedQty = Math.max(
+                                        0,
+                                        Math.round(Number(raw) || 0)
+                                      );
+                                      handleUpdateColorDraft(col.id, {
+                                        stockCount: String(parsedQty),
+                                        inStock: parsedQty > 0,
+                                        prevStockCount:
+                                          parsedQty > 0
+                                            ? String(parsedQty)
+                                            : col.prevStockCount,
+                                      });
+                                    }}
+                                    aria-label={`Stock quantity for ${col.name || `colour ${idx + 1}`}`}
+                                    className="w-16 px-2 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent"
+                                  />
+                                </div>
 
                                 {colorDrafts.length > 1 && (
                                   <button
@@ -1636,6 +1718,46 @@ export const AdminModal: React.FC = () => {
                                     }
                                   />
                                 </label>
+
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={colorOutOfStock}
+                                  onClick={() => {
+                                    if (col.inStock) {
+                                      handleUpdateColorDraft(col.id, {
+                                        inStock: false,
+                                        prevStockCount:
+                                          Number(col.stockCount) > 0
+                                            ? col.stockCount
+                                            : col.prevStockCount,
+                                        stockCount: '0',
+                                      });
+                                    } else {
+                                      const restored =
+                                        Number(col.prevStockCount) > 0
+                                          ? col.prevStockCount!
+                                          : '25';
+                                      handleUpdateColorDraft(col.id, {
+                                        inStock: true,
+                                        stockCount: restored,
+                                      });
+                                    }
+                                  }}
+                                  className={`px-2.5 py-2 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 shrink-0 transition-colors ${
+                                    colorOutOfStock
+                                      ? 'border-rose-500/60 bg-rose-500/15 text-rose-600 dark:text-rose-400 hover:bg-rose-500/25'
+                                      : 'border-emerald-500/45 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20'
+                                  }`}
+                                  title={`Toggle ${col.name || 'this colour'} Out of Stock ON/OFF`}
+                                >
+                                  <span
+                                    className={`w-2 h-2 rounded-full ${
+                                      colorOutOfStock ? 'bg-rose-500' : 'bg-emerald-500'
+                                    }`}
+                                  />
+                                  <span>{colorOutOfStock ? 'Out of Stock' : 'In Stock'}</span>
+                                </button>
 
                                 {colorDrafts.length > 1 && (
                                   <button
@@ -1940,33 +2062,101 @@ export const AdminModal: React.FC = () => {
                                     ৳{prod.priceBdt.toLocaleString('en-US')}
                                   </span>
                                   <span>·</span>
+                                  <span className="text-[11px] font-mono-num text-[var(--text-muted)]">
+                                    Total: {getProductTotalAvailableCount(prod).toLocaleString('en-US')} pcs
+                                    {' · '}
+                                    {prod.colors.filter((c) => getColorAvailableCount(prod, c) > 0).length}/
+                                    {prod.colors.length}{' '}
+                                    {prod.colors.length === 1 ? 'colour' : 'colours'}
+                                  </span>
+                                  <span>·</span>
                                   <div className="flex flex-wrap items-center gap-1.5">
                                     {prod.colors.map((c) => {
                                       const comboInks = getVariantInkColors(prod, c);
+                                      const colorSoldOut = !c.inStock;
+                                      const colorCount = getColorAvailableCount(prod, c);
                                       return (
-                                        <span
+                                        <button
                                           key={c.id}
-                                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[11px]"
-                                          title={`${c.name} body · ${comboInks.map((i) => i.name).join(', ')} ink`}
+                                          type="button"
+                                          onClick={() => {
+                                            void toggleProductColorStock(prod.id, c.id);
+                                            if (isEditingThis && isFirebaseAdmin) {
+                                              setColorDrafts((prev) =>
+                                                prev.map((d) => {
+                                                  const match =
+                                                    d.colorId === c.id ||
+                                                    d.name.trim().toLowerCase() ===
+                                                      c.name.trim().toLowerCase();
+                                                  if (!match) return d;
+                                                  const nextIn = !c.inStock;
+                                                  const restored =
+                                                    Number(d.prevStockCount) > 0
+                                                      ? d.prevStockCount!
+                                                      : String(
+                                                          typeof c.stockCount === 'number' &&
+                                                            c.stockCount > 0
+                                                            ? c.stockCount
+                                                            : 25
+                                                        );
+                                                  return {
+                                                    ...d,
+                                                    inStock: nextIn,
+                                                    prevStockCount: d.inStock
+                                                      ? d.stockCount
+                                                      : d.prevStockCount,
+                                                    stockCount: nextIn ? restored : '0',
+                                                  };
+                                                })
+                                              );
+                                            }
+                                          }}
+                                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[11px] transition-colors ${
+                                            colorSoldOut
+                                              ? 'border-rose-500/45 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20'
+                                              : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] hover:border-accent/60'
+                                          }`}
+                                          title={`Click to mark ${c.name} colour ${
+                                            colorSoldOut ? 'In Stock' : 'Out of Stock'
+                                          } · ${comboInks.map((i) => i.name).join(', ')} ink`}
                                         >
                                           <span
-                                            className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/30 shrink-0"
+                                            className={`w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/30 shrink-0 ${
+                                              colorSoldOut ? 'opacity-45' : ''
+                                            }`}
                                             style={{ backgroundColor: c.hex }}
                                           />
-                                          <span className="font-medium text-[var(--text-main)]">
+                                          <span
+                                            className={`font-medium ${
+                                              colorSoldOut
+                                                ? 'line-through text-rose-500'
+                                                : 'text-[var(--text-main)]'
+                                            }`}
+                                          >
                                             {c.name}
                                           </span>
-                                          <span className="text-[var(--text-muted)]">→</span>
-                                          <span className="inline-flex items-center -space-x-1">
-                                            {comboInks.map((ink) => (
-                                              <span
-                                                key={ink.id}
-                                                className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/30 inline-block"
-                                                style={{ backgroundColor: ink.hex }}
-                                              />
-                                            ))}
-                                          </span>
-                                        </span>
+                                          {colorSoldOut ? (
+                                            <span className="text-[10px] font-bold uppercase text-rose-500">
+                                              Out (0)
+                                            </span>
+                                          ) : (
+                                            <>
+                                              <span className="text-[10px] font-mono-num text-[var(--text-muted)]">
+                                                ({colorCount})
+                                              </span>
+                                              <span className="text-[var(--text-muted)]">→</span>
+                                              <span className="inline-flex items-center -space-x-1">
+                                                {comboInks.map((ink) => (
+                                                  <span
+                                                    key={ink.id}
+                                                    className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/30 inline-block"
+                                                    style={{ backgroundColor: ink.hex }}
+                                                  />
+                                                ))}
+                                              </span>
+                                            </>
+                                          )}
+                                        </button>
                                       );
                                     })}
                                   </div>

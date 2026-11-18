@@ -31,9 +31,15 @@
         "featured": { "type": "boolean" },
         "isNew": { "type": "boolean" },
         "inStock": { "type": "boolean" },
-        "stockCount": { "type": "integer" },
+        "stockCount": {
+          "type": "integer",
+          "description": "Auto-calculated total available quantity across all in-stock colour variants."
+        },
         "images": { "type": "array" },
-        "colors": { "type": "array" },
+        "colors": {
+          "type": "array",
+          "description": "List of body colour variants with id, name, hex, inStock, per-colour stockCount, optional image URL, and inkColors combo array."
+        },
         "specs": {
           "type": "object",
           "description": "Technical pen specifications including tipSize, inkType, inkColor, inkColorHex, multi-select inkColors array, bodyMaterial, weight, and origin."

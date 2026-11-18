@@ -75,6 +75,7 @@ export const PRODUCTS: Product[] = [
         name: 'Pink',
         hex: '#F4A9C8',
         inStock: true,
+        stockCount: 40,
         image: '/assets/aistudio/20261115_191701_6025b891.jpg',
       },
       {
@@ -82,6 +83,7 @@ export const PRODUCTS: Product[] = [
         name: 'Yellow',
         hex: '#E6D47A',
         inStock: true,
+        stockCount: 40,
         image: '/assets/aistudio/20261115_191311_29fd86e7.jpg',
       },
       {
@@ -89,6 +91,7 @@ export const PRODUCTS: Product[] = [
         name: 'Aqua',
         hex: '#3FD0E4',
         inStock: true,
+        stockCount: 40,
         image: '/assets/aistudio/20261115_191847_c391cd06.jpg',
       },
     ],
@@ -234,4 +237,42 @@ export function getVariantInkColors(
     if (cleaned.length > 0) return cleaned;
   }
   return getProductInkColors(product);
+}
+
+export function getColorAvailableCount(
+  product: Product,
+  colorVariant?: ProductColorVariant
+): number {
+  if (!product.inStock) return 0;
+  if (!colorVariant || !colorVariant.inStock) return 0;
+  if (
+    typeof colorVariant.stockCount === 'number' &&
+    Number.isFinite(colorVariant.stockCount)
+  ) {
+    return Math.max(0, Math.round(colorVariant.stockCount));
+  }
+
+  // Fallback for legacy products that only have a product-level stockCount:
+  // evenly split across in-stock colour variants so their sum equals product.stockCount.
+  const totalProductStock = Math.max(0, Math.round(product.stockCount || 0));
+  const activeColors = product.colors.filter((c) => c.inStock);
+  if (activeColors.length === 0) return 0;
+
+  const activeIdx = activeColors.findIndex((c) => c.id === colorVariant.id);
+  if (activeIdx === -1) return 0;
+
+  const base = Math.floor(totalProductStock / activeColors.length);
+  const remainder = totalProductStock % activeColors.length;
+  return base + (activeIdx < remainder ? 1 : 0);
+}
+
+export function getProductTotalAvailableCount(product: Product): number {
+  if (!product.inStock) return 0;
+  if (!Array.isArray(product.colors) || product.colors.length === 0) {
+    return Math.max(0, Math.round(product.stockCount || 0));
+  }
+  return product.colors.reduce(
+    (sum, color) => sum + getColorAvailableCount(product, color),
+    0
+  );
 }
