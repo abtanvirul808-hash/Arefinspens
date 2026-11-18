@@ -1,14 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   ArrowLeft,
   ArrowRight,
   Minus,
+  Pencil,
   Plus,
   ShoppingBag,
   Trash2,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { BrandNibLogo } from '../components/BrandIcons';
+import { CartItemVariantEditor } from '../components/CartItemVariantEditor';
 import { SafeImage } from '../components/SafeImage';
 
 export const CartPage: React.FC = () => {
@@ -16,10 +18,14 @@ export const CartPage: React.FC = () => {
     cart,
     cartSubtotal,
     updateCartQuantity,
+    updateCartItemVariant,
     removeFromCart,
     navigate,
     products,
   } = useStore();
+
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [previewColorByKey, setPreviewColorByKey] = useState<Record<string, string>>({});
 
   return (
     <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 lg:py-14 space-y-6 sm:space-y-8">
@@ -38,7 +44,7 @@ export const CartPage: React.FC = () => {
           className="self-start sm:self-auto inline-flex items-center gap-2 text-sm font-semibold text-accent dark:text-accent-bright hover:underline"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Continue Shopping</span>
+          <span>Order More</span>
         </button>
       </div>
 
@@ -81,95 +87,163 @@ export const CartPage: React.FC = () => {
             {cart.map((item) => {
               const product = products.find((p) => p.id === item.productId);
               if (!product) return null;
-              const variant = product.colors.find((c) => c.id === item.colorId);
+              const isEditing = editingKey === item.key;
+              const activePreviewColorId =
+                (isEditing ? previewColorByKey[item.key] : undefined) || item.colorId;
+              const variant = product.colors.find((c) => c.id === activePreviewColorId);
               const thumb = variant?.image || product.images[0];
 
               return (
                 <div
                   key={item.key}
-                  className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 sm:p-5 flex flex-col sm:flex-row gap-4 sm:items-center"
+                  className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 sm:p-5 space-y-2"
                 >
-                  <button
-                    type="button"
-                    onClick={() => navigate('product', { productSlug: product.slug })}
-                    className="w-full sm:w-32 aspect-[4/3] rounded-xl overflow-hidden bg-[#050505] shrink-0"
-                  >
-                    <SafeImage src={thumb} alt={product.name} className="w-full h-full object-cover" />
-                  </button>
-
-                  <div className="flex-1 min-w-0 space-y-1.5">
-                    <p className="text-xs text-[var(--text-muted)]">{product.categoryLabel}</p>
+                  <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
                     <button
                       type="button"
                       onClick={() => navigate('product', { productSlug: product.slug })}
-                      className="font-display text-base font-bold text-[var(--text-main)] hover:text-accent-bright text-left block"
+                      className="w-full sm:w-32 aspect-[4/3] rounded-xl overflow-hidden bg-[#050505] shrink-0"
                     >
-                      {product.name}
+                      <SafeImage src={thumb} alt={product.name} className="w-full h-full object-cover" />
                     </button>
-                    <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
-                      <span className="inline-flex items-center gap-1.5">
-                        <span
-                          className="w-3.5 h-3.5 rounded-full border border-white/25 inline-block"
-                          style={{ backgroundColor: item.colorHex }}
-                        />
-                        <span>Colour: {item.colorName}</span>
-                      </span>
-                      {item.inkColorName && (
-                        <>
-                          <span aria-hidden="true">·</span>
-                          <span className="inline-flex items-center gap-1">
-                            <span
-                              className="w-3 h-3 rounded-full border border-black/20 dark:border-white/25 inline-block"
-                              style={{ backgroundColor: item.inkColorHex || '#111827' }}
-                            />
-                            <span>{item.inkColorName} Ink</span>
-                          </span>
-                        </>
-                      )}
-                      <span aria-hidden="true">·</span>
-                      <span className="font-mono-num">
-                        ৳{product.priceBdt.toLocaleString('en-US')} each
-                      </span>
+
+                    <div className="flex-1 min-w-0 space-y-1.5">
+                      <p className="text-xs text-[var(--text-muted)]">{product.categoryLabel}</p>
+                      <button
+                        type="button"
+                        onClick={() => navigate('product', { productSlug: product.slug })}
+                        className="font-display text-base font-bold text-[var(--text-main)] hover:text-accent-bright text-left block"
+                      >
+                        {product.name}
+                      </button>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span
+                            className="w-3.5 h-3.5 rounded-full border border-white/25 inline-block"
+                            style={{ backgroundColor: item.colorHex }}
+                          />
+                          <span>Colour: {item.colorName}</span>
+                        </span>
+                        {item.inkColorName && (
+                          <>
+                            <span aria-hidden="true">·</span>
+                            <span className="inline-flex items-center gap-1">
+                              <span
+                                className="w-3 h-3 rounded-full border border-black/20 dark:border-white/25 inline-block"
+                                style={{ backgroundColor: item.inkColorHex || '#111827' }}
+                              />
+                              <span>{item.inkColorName} Ink</span>
+                            </span>
+                          </>
+                        )}
+                        <span aria-hidden="true">·</span>
+                        <span className="font-mono-num">
+                          ৳{product.priceBdt.toLocaleString('en-US')} each
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="flex sm:flex-col items-center sm:items-end justify-between gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-[var(--border-subtle)]/50">
+                      <div className="inline-flex items-center rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-input)]">
+                        <button
+                          type="button"
+                          onClick={() => updateCartQuantity(item.key, item.quantity - 1)}
+                          className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
+                          aria-label="Decrease quantity"
+                        >
+                          <Minus className="w-3.5 h-3.5" />
+                        </button>
+                        <span className="px-3 text-sm font-bold font-mono-num text-[var(--text-main)]">
+                          {item.quantity}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => updateCartQuantity(item.key, item.quantity + 1)}
+                          className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
+                          aria-label="Increase quantity"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+
+                      <div className="flex items-center gap-2">
+                        <span className="text-base font-bold font-mono-num text-[var(--text-main)]">
+                          ৳{(product.priceBdt * item.quantity).toLocaleString('en-US')}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isEditing) {
+                              setEditingKey(null);
+                              setPreviewColorByKey((prev) => {
+                                const next = { ...prev };
+                                delete next[item.key];
+                                return next;
+                              });
+                            } else {
+                              setEditingKey(item.key);
+                              setPreviewColorByKey((prev) => ({
+                                ...prev,
+                                [item.key]: item.colorId,
+                              }));
+                            }
+                          }}
+                          aria-expanded={isEditing}
+                          aria-label={`Edit ${product.name} colour or ink`}
+                          className={`min-h-[38px] px-3 py-1.5 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
+                            isEditing
+                              ? 'border-accent bg-accent/15 text-accent dark:text-accent-bright'
+                              : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-main)] hover:border-accent'
+                          }`}
+                        >
+                          <Pencil className="w-3.5 h-3.5" />
+                          <span>{isEditing ? 'Close' : 'Edit'}</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (isEditing) setEditingKey(null);
+                            removeFromCart(item.key);
+                          }}
+                          className="text-[var(--text-muted)] hover:text-accent-bright p-2"
+                          aria-label={`Remove ${product.name}`}
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
                     </div>
                   </div>
 
-                  <div className="flex sm:flex-col items-center sm:items-end justify-between gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-[var(--border-subtle)]/50">
-                    <div className="inline-flex items-center rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-input)]">
-                      <button
-                        type="button"
-                        onClick={() => updateCartQuantity(item.key, item.quantity - 1)}
-                        className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
-                        aria-label="Decrease quantity"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="px-3 text-sm font-bold font-mono-num text-[var(--text-main)]">
-                        {item.quantity}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => updateCartQuantity(item.key, item.quantity + 1)}
-                        className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
-                        aria-label="Increase quantity"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
-
-                    <div className="flex items-center gap-3">
-                      <span className="text-base font-bold font-mono-num text-[var(--text-main)]">
-                        ৳{(product.priceBdt * item.quantity).toLocaleString('en-US')}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => removeFromCart(item.key)}
-                        className="text-[var(--text-muted)] hover:text-accent-bright p-2"
-                        aria-label={`Remove ${product.name}`}
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
+                  {isEditing && (
+                    <CartItemVariantEditor
+                      product={product}
+                      currentColorId={item.colorId}
+                      currentInkColorId={item.inkColorId}
+                      onPreviewColorChange={(nextColorId) =>
+                        setPreviewColorByKey((prev) => ({
+                          ...prev,
+                          [item.key]: nextColorId,
+                        }))
+                      }
+                      onSave={(nextColorId, nextInkColorId) => {
+                        updateCartItemVariant(item.key, nextColorId, nextInkColorId);
+                        setEditingKey(null);
+                        setPreviewColorByKey((prev) => {
+                          const next = { ...prev };
+                          delete next[item.key];
+                          return next;
+                        });
+                      }}
+                      onCancel={() => {
+                        setEditingKey(null);
+                        setPreviewColorByKey((prev) => {
+                          const next = { ...prev };
+                          delete next[item.key];
+                          return next;
+                        });
+                      }}
+                    />
+                  )}
                 </div>
               );
             })}
@@ -197,14 +271,23 @@ export const CartPage: React.FC = () => {
               </span>
             </div>
 
-            <button
-              type="button"
-              onClick={() => navigate('checkout')}
-              className="w-full py-3.5 px-5 rounded-xl text-sm font-semibold cta-glow-red inline-flex items-center justify-center gap-2"
-            >
-              <span>Proceed to Checkout</span>
-              <ArrowRight className="w-4 h-4" />
-            </button>
+            <div className="space-y-2.5">
+              <button
+                type="button"
+                onClick={() => navigate('checkout')}
+                className="w-full py-3.5 px-5 rounded-xl text-sm font-semibold cta-glow-red inline-flex items-center justify-center gap-2"
+              >
+                <span>Proceed to Checkout</span>
+                <ArrowRight className="w-4 h-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => navigate('shop', { category: 'all' })}
+                className="w-full py-3 px-5 rounded-xl border border-[var(--border-strong)] text-sm font-semibold text-[var(--text-main)] hover:bg-accent/10 transition-colors"
+              >
+                Order More
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -105,6 +105,11 @@ interface StoreContextValue {
     inkColorId?: string
   ) => void;
   updateCartQuantity: (key: string, quantity: number) => void;
+  updateCartItemVariant: (
+    key: string,
+    nextColorId: string,
+    nextInkColorId: string
+  ) => void;
   removeFromCart: (key: string) => void;
   clearCart: () => void;
 
@@ -894,6 +899,81 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setCart((prev) => prev.map((item) => (item.key === key ? { ...item, quantity } : item)));
   };
 
+  const updateCartItemVariant = (
+    key: string,
+    nextColorId: string,
+    nextInkColorId: string
+  ) => {
+    const target = cart.find((item) => item.key === key);
+    if (!target) return;
+    const product = products.find((p) => p.id === target.productId);
+    if (!product) return;
+
+    const availableColors = product.colors.filter((c) => c.inStock);
+    const chosen =
+      availableColors.find((c) => c.id === nextColorId) ||
+      product.colors.find((c) => c.id === nextColorId) ||
+      availableColors[0] ||
+      product.colors[0];
+    if (!chosen) return;
+
+    const availableInks = getVariantInkColors(product, chosen);
+    const chosenInk =
+      availableInks.find((i) => i.id === nextInkColorId) || availableInks[0];
+    if (!chosenInk) return;
+
+    const nextKey = `${product.id}__${chosen.id}__${chosenInk.id}`;
+
+    setCart((prev) => {
+      const currentTarget = prev.find((item) => item.key === key);
+      if (!currentTarget) return prev;
+
+      if (nextKey === key) {
+        return prev.map((item) =>
+          item.key === key
+            ? {
+                ...item,
+                colorId: chosen.id,
+                colorName: chosen.name,
+                colorHex: chosen.hex,
+                inkColorId: chosenInk.id,
+                inkColorName: chosenInk.name,
+                inkColorHex: chosenInk.hex,
+              }
+            : item
+        );
+      }
+
+      const existingMatch = prev.find((item) => item.key === nextKey);
+      if (existingMatch) {
+        return prev
+          .map((item) =>
+            item.key === nextKey
+              ? { ...item, quantity: item.quantity + currentTarget.quantity }
+              : item
+          )
+          .filter((item) => item.key !== key);
+      }
+
+      return prev.map((item) =>
+        item.key === key
+          ? {
+              ...item,
+              key: nextKey,
+              colorId: chosen.id,
+              colorName: chosen.name,
+              colorHex: chosen.hex,
+              inkColorId: chosenInk.id,
+              inkColorName: chosenInk.name,
+              inkColorHex: chosenInk.hex,
+            }
+          : item
+      );
+    });
+
+    showToast(`Updated ${product.name} (${chosen.name} · ${chosenInk.name} Ink)`);
+  };
+
   const removeFromCart = (key: string) => {
     setCart((prev) => prev.filter((item) => item.key !== key));
   };
@@ -1653,6 +1733,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setIsCartDrawerOpen,
         addToCart,
         updateCartQuantity,
+        updateCartItemVariant,
         removeFromCart,
         clearCart,
         wishlist,

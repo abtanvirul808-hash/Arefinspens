@@ -4,6 +4,7 @@ import {
   CheckCircle2,
   LogOut,
   Minus,
+  Pencil,
   Plus,
   ShoppingBag,
   Trash2,
@@ -12,6 +13,7 @@ import {
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { AccentThemeColor } from '../types';
+import { CartItemVariantEditor } from './CartItemVariantEditor';
 import { SafeImage } from './SafeImage';
 
 export const CartDrawer: React.FC = () => {
@@ -21,10 +23,14 @@ export const CartDrawer: React.FC = () => {
     cart,
     cartSubtotal,
     updateCartQuantity,
+    updateCartItemVariant,
     removeFromCart,
     navigate,
     products,
   } = useStore();
+
+  const [editingKey, setEditingKey] = useState<string | null>(null);
+  const [previewColorByKey, setPreviewColorByKey] = useState<Record<string, string>>({});
 
   if (!isCartDrawerOpen) return null;
 
@@ -102,7 +108,7 @@ export const CartDrawer: React.FC = () => {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="font-mono-num font-bold text-accent shrink-0">02.</span>
-                  <span>Open your cart and click Checkout (or View Cart to review items).</span>
+                  <span>Open your cart and click Checkout (or Order More to keep adding pens).</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="font-mono-num font-bold text-accent shrink-0">03.</span>
@@ -121,86 +127,157 @@ export const CartDrawer: React.FC = () => {
               {cart.map((item) => {
                 const product = products.find((p) => p.id === item.productId);
                 if (!product) return null;
-                const variant = product.colors.find((c) => c.id === item.colorId);
+                const isEditing = editingKey === item.key;
+                const activePreviewColorId =
+                  (isEditing ? previewColorByKey[item.key] : undefined) || item.colorId;
+                const variant = product.colors.find((c) => c.id === activePreviewColorId);
                 const thumb = variant?.image || product.images[0];
 
                 return (
                   <div
                     key={item.key}
-                    className="p-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] flex gap-3.5"
+                    className="p-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] space-y-2"
                   >
-                    <div className="w-20 h-16 rounded-lg overflow-hidden shrink-0 bg-[#050505]">
-                      <SafeImage src={thumb} alt={product.name} className="w-full h-full object-cover" />
-                    </div>
-                    <div className="flex-1 min-w-0 space-y-1.5">
-                      <div className="flex items-start justify-between gap-2">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setIsCartDrawerOpen(false);
-                            navigate('product', { productSlug: product.slug });
-                          }}
-                          className="text-sm font-semibold text-[var(--text-main)] hover:text-accent-bright text-left line-clamp-1"
-                        >
-                          {product.name}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => removeFromCart(item.key)}
-                          className="text-[var(--text-muted)] hover:text-accent-bright p-1"
-                          aria-label={`Remove ${product.name}`}
-                        >
-                          <Trash2 className="w-3.5 h-3.5" />
-                        </button>
+                    <div className="flex gap-3.5">
+                      <div className="w-20 h-16 rounded-lg overflow-hidden shrink-0 bg-[#050505]">
+                        <SafeImage src={thumb} alt={product.name} className="w-full h-full object-cover" />
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
-                        <span className="inline-flex items-center gap-1.5">
-                          <span
-                            className="w-3 h-3 rounded-full border border-white/25 inline-block"
-                            style={{ backgroundColor: item.colorHex }}
-                          />
-                          <span>{item.colorName}</span>
-                        </span>
-                        {item.inkColorName && (
-                          <>
-                            <span aria-hidden="true">·</span>
-                            <span className="inline-flex items-center gap-1">
-                              <span
-                                className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/25 inline-block"
-                                style={{ backgroundColor: item.inkColorHex || '#111827' }}
-                              />
-                              <span>{item.inkColorName} Ink</span>
-                            </span>
-                          </>
-                        )}
-                      </div>
-                      <div className="flex items-center justify-between pt-1">
-                        <div className="inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-input)]">
+                      <div className="flex-1 min-w-0 space-y-1.5">
+                        <div className="flex items-start justify-between gap-2">
                           <button
                             type="button"
-                            onClick={() => updateCartQuantity(item.key, item.quantity - 1)}
-                            className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
-                            aria-label="Decrease quantity"
+                            onClick={() => {
+                              setIsCartDrawerOpen(false);
+                              navigate('product', { productSlug: product.slug });
+                            }}
+                            className="text-sm font-semibold text-[var(--text-main)] hover:text-accent-bright text-left line-clamp-1"
                           >
-                            <Minus className="w-3.5 h-3.5" />
+                            {product.name}
                           </button>
-                          <span className="px-2.5 text-xs font-mono-num font-semibold text-[var(--text-main)]">
-                            {item.quantity}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => updateCartQuantity(item.key, item.quantity + 1)}
-                            className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
-                            aria-label="Increase quantity"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                          </button>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isEditing) {
+                                  setEditingKey(null);
+                                  setPreviewColorByKey((prev) => {
+                                    const next = { ...prev };
+                                    delete next[item.key];
+                                    return next;
+                                  });
+                                } else {
+                                  setEditingKey(item.key);
+                                  setPreviewColorByKey((prev) => ({
+                                    ...prev,
+                                    [item.key]: item.colorId,
+                                  }));
+                                }
+                              }}
+                              aria-expanded={isEditing}
+                              aria-label={`Edit ${product.name} colour or ink`}
+                              className={`px-2 py-1 rounded-lg border text-[11px] font-semibold inline-flex items-center gap-1 transition-colors ${
+                                isEditing
+                                  ? 'border-accent bg-accent/15 text-accent dark:text-accent-bright'
+                                  : 'border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-accent hover:text-[var(--text-main)]'
+                              }`}
+                            >
+                              <Pencil className="w-3 h-3" />
+                              <span>{isEditing ? 'Close' : 'Edit'}</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                if (isEditing) setEditingKey(null);
+                                removeFromCart(item.key);
+                              }}
+                              className="text-[var(--text-muted)] hover:text-accent-bright p-1.5"
+                              aria-label={`Remove ${product.name}`}
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
                         </div>
-                        <span className="text-sm font-bold font-mono-num text-[var(--text-main)]">
-                          ৳{(product.priceBdt * item.quantity).toLocaleString('en-US')}
-                        </span>
+                        <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
+                          <span className="inline-flex items-center gap-1.5">
+                            <span
+                              className="w-3 h-3 rounded-full border border-white/25 inline-block"
+                              style={{ backgroundColor: item.colorHex }}
+                            />
+                            <span>{item.colorName}</span>
+                          </span>
+                          {item.inkColorName && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span className="inline-flex items-center gap-1">
+                                <span
+                                  className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/25 inline-block"
+                                  style={{ backgroundColor: item.inkColorHex || '#111827' }}
+                                />
+                                <span>{item.inkColorName} Ink</span>
+                              </span>
+                            </>
+                          )}
+                        </div>
+                        <div className="flex items-center justify-between pt-1">
+                          <div className="inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-input)]">
+                            <button
+                              type="button"
+                              onClick={() => updateCartQuantity(item.key, item.quantity - 1)}
+                              className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
+                              aria-label="Decrease quantity"
+                            >
+                              <Minus className="w-3.5 h-3.5" />
+                            </button>
+                            <span className="px-2.5 text-xs font-mono-num font-semibold text-[var(--text-main)]">
+                              {item.quantity}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => updateCartQuantity(item.key, item.quantity + 1)}
+                              className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
+                              aria-label="Increase quantity"
+                            >
+                              <Plus className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+                          <span className="text-sm font-bold font-mono-num text-[var(--text-main)]">
+                            ৳{(product.priceBdt * item.quantity).toLocaleString('en-US')}
+                          </span>
+                        </div>
                       </div>
                     </div>
+
+                    {isEditing && (
+                      <CartItemVariantEditor
+                        compact
+                        product={product}
+                        currentColorId={item.colorId}
+                        currentInkColorId={item.inkColorId}
+                        onPreviewColorChange={(nextColorId) =>
+                          setPreviewColorByKey((prev) => ({
+                            ...prev,
+                            [item.key]: nextColorId,
+                          }))
+                        }
+                        onSave={(nextColorId, nextInkColorId) => {
+                          updateCartItemVariant(item.key, nextColorId, nextInkColorId);
+                          setEditingKey(null);
+                          setPreviewColorByKey((prev) => {
+                            const next = { ...prev };
+                            delete next[item.key];
+                            return next;
+                          });
+                        }}
+                        onCancel={() => {
+                          setEditingKey(null);
+                          setPreviewColorByKey((prev) => {
+                            const next = { ...prev };
+                            delete next[item.key];
+                            return next;
+                          });
+                        }}
+                      />
+                    )}
                   </div>
                 );
               })}
@@ -225,11 +302,11 @@ export const CartDrawer: React.FC = () => {
                   type="button"
                   onClick={() => {
                     setIsCartDrawerOpen(false);
-                    navigate('cart');
+                    navigate('shop', { category: 'all' });
                   }}
                   className="py-2.5 px-4 rounded-xl border border-[var(--border-strong)] text-sm font-semibold text-[var(--text-main)] hover:bg-accent/10 transition-colors whitespace-nowrap"
                 >
-                  View Cart
+                  Order More
                 </button>
                 <button
                   type="button"
@@ -252,7 +329,7 @@ export const CartDrawer: React.FC = () => {
                 <ol className="space-y-1.5 text-xs text-[var(--text-secondary)] leading-relaxed">
                   <li className="flex items-start gap-2">
                     <span className="font-mono-num font-bold text-accent shrink-0">01.</span>
-                    <span>Review your pen colours &amp; quantities, or click View Cart to edit.</span>
+                    <span>Review your pens, tap Edit to fix body or ink colour, or tap Order More to add more.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="font-mono-num font-bold text-accent shrink-0">02.</span>
