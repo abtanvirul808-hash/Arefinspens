@@ -13,7 +13,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { getProductInkColors } from '../data/products';
+import { getProductInkColors, getVariantInkColors } from '../data/products';
 import { ProductCard } from '../components/ProductCard';
 import { SafeImage } from '../components/SafeImage';
 
@@ -27,9 +27,11 @@ export const ProductDetailsPage: React.FC = () => {
   const [selectedColorId, setSelectedColorId] = useState<string>(
     product?.colors.find((c) => c.inStock)?.id || product?.colors[0]?.id || ''
   );
-  const productInkColors = product ? getProductInkColors(product) : [];
+  const initialColor =
+    product?.colors.find((c) => c.inStock) || product?.colors[0];
+  const initialVariantInks = product ? getVariantInkColors(product, initialColor) : [];
   const [selectedInkId, setSelectedInkId] = useState<string>(
-    productInkColors[0]?.id || 'black'
+    initialVariantInks[0]?.id || 'black'
   );
   const [activeImage, setActiveImage] = useState<string>(product?.images[0] || '');
   const [quantity, setQuantity] = useState<number>(1);
@@ -39,7 +41,7 @@ export const ProductDetailsPage: React.FC = () => {
   useEffect(() => {
     if (!product) return;
     const defaultColor = product.colors.find((c) => c.inStock) || product.colors[0];
-    const inks = getProductInkColors(product);
+    const inks = getVariantInkColors(product, defaultColor);
     setSelectedColorId(defaultColor?.id || '');
     setSelectedInkId(inks[0]?.id || 'black');
     setActiveImage(defaultColor?.image || product.images[0] || '');
@@ -68,9 +70,11 @@ export const ProductDetailsPage: React.FC = () => {
 
   const activeColor =
     product.colors.find((c) => c.id === selectedColorId) || product.colors[0];
+  const variantInkColors = getVariantInkColors(product, activeColor);
+  const allProductInkColors = getProductInkColors(product);
   const activeInk =
-    productInkColors.find((i) => i.id === selectedInkId) ||
-    productInkColors[0] || { id: 'black', name: 'Black', hex: '#111827' };
+    variantInkColors.find((i) => i.id === selectedInkId) ||
+    variantInkColors[0] || { id: 'black', name: 'Black', hex: '#111827' };
   const wishlisted = isWishlisted(product.id);
 
   const switchImageSmoothly = (nextSrc: string) => {
@@ -87,6 +91,10 @@ export const ProductDetailsPage: React.FC = () => {
     const variant = product.colors.find((c) => c.id === colorId);
     if (variant?.image) {
       switchImageSmoothly(variant.image);
+    }
+    const nextInks = getVariantInkColors(product, variant);
+    if (!nextInks.some((i) => i.id === selectedInkId)) {
+      setSelectedInkId(nextInks[0]?.id || 'black');
     }
   };
 
@@ -269,7 +277,9 @@ export const ProductDetailsPage: React.FC = () => {
 
             <div className="pt-3 border-t border-[var(--border-subtle)]/60 space-y-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                <span className="font-semibold text-[var(--text-main)]">Ink Colour:</span>
+                <span className="font-semibold text-[var(--text-main)]">
+                  Ink Colour <span className="text-xs font-normal text-[var(--text-muted)]">({activeColor.name} body)</span>:
+                </span>
                 <span className="inline-flex items-center gap-1.5 font-semibold text-accent dark:text-accent-bright">
                   <span
                     className="w-3 h-3 rounded-full border border-black/20 dark:border-white/30 inline-block shrink-0"
@@ -279,7 +289,7 @@ export const ProductDetailsPage: React.FC = () => {
                 </span>
               </div>
               <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Select ink colour">
-                {productInkColors.map((ink) => {
+                {variantInkColors.map((ink) => {
                   const selected = ink.id === activeInk.id;
                   return (
                     <button
@@ -413,9 +423,9 @@ export const ProductDetailsPage: React.FC = () => {
               { label: 'Tip / Nib Size', value: product.specs.tipSize },
               { label: 'Ink / Lead Type', value: product.specs.inkType },
               {
-                label: productInkColors.length > 1 ? 'Ink Colours' : 'Ink Colour',
-                value: productInkColors.map((i) => i.name).join(', '),
-                inks: productInkColors,
+                label: allProductInkColors.length > 1 ? 'Ink Colours' : 'Ink Colour',
+                value: allProductInkColors.map((i) => i.name).join(', '),
+                inks: allProductInkColors,
               },
               { label: 'Body Material', value: product.specs.bodyMaterial },
               { label: 'Weight', value: product.specs.weight },

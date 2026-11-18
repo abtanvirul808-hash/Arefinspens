@@ -25,7 +25,12 @@ import {
   StorePreferences,
   TrackedOrder,
 } from '../types';
-import { CATALOGUE_CATEGORIES, getProductInkColors, PRODUCTS } from '../data/products';
+import {
+  CATALOGUE_CATEGORIES,
+  getProductInkColors,
+  getVariantInkColors,
+  PRODUCTS,
+} from '../data/products';
 import {
   auth,
   db,
@@ -46,6 +51,7 @@ export interface NewProductColorInput {
   name: string;
   hex: string;
   image?: string;
+  inkColors?: InkColorOption[];
 }
 
 export interface NewProductInput {
@@ -260,11 +266,17 @@ function sanitizeProductForFirestore(product: Product): Record<string, unknown> 
     if (c.image && c.image.trim()) {
       entry.image = c.image.trim();
     }
+    if (Array.isArray(c.inkColors) && c.inkColors.length > 0) {
+      entry.inkColors = normalizeInkColorsList(c.inkColors);
+    }
     return entry;
   });
 
+  const variantInksFlat = product.colors.flatMap((c) =>
+    Array.isArray(c.inkColors) ? c.inkColors : []
+  );
   const normalizedInks = normalizeInkColorsList(
-    product.specs?.inkColors,
+    [...(product.specs?.inkColors || []), ...variantInksFlat],
     product.specs?.inkColor,
     product.specs?.inkColorHex
   );
@@ -761,7 +773,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setRoute('cart');
       } else if (base === 'checkout') {
         setRoute('checkout');
-      } else if (base === 'track-order') {
+      } else if (base === 'track-order' || base === 'your-order') {
         setRoute('track-order');
       } else if (base === 'about') {
         setRoute('about');
@@ -838,7 +850,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const availableColors = product.colors.filter((c) => c.inStock);
     const chosen =
       availableColors.find((c) => c.id === colorId) || availableColors[0] || product.colors[0];
-    const availableInks = getProductInkColors(product);
+    const availableInks = getVariantInkColors(product, chosen);
     const chosenInk =
       availableInks.find((i) => i.id === inkColorId) || availableInks[0];
     const key = `${product.id}__${chosen.id}__${chosenInk.id}`;
@@ -1239,6 +1251,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         name: c.name.trim(),
         hex: c.hex.trim() || '#FF1428',
         image: c.image?.trim() || undefined,
+        inkColors:
+          Array.isArray(c.inkColors) && c.inkColors.length > 0
+            ? normalizeInkColorsList(c.inkColors)
+            : undefined,
       }))
       .filter((c) => c.name.length > 0);
 
@@ -1262,6 +1278,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const colorImages = validColors.map((c) => c.image).filter((x): x is string => Boolean(x));
     const mergedImages = Array.from(new Set([...input.images.filter(Boolean), ...colorImages]));
+
+    const variantInksFlat = validColors.flatMap((c) => c.inkColors || []);
+    const normalizedInks = normalizeInkColorsList(
+      [...(input.inkColors || []), ...variantInksFlat],
+      input.inkColor,
+      input.inkColorHex
+    );
 
     const newProduct: Product = {
       id: uniqueSlug,
@@ -1298,24 +1321,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         hex: c.hex,
         inStock: true,
         image: c.image || mergedImages[0],
+        inkColors: c.inkColors && c.inkColors.length > 0 ? c.inkColors : normalizedInks,
       })),
-      specs: (() => {
-        const normalizedInks = normalizeInkColorsList(
-          input.inkColors,
-          input.inkColor,
-          input.inkColorHex
-        );
-        return {
-          tipSize: input.tipSize?.trim() || '0.5 mm Fine Point',
-          inkType: input.inkType?.trim() || 'Smooth Writing Ink',
-          inkColor: normalizedInks.map((i) => i.name).join(', '),
-          inkColorHex: normalizedInks[0].hex,
-          inkColors: normalizedInks,
-          bodyMaterial: input.bodyMaterial?.trim() || 'Ergonomic Studio Barrel',
-          weight: '12 g',
-          origin: trimmedBrand,
-        };
-      })(),
+      specs: {
+        tipSize: input.tipSize?.trim() || '0.5 mm Fine Point',
+        inkType: input.inkType?.trim() || 'Smooth Writing Ink',
+        inkColor: normalizedInks.map((i) => i.name).join(', '),
+        inkColorHex: normalizedInks[0].hex,
+        inkColors: normalizedInks,
+        bodyMaterial: input.bodyMaterial?.trim() || 'Ergonomic Studio Barrel',
+        weight: '12 g',
+        origin: trimmedBrand,
+      },
       sampleReviews: [],
     };
 
@@ -1363,6 +1380,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         name: c.name.trim(),
         hex: c.hex.trim() || '#FF1428',
         image: c.image?.trim() || undefined,
+        inkColors:
+          Array.isArray(c.inkColors) && c.inkColors.length > 0
+            ? normalizeInkColorsList(c.inkColors)
+            : undefined,
       }))
       .filter((c) => c.name.length > 0);
 
@@ -1389,6 +1410,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ? Math.max(0, Math.round(input.stockCount))
       : existing.stockCount;
     const nextInStock = input.outOfStock !== undefined ? !input.outOfStock : parsedStock > 0;
+
+    const variantInksFlat = validColors.flatMap((c) => c.inkColors || []);
+    const normalizedInks = normalizeInkColorsList(
+      [...(input.inkColors || []), ...variantInksFlat],
+      input.inkColor || existing.specs.inkColor,
+      input.inkColorHex || existing.specs.inkColorHex
+    );
 
     const updatedProduct: Product = {
       ...existing,
@@ -1418,24 +1446,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         hex: c.hex,
         inStock: true,
         image: c.image || mergedImages[0] || existing.images[0],
+        inkColors: c.inkColors && c.inkColors.length > 0 ? c.inkColors : normalizedInks,
       })),
-      specs: (() => {
-        const normalizedInks = normalizeInkColorsList(
-          input.inkColors,
-          input.inkColor || existing.specs.inkColor,
-          input.inkColorHex || existing.specs.inkColorHex
-        );
-        return {
-          ...existing.specs,
-          tipSize: input.tipSize?.trim() || existing.specs.tipSize,
-          inkType: input.inkType?.trim() || existing.specs.inkType,
-          inkColor: normalizedInks.map((i) => i.name).join(', '),
-          inkColorHex: normalizedInks[0].hex,
-          inkColors: normalizedInks,
-          bodyMaterial: input.bodyMaterial?.trim() || existing.specs.bodyMaterial,
-          origin: trimmedBrand,
-        };
-      })(),
+      specs: {
+        ...existing.specs,
+        tipSize: input.tipSize?.trim() || existing.specs.tipSize,
+        inkType: input.inkType?.trim() || existing.specs.inkType,
+        inkColor: normalizedInks.map((i) => i.name).join(', '),
+        inkColorHex: normalizedInks[0].hex,
+        inkColors: normalizedInks,
+        bodyMaterial: input.bodyMaterial?.trim() || existing.specs.bodyMaterial,
+        origin: trimmedBrand,
+      },
     };
 
     try {

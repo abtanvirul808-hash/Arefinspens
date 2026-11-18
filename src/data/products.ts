@@ -1,4 +1,4 @@
-import { CategoryId, InkColorOption, Product } from '../types';
+import { CategoryId, InkColorOption, Product, ProductColorVariant } from '../types';
 
 export interface CategoryMeta {
   id: CategoryId;
@@ -124,7 +124,7 @@ export const ALL_FILTER_COLORS: { id: string; name: string; hex: string }[] = [
   { id: 'aqua', name: 'Aqua', hex: '#3FD0E4' },
 ];
 
-const INK_COLOR_HEX_FALLBACK: Record<string, string> = {
+export const INK_COLOR_HEX_FALLBACK: Record<string, string> = {
   black: '#111827',
   blue: '#1D4ED8',
   'sky blue': '#0EA5E9',
@@ -137,27 +137,55 @@ const INK_COLOR_HEX_FALLBACK: Record<string, string> = {
   'multi-color': '#F59E0B',
 };
 
+function normalizeInkEntry(item: InkColorOption): InkColorOption {
+  const name = item.name.trim();
+  const id =
+    item.id?.trim() ||
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '') ||
+    'black';
+  return {
+    id,
+    name,
+    hex: item.hex?.trim() || INK_COLOR_HEX_FALLBACK[name.toLowerCase()] || '#111827',
+  };
+}
+
 export function getProductInkColors(product: Product): InkColorOption[] {
-  const rawList = product.specs?.inkColors;
-  if (Array.isArray(rawList) && rawList.length > 0) {
-    const cleaned = rawList
-      .filter((item) => item && typeof item.name === 'string' && item.name.trim().length > 0)
-      .map((item) => {
-        const name = item.name.trim();
-        const id =
-          item.id?.trim() ||
-          name
-            .toLowerCase()
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-+|-+$/g, '') ||
-          'black';
-        return {
-          id,
-          name,
-          hex: item.hex?.trim() || INK_COLOR_HEX_FALLBACK[name.toLowerCase()] || '#111827',
-        };
-      });
-    if (cleaned.length > 0) return cleaned;
+  const seen = new Set<string>();
+  const combined: InkColorOption[] = [];
+
+  const pushUnique = (entry: InkColorOption) => {
+    const key = entry.name.trim().toLowerCase();
+    if (!key || seen.has(key)) return;
+    seen.add(key);
+    combined.push(entry);
+  };
+
+  if (Array.isArray(product.specs?.inkColors)) {
+    for (const item of product.specs.inkColors) {
+      if (item && typeof item.name === 'string' && item.name.trim().length > 0) {
+        pushUnique(normalizeInkEntry(item));
+      }
+    }
+  }
+
+  if (Array.isArray(product.colors)) {
+    for (const variant of product.colors) {
+      if (Array.isArray(variant.inkColors)) {
+        for (const item of variant.inkColors) {
+          if (item && typeof item.name === 'string' && item.name.trim().length > 0) {
+            pushUnique(normalizeInkEntry(item));
+          }
+        }
+      }
+    }
+  }
+
+  if (combined.length > 0) {
+    return combined;
   }
 
   const singleRaw = (product.specs?.inkColor || 'Black').trim();
@@ -193,4 +221,17 @@ export function getProductInkColors(product: Product): InkColorOption[] {
       hex: product.specs?.inkColorHex || INK_COLOR_HEX_FALLBACK[singleName.toLowerCase()] || '#111827',
     },
   ];
+}
+
+export function getVariantInkColors(
+  product: Product,
+  colorVariant?: ProductColorVariant
+): InkColorOption[] {
+  if (colorVariant && Array.isArray(colorVariant.inkColors) && colorVariant.inkColors.length > 0) {
+    const cleaned = colorVariant.inkColors
+      .filter((item) => item && typeof item.name === 'string' && item.name.trim().length > 0)
+      .map(normalizeInkEntry);
+    if (cleaned.length > 0) return cleaned;
+  }
+  return getProductInkColors(product);
 }

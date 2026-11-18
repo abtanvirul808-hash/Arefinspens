@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Check, Heart, ShoppingBag, Star } from 'lucide-react';
 import { Product } from '../types';
 import { useStore } from '../context/StoreContext';
-import { getProductInkColors } from '../data/products';
+import { getVariantInkColors } from '../data/products';
 import { SafeImage } from './SafeImage';
 
 interface ProductCardProps {
@@ -14,13 +14,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const [selectedColorId, setSelectedColorId] = useState(
     product.colors.find((c) => c.inStock)?.id || product.colors[0].id
   );
-  const inkColors = getProductInkColors(product);
+  const activeColor =
+    product.colors.find((c) => c.id === selectedColorId) || product.colors[0];
+  const inkColors = getVariantInkColors(product, activeColor);
   const [selectedInkId, setSelectedInkId] = useState(inkColors[0]?.id || 'black');
   const [justAdded, setJustAdded] = useState(false);
 
   const wishlisted = isWishlisted(product.id);
-  const activeColor =
-    product.colors.find((c) => c.id === selectedColorId) || product.colors[0];
   const activeInk =
     inkColors.find((i) => i.id === selectedInkId) || inkColors[0];
   const displayImage = activeColor?.image || product.images[0];
@@ -129,7 +129,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                     key={color.id}
                     type="button"
                     disabled={!color.inStock}
-                    onClick={() => setSelectedColorId(color.id)}
+                    onClick={() => {
+                      setSelectedColorId(color.id);
+                      const nextInks = getVariantInkColors(product, color);
+                      if (!nextInks.some((i) => i.id === selectedInkId)) {
+                        setSelectedInkId(nextInks[0]?.id || 'black');
+                      }
+                    }}
                     title={color.name}
                     aria-label={`Select ${color.name} colour`}
                     aria-pressed={selected}

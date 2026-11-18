@@ -139,7 +139,7 @@ export const Footer: React.FC = () => {
                   onClick={() => navigate('track-order')}
                   className="hover:text-accent-bright transition-colors"
                 >
-                  Track Order
+                  Your Order
                 </button>
               </li>
               <li>

@@ -37,6 +37,7 @@ export interface ProductColorVariant {
   hex: string;
   inStock: boolean;
   image?: string;
+  inkColors?: InkColorOption[];
 }
 
 export interface InkColorOption {

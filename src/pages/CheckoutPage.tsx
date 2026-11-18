@@ -236,7 +236,7 @@ export const CheckoutPage: React.FC = () => {
               onClick={() => navigate('track-order')}
               className="px-6 py-3 rounded-xl text-sm font-semibold cta-glow-red"
             >
-              Track Order ({confirmedOrder.orderId})
+              Your Order ({confirmedOrder.orderId})
             </button>
             <button
               type="button"

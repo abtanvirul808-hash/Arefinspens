@@ -27,10 +27,15 @@ import {
   X,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { CATALOGUE_CATEGORIES, getProductInkColors, PRODUCTS } from '../data/products';
+import {
+  CATALOGUE_CATEGORIES,
+  getProductInkColors,
+  getVariantInkColors,
+} from '../data/products';
 import { PRODUCT_IMAGES } from '../data/productImages';
 import { formatLiveSyncError } from '../firebase';
 import { CategoryId, InkColorOption, Product } from '../types';
+import { parseOrderSummaryItems } from '../utils/orderItems';
 import { SafeImage } from './SafeImage';
 
 const ADMIN_STAGE_OPTIONS = [
@@ -79,166 +84,12 @@ interface ColorDraft {
   name: string;
   hex: string;
   image: string;
+  inkColors: InkColorOption[];
 }
 
 function getStageLabel(stageIndex: number): string {
   if (stageIndex === 0) return 'Order Placed';
   return ADMIN_STAGE_OPTIONS.find((s) => s.index === stageIndex)?.label || 'Order Confirmed';
-}
-
-const FALLBACK_COLOR_HEX: Record<string, string> = {
-  black: '#111827',
-  blue: '#1D4ED8',
-  'sky blue': '#0EA5E9',
-  aqua: '#3FD0E4',
-  pink: '#F4A9C8',
-  yellow: '#E6D47A',
-  red: '#DC2626',
-  green: '#059669',
-  purple: '#7C3AED',
-  orange: '#EA580C',
-  brown: '#92400E',
-  'multi-color': '#F59E0B',
-  white: '#F8FAFC',
-  silver: '#CBD5E1',
-  gold: '#D97706',
-};
-
-function resolveFallbackColorHex(name?: string): string {
-  if (!name) return '#64748B';
-  const key = name.trim().toLowerCase();
-  if (FALLBACK_COLOR_HEX[key]) return FALLBACK_COLOR_HEX[key];
-  const presetMatch = INK_COLOR_PRESETS.find((p) => p.name.toLowerCase() === key);
-  if (presetMatch) return presetMatch.hex;
-  for (const [k, hex] of Object.entries(FALLBACK_COLOR_HEX)) {
-    if (key.includes(k)) return hex;
-  }
-  return '#64748B';
-}
-
-interface ParsedOrderItem {
-  key: string;
-  name: string;
-  quantity: string;
-  bodyColorName?: string;
-  bodyColorHex?: string;
-  inkColorName?: string;
-  inkColorHex?: string;
-  image?: string;
-}
-
-function parseOrderSummaryItems(
-  itemsSummary: string,
-  catalogProducts: Product[]
-): ParsedOrderItem[] {
-  const raw = (itemsSummary || '').trim();
-  if (!raw) return [];
-
-  const allCatalog = [...catalogProducts];
-  for (const fallbackProd of PRODUCTS) {
-    if (!allCatalog.some((p) => p.id === fallbackProd.id)) {
-      allCatalog.push(fallbackProd);
-    }
-  }
-
-  // Split by comma outside parentheses
-  const segments = raw
-    .split(/,(?![^()]*\))/)
-    .map((s) => s.trim())
-    .filter(Boolean);
-
-  return segments.map((segment, idx) => {
-    // Expected shapes:
-    // "Neucose B (Aqua · Black Ink) × 2"
-    // "Neucose B (Aqua) × 2"
-    // "Custom Stationery Order (৳500)"
-    const fullMatch = segment.match(/^(.+?)\s*\(([^)]+)\)\s*(?:[×x]\s*(\d+))?$/i);
-    let itemName = segment;
-    let details = '';
-    let quantity = '1';
-
-    if (fullMatch) {
-      itemName = fullMatch[1].trim();
-      details = fullMatch[2].trim();
-      quantity = fullMatch[3] || '1';
-    } else {
-      const qtyMatch = segment.match(/^(.+?)\s*[×x]\s*(\d+)$/i);
-      if (qtyMatch) {
-        itemName = qtyMatch[1].trim();
-        quantity = qtyMatch[2];
-      }
-    }
-
-    let bodyColorName: string | undefined;
-    let inkColorName: string | undefined;
-
-    if (details && !details.startsWith('৳')) {
-      if (details.includes('·')) {
-        const parts = details.split('·').map((s) => s.trim()).filter(Boolean);
-        bodyColorName = parts[0];
-        const rawInk = parts.slice(1).join(' · ').replace(/\s*ink$/i, '').trim();
-        if (rawInk) inkColorName = rawInk;
-      } else if (/\bink$/i.test(details)) {
-        inkColorName = details.replace(/\s*ink$/i, '').trim();
-      } else {
-        bodyColorName = details;
-      }
-    }
-
-    const lowerName = itemName.toLowerCase();
-    const matchedProduct =
-      allCatalog.find((p) => p.name.trim().toLowerCase() === lowerName) ||
-      allCatalog.find(
-        (p) =>
-          p.name.trim().toLowerCase().includes(lowerName) ||
-          lowerName.includes(p.name.trim().toLowerCase())
-      );
-
-    let bodyColorHex: string | undefined;
-    let image: string | undefined;
-
-    if (matchedProduct) {
-      const matchedVariant = bodyColorName
-        ? matchedProduct.colors.find(
-            (c) => c.name.trim().toLowerCase() === bodyColorName!.toLowerCase()
-          ) ||
-          matchedProduct.colors.find((c) =>
-            bodyColorName!.toLowerCase().includes(c.name.trim().toLowerCase())
-          )
-        : matchedProduct.colors[0];
-
-      bodyColorHex = matchedVariant?.hex || (bodyColorName ? resolveFallbackColorHex(bodyColorName) : undefined);
-      image = matchedVariant?.image || matchedProduct.colors[0]?.image || matchedProduct.images[0];
-
-      const productInks = getProductInkColors(matchedProduct);
-      if (!inkColorName && productInks.length > 0) {
-        inkColorName = productInks[0].name;
-      }
-    } else if (bodyColorName) {
-      bodyColorHex = resolveFallbackColorHex(bodyColorName);
-    }
-
-    let inkColorHex: string | undefined;
-    if (inkColorName) {
-      const productInkMatch = matchedProduct
-        ? getProductInkColors(matchedProduct).find(
-            (i) => i.name.trim().toLowerCase() === inkColorName!.toLowerCase()
-          )
-        : undefined;
-      inkColorHex = productInkMatch?.hex || resolveFallbackColorHex(inkColorName);
-    }
-
-    return {
-      key: `${idx}-${itemName}`,
-      name: itemName,
-      quantity,
-      bodyColorName,
-      bodyColorHex,
-      inkColorName,
-      inkColorHex,
-      image,
-    };
-  });
 }
 
 function compressImageToDataUrl(file: File): Promise<string> {
@@ -338,8 +189,17 @@ export const AdminModal: React.FC = () => {
   const [prodFeatured, setProdFeatured] = useState(false);
   const [prodOutOfStock, setProdOutOfStock] = useState(false);
   const [colorDrafts, setColorDrafts] = useState<ColorDraft[]>([
-    { id: 'c-1', name: 'Black', hex: '#1E293B', image: '' },
+    {
+      id: 'c-1',
+      name: 'Black',
+      hex: '#1E293B',
+      image: '',
+      inkColors: [{ id: 'black', name: 'Black', hex: '#111827' }],
+    },
   ]);
+  const [comboCustomInkByDraft, setComboCustomInkByDraft] = useState<
+    Record<string, { name: string; hex: string }>
+  >({});
   const [activeImagePickerId, setActiveImagePickerId] = useState<string | null>(null);
   const [prodFormError, setProdFormError] = useState('');
   const [catalogListFilter, setCatalogListFilter] = useState<CategoryId>('all');
@@ -442,6 +302,7 @@ export const AdminModal: React.FC = () => {
         name: '',
         hex: '#FF1428',
         image: '',
+        inkColors: prodInkColors.map((i) => ({ ...i })),
       },
     ]);
   };
@@ -452,6 +313,96 @@ export const AdminModal: React.FC = () => {
 
   const handleRemoveColorDraft = (id: string) => {
     setColorDrafts((prev) => (prev.length > 1 ? prev.filter((c) => c.id !== id) : prev));
+  };
+
+  const handleToggleVariantInkColor = (
+    draftId: string,
+    preset: { name: string; hex: string }
+  ) => {
+    const key = preset.name.trim().toLowerCase();
+    setColorDrafts((prev) =>
+      prev.map((c) => {
+        if (c.id !== draftId) return c;
+        const current = c.inkColors.length > 0 ? c.inkColors : [{ id: 'black', name: 'Black', hex: '#111827' }];
+        const exists = current.some((i) => i.name.trim().toLowerCase() === key);
+        if (exists) {
+          if (current.length <= 1) {
+            showToast('Keep at least one ink colour for this body colour');
+            return c;
+          }
+          return {
+            ...c,
+            inkColors: current.filter((i) => i.name.trim().toLowerCase() !== key),
+          };
+        }
+        const slug =
+          key.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `ink-${Date.now()}`;
+        return {
+          ...c,
+          inkColors: [...current, { id: slug, name: preset.name, hex: preset.hex }],
+        };
+      })
+    );
+  };
+
+  const handleRemoveVariantInkColor = (draftId: string, inkIdOrName: string) => {
+    setColorDrafts((prev) =>
+      prev.map((c) => {
+        if (c.id !== draftId) return c;
+        if (c.inkColors.length <= 1) {
+          showToast('At least one ink colour is required for this body colour');
+          return c;
+        }
+        return {
+          ...c,
+          inkColors: c.inkColors.filter((i) => i.id !== inkIdOrName && i.name !== inkIdOrName),
+        };
+      })
+    );
+  };
+
+  const handleAddCustomVariantInkColor = (draftId: string) => {
+    const draftInput = comboCustomInkByDraft[draftId] || { name: '', hex: '#1D4ED8' };
+    const trimmed = draftInput.name.trim();
+    if (!trimmed) {
+      showToast('Enter a custom ink colour name first');
+      return;
+    }
+    const key = trimmed.toLowerCase();
+    setColorDrafts((prev) =>
+      prev.map((c) => {
+        if (c.id !== draftId) return c;
+        const exists = c.inkColors.some((i) => i.name.trim().toLowerCase() === key);
+        if (exists) {
+          return {
+            ...c,
+            inkColors: c.inkColors.map((i) =>
+              i.name.trim().toLowerCase() === key ? { ...i, hex: draftInput.hex } : i
+            ),
+          };
+        }
+        const slug =
+          key.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `ink-${Date.now()}`;
+        return {
+          ...c,
+          inkColors: [...c.inkColors, { id: slug, name: trimmed, hex: draftInput.hex }],
+        };
+      })
+    );
+    setComboCustomInkByDraft((prev) => ({
+      ...prev,
+      [draftId]: { name: '', hex: draftInput.hex },
+    }));
+  };
+
+  const handleApplyDefaultInksToAllBodies = () => {
+    setColorDrafts((prev) =>
+      prev.map((c) => ({
+        ...c,
+        inkColors: prodInkColors.map((i) => ({ ...i })),
+      }))
+    );
+    showToast('Applied default ink colours to all body colours');
   };
 
   const handleColorImageUpload = async (id: string, file?: File) => {
@@ -530,7 +481,16 @@ export const AdminModal: React.FC = () => {
     setProdFeatured(false);
     setProdOutOfStock(false);
     setActiveImagePickerId(null);
-    setColorDrafts([{ id: `c-${Date.now()}`, name: 'Black', hex: '#1E293B', image: '' }]);
+    setComboCustomInkByDraft({});
+    setColorDrafts([
+      {
+        id: `c-${Date.now()}`,
+        name: 'Black',
+        hex: '#1E293B',
+        image: '',
+        inkColors: [{ id: 'black', name: 'Black', hex: '#111827' }],
+      },
+    ]);
   };
 
   const handleStartEditProduct = (prod: Product) => {
@@ -544,13 +504,15 @@ export const AdminModal: React.FC = () => {
     setProdStock(String(prod.stockCount));
     setProdTipSize(prod.specs.tipSize);
     setProdInkType(prod.specs.inkType);
-    setProdInkColors(getProductInkColors(prod));
+    const baseInks = getProductInkColors(prod);
+    setProdInkColors(baseInks);
     setCustomInkName('');
     setCustomInkHex('#1D4ED8');
     setProdShortDesc(prod.shortDescription);
     setProdFeatured(Boolean(prod.featured));
     setProdOutOfStock(!prod.inStock);
     setActiveImagePickerId(null);
+    setComboCustomInkByDraft({});
     setColorDrafts(
       prod.colors.length > 0
         ? prod.colors.map((c, idx) => ({
@@ -559,8 +521,17 @@ export const AdminModal: React.FC = () => {
             name: c.name,
             hex: c.hex,
             image: c.image || '',
+            inkColors: getVariantInkColors(prod, c),
           }))
-        : [{ id: `c-${Date.now()}`, name: 'Black', hex: '#1E293B', image: '' }]
+        : [
+            {
+              id: `c-${Date.now()}`,
+              name: 'Black',
+              hex: '#1E293B',
+              image: '',
+              inkColors: baseInks.map((i) => ({ ...i })),
+            },
+          ]
     );
     productsTabScrollRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
   };
@@ -597,6 +568,15 @@ export const AdminModal: React.FC = () => {
     const parsedOriginal = prodOriginalPrice.trim() ? Number(prodOriginalPrice) : undefined;
     const parsedStock = Number(prodStock || '100');
 
+    const mergedInkMap = new Map<string, InkColorOption>();
+    for (const ink of [...prodInkColors, ...colorDrafts.flatMap((c) => c.inkColors)]) {
+      const key = ink.name.trim().toLowerCase();
+      if (key && !mergedInkMap.has(key)) {
+        mergedInkMap.set(key, ink);
+      }
+    }
+    const mergedInks = Array.from(mergedInkMap.values());
+
     const payload = {
       name: prodName,
       brand: prodBrand,
@@ -608,9 +588,9 @@ export const AdminModal: React.FC = () => {
       shortDescription: prodShortDesc,
       tipSize: prodTipSize,
       inkType: prodInkType,
-      inkColor: prodInkColors.map((i) => i.name).join(', '),
-      inkColorHex: prodInkColors[0]?.hex || '#111827',
-      inkColors: prodInkColors,
+      inkColor: mergedInks.map((i) => i.name).join(', '),
+      inkColorHex: mergedInks[0]?.hex || '#111827',
+      inkColors: mergedInks,
       featured: prodFeatured,
       images: colorDrafts.map((c) => c.image).filter(Boolean),
       colors: colorDrafts.map((c) => ({
@@ -618,6 +598,7 @@ export const AdminModal: React.FC = () => {
         name: c.name,
         hex: c.hex,
         image: c.image || undefined,
+        inkColors: c.inkColors.length > 0 ? c.inkColors : prodInkColors,
       })),
     };
 
@@ -1535,20 +1516,30 @@ export const AdminModal: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Body / Pen Colour Options + Visual Pen Image Selector */}
+                  {/* Body / Pen Colour Options + Multi-Select Ink Combo + Visual Pen Image Selector */}
                   <div className="space-y-2.5 pt-2 border-t border-[var(--border-subtle)]">
-                    <div className="flex items-center justify-between gap-2">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
                       <span className="text-xs font-semibold text-[var(--text-secondary)]">
-                        Pen Body Colours &amp; Image Selector *
+                        Pen Body Colours, Ink Colour Combos &amp; Image Selector *
                       </span>
-                      <button
-                        type="button"
-                        onClick={handleAddColorDraft}
-                        className="px-2.5 py-1.5 rounded-lg border border-accent/50 text-xs font-semibold text-accent dark:text-accent-bright hover:bg-accent/10 inline-flex items-center gap-1"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Colour</span>
-                      </button>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <button
+                          type="button"
+                          onClick={handleApplyDefaultInksToAllBodies}
+                          className="px-2.5 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[11px] font-semibold text-[var(--text-secondary)] hover:border-accent hover:text-[var(--text-main)]"
+                          title="Copy default ink colours to every body colour below"
+                        >
+                          Sync Default Inks
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleAddColorDraft}
+                          className="px-2.5 py-1.5 rounded-lg border border-accent/50 text-xs font-semibold text-accent dark:text-accent-bright hover:bg-accent/10 inline-flex items-center gap-1"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add Body Colour</span>
+                        </button>
+                      </div>
                     </div>
 
                     <div className="space-y-2.5">
@@ -1656,6 +1647,132 @@ export const AdminModal: React.FC = () => {
                                     <X className="w-4 h-4" />
                                   </button>
                                 )}
+                              </div>
+                            </div>
+
+                            {/* Multi-Select Combo Ink Colours for this Body Colour */}
+                            <div className="pt-2.5 border-t border-[var(--border-subtle)]/60 space-y-2">
+                              <div className="flex flex-wrap items-center justify-between gap-2">
+                                <span className="text-[11px] font-semibold text-[var(--text-secondary)] inline-flex items-center gap-1.5">
+                                  <Droplets className="w-3.5 h-3.5 text-accent-bright" />
+                                  <span>
+                                    Combo Ink Colours for{' '}
+                                    <span className="text-[var(--text-main)] font-bold">
+                                      {col.name || `Body ${idx + 1}`}
+                                    </span>{' '}
+                                    (Multi-Select)
+                                  </span>
+                                </span>
+                                <span className="text-[10px] font-semibold font-mono-num text-accent dark:text-accent-bright">
+                                  {col.inkColors.length} ink{col.inkColors.length === 1 ? '' : 's'}
+                                </span>
+                              </div>
+
+                              {/* Selected Combo Ink Chips */}
+                              <div className="flex flex-wrap items-center gap-1.5">
+                                {col.inkColors.map((ink) => (
+                                  <span
+                                    key={ink.id}
+                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-accent/45 bg-accent/10 text-[11px] font-semibold text-[var(--text-main)]"
+                                  >
+                                    <span
+                                      className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/30 shrink-0"
+                                      style={{ backgroundColor: ink.hex }}
+                                    />
+                                    <span>{ink.name}</span>
+                                    {col.inkColors.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveVariantInkColor(col.id, ink.id)}
+                                        className="text-[var(--text-muted)] hover:text-rose-500"
+                                        aria-label={`Remove ${ink.name} ink from ${col.name || `Body ${idx + 1}`}`}
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </span>
+                                ))}
+                              </div>
+
+                              {/* Multi-Select Preset Ink Toggles */}
+                              <div className="flex flex-wrap gap-1.5">
+                                {INK_COLOR_PRESETS.map((ink) => {
+                                  const selected = col.inkColors.some(
+                                    (item) =>
+                                      item.name.trim().toLowerCase() === ink.name.toLowerCase()
+                                  );
+                                  return (
+                                    <button
+                                      key={ink.name}
+                                      type="button"
+                                      aria-pressed={selected}
+                                      onClick={() => handleToggleVariantInkColor(col.id, ink)}
+                                      className={`min-h-[30px] px-2 py-1 rounded-lg border text-[11px] font-medium inline-flex items-center gap-1.5 transition-all ${
+                                        selected
+                                          ? 'border-accent bg-accent/20 text-[var(--text-main)] font-semibold shadow-[0_0_8px_rgba(var(--accent-rgb),0.2)]'
+                                          : 'border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
+                                      }`}
+                                    >
+                                      <span
+                                        className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/25 shrink-0 flex items-center justify-center"
+                                        style={{ backgroundColor: ink.hex }}
+                                      >
+                                        {selected && (
+                                          <Check className="w-2 h-2 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.85)]" />
+                                        )}
+                                      </span>
+                                      <span>{ink.name}</span>
+                                    </button>
+                                  );
+                                })}
+                              </div>
+
+                              {/* Custom Ink Adder for this Body Colour */}
+                              <div className="flex flex-wrap sm:flex-nowrap items-center gap-1.5 pt-0.5">
+                                <input
+                                  type="color"
+                                  value={comboCustomInkByDraft[col.id]?.hex || '#1D4ED8'}
+                                  onChange={(e) =>
+                                    setComboCustomInkByDraft((prev) => ({
+                                      ...prev,
+                                      [col.id]: {
+                                        name: prev[col.id]?.name || '',
+                                        hex: e.target.value,
+                                      },
+                                    }))
+                                  }
+                                  aria-label={`Custom ink colour picker for ${col.name || `Body ${idx + 1}`}`}
+                                  className="w-8 h-8 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
+                                />
+                                <input
+                                  type="text"
+                                  value={comboCustomInkByDraft[col.id]?.name || ''}
+                                  onChange={(e) =>
+                                    setComboCustomInkByDraft((prev) => ({
+                                      ...prev,
+                                      [col.id]: {
+                                        hex: prev[col.id]?.hex || '#1D4ED8',
+                                        name: e.target.value,
+                                      },
+                                    }))
+                                  }
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter') {
+                                      e.preventDefault();
+                                      handleAddCustomVariantInkColor(col.id);
+                                    }
+                                  }}
+                                  placeholder={`Custom ink for ${col.name || 'this body'}...`}
+                                  className="flex-1 min-w-[130px] px-2.5 py-1.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-[11px] text-[var(--text-main)] focus:outline-none focus:border-accent"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => handleAddCustomVariantInkColor(col.id)}
+                                  className="min-h-[30px] px-2.5 py-1 rounded-lg border border-accent/55 bg-accent/10 text-[11px] font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 inline-flex items-center gap-1 shrink-0"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                  <span>Add</span>
+                                </button>
                               </div>
                             </div>
 
@@ -1823,28 +1940,36 @@ export const AdminModal: React.FC = () => {
                                     ৳{prod.priceBdt.toLocaleString('en-US')}
                                   </span>
                                   <span>·</span>
-                                  <span className="inline-flex items-center gap-1.5">
-                                    <span className="inline-flex items-center -space-x-1">
-                                      {getProductInkColors(prod).map((ink) => (
+                                  <div className="flex flex-wrap items-center gap-1.5">
+                                    {prod.colors.map((c) => {
+                                      const comboInks = getVariantInkColors(prod, c);
+                                      return (
                                         <span
-                                          key={ink.id}
-                                          title={`${ink.name} Ink`}
-                                          className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/30 inline-block"
-                                          style={{ backgroundColor: ink.hex }}
-                                        />
-                                      ))}
-                                    </span>
-                                    <span>
-                                      {getProductInkColors(prod)
-                                        .map((i) => i.name)
-                                        .join(', ')}{' '}
-                                      Ink
-                                    </span>
-                                  </span>
-                                  <span>·</span>
-                                  <span className="truncate">
-                                    {prod.colors.map((c) => c.name).join(', ')}
-                                  </span>
+                                          key={c.id}
+                                          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[11px]"
+                                          title={`${c.name} body · ${comboInks.map((i) => i.name).join(', ')} ink`}
+                                        >
+                                          <span
+                                            className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/30 shrink-0"
+                                            style={{ backgroundColor: c.hex }}
+                                          />
+                                          <span className="font-medium text-[var(--text-main)]">
+                                            {c.name}
+                                          </span>
+                                          <span className="text-[var(--text-muted)]">→</span>
+                                          <span className="inline-flex items-center -space-x-1">
+                                            {comboInks.map((ink) => (
+                                              <span
+                                                key={ink.id}
+                                                className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/30 inline-block"
+                                                style={{ backgroundColor: ink.hex }}
+                                              />
+                                            ))}
+                                          </span>
+                                        </span>
+                                      );
+                                    })}
+                                  </div>
                                 </div>
                               </div>
                             </div>

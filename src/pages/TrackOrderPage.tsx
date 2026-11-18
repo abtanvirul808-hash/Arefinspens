@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   CheckCircle2,
   Clock,
+  Droplets,
   Lock,
   Package,
   Search,
@@ -9,7 +10,9 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
+import { SafeImage } from '../components/SafeImage';
 import { TrackedOrder } from '../types';
+import { parseOrderSummaryItems } from '../utils/orderItems';
 
 const STAGES = [
   { title: 'Order Placed', desc: 'Order details submitted.' },
@@ -22,6 +25,7 @@ const STAGES = [
 export const TrackOrderPage: React.FC = () => {
   const {
     orders,
+    products,
     findOrder,
     demoUser,
     isCustomerSignedIn,
@@ -78,7 +82,7 @@ export const TrackOrderPage: React.FC = () => {
     <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16 space-y-8 sm:space-y-10">
       <div className="text-center space-y-3 max-w-2xl mx-auto">
         <h1 className="font-display text-3xl sm:text-4xl font-bold text-[var(--text-main)]">
-          Track Your <span className="text-accent">Order</span>
+          Your <span className="text-accent">Order</span>
         </h1>
         <p className="text-sm sm:text-base text-[var(--text-secondary)]">
           {isCustomerSignedIn && demoUser?.email
@@ -202,7 +206,7 @@ export const TrackOrderPage: React.FC = () => {
                 className="min-h-[44px] px-6 py-2.5 rounded-xl text-sm font-semibold cta-glow-red inline-flex items-center justify-center gap-2 shrink-0 disabled:opacity-60"
               >
                 <Search className="w-4 h-4" />
-                <span>{searching ? 'Searching...' : 'Track Order'}</span>
+                <span>{searching ? 'Searching...' : 'View Your Order'}</span>
               </button>
             </div>
           </form>
@@ -231,10 +235,80 @@ export const TrackOrderPage: React.FC = () => {
                 </div>
               </div>
 
-              <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
-                <span className="font-semibold text-[var(--text-main)]">Items: </span>
-                {result.itemsSummary}
-              </p>
+              {/* Visual Ordered Pens: Pen Image, Name, Body Colour & Ink Colour */}
+              {(() => {
+                const parsedItems = parseOrderSummaryItems(result.itemsSummary, products);
+                if (parsedItems.length === 0) {
+                  return (
+                    <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
+                      <span className="font-semibold text-[var(--text-main)]">Items: </span>
+                      {result.itemsSummary}
+                    </p>
+                  );
+                }
+
+                return (
+                  <div className="space-y-3 rounded-2xl border border-accent/35 bg-accent/[0.04] p-3.5 sm:p-4">
+                    <p className="text-xs font-bold uppercase tracking-wider text-accent dark:text-accent-bright">
+                      Ordered Pens ({parsedItems.length})
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      {parsedItems.map((item) => (
+                        <div
+                          key={item.key}
+                          className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-3 flex items-center gap-3.5 shadow-sm"
+                        >
+                          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-accent/45 bg-[#080506] shrink-0 flex items-center justify-center">
+                            {item.image ? (
+                              <SafeImage
+                                src={item.image}
+                                alt={`${item.name}${item.bodyColorName ? ` — ${item.bodyColorName}` : ''}`}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <Package className="w-6 h-6 text-accent-bright" />
+                            )}
+                          </div>
+
+                          <div className="flex-1 min-w-0 space-y-2">
+                            <div className="flex items-start justify-between gap-2">
+                              <h3 className="font-display text-sm sm:text-base font-bold text-[var(--text-main)] leading-snug break-words">
+                                {item.name}
+                              </h3>
+                              <span className="px-2 py-0.5 rounded-md bg-accent text-[var(--accent-cta-text)] text-xs font-bold font-mono-num shrink-0">
+                                × {item.quantity}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              {item.bodyColorName && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-sky-500/45 bg-sky-500/12 text-sky-900 dark:text-sky-200 text-xs font-semibold">
+                                  <span
+                                    className="w-3 h-3 rounded-full border border-white/80 dark:border-white/35 shrink-0"
+                                    style={{ backgroundColor: item.bodyColorHex || '#64748B' }}
+                                  />
+                                  <span>Body: {item.bodyColorName}</span>
+                                </span>
+                              )}
+
+                              {item.inkColorName && (
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-violet-500/45 bg-violet-500/12 text-violet-900 dark:text-violet-200 text-xs font-semibold">
+                                  <Droplets className="w-3 h-3 shrink-0" />
+                                  <span
+                                    className="w-3 h-3 rounded-full border border-white/80 dark:border-white/35 shrink-0"
+                                    style={{ backgroundColor: item.inkColorHex || '#111827' }}
+                                  />
+                                  <span>Ink: {item.inkColorName}</span>
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })()}
 
               {/* 5-Stage Order Timeline */}
               <div className="space-y-4">
