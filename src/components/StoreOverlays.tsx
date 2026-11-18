@@ -35,8 +35,8 @@ export const CartDrawer: React.FC = () => {
         onClick={() => setIsCartDrawerOpen(false)}
       />
 
-      <div className="relative z-10 w-full max-w-md h-full bg-white dark:bg-[var(--bg-secondary)] border-l border-accent/40 shadow-2xl flex flex-col">
-        <div className="px-5 py-4 border-b border-[var(--border-subtle)] flex items-center justify-between">
+      <div className="relative z-10 w-[min(100vw,26rem)] h-[100dvh] bg-white dark:bg-[var(--bg-secondary)] border-l border-accent/40 shadow-2xl flex flex-col">
+        <div className="px-4 sm:px-5 py-3.5 sm:py-4 border-b border-[var(--border-subtle)] flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <ShoppingBag className="w-5 h-5 text-accent" />
             <h2 className="font-display text-lg font-bold text-[var(--text-main)]">
@@ -153,22 +153,36 @@ export const CartDrawer: React.FC = () => {
                           <Trash2 className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                      <div className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)]">
-                        <span
-                          className="w-3 h-3 rounded-full border border-white/25 inline-block"
-                          style={{ backgroundColor: item.colorHex }}
-                        />
-                        <span>{item.colorName}</span>
+                      <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
+                        <span className="inline-flex items-center gap-1.5">
+                          <span
+                            className="w-3 h-3 rounded-full border border-white/25 inline-block"
+                            style={{ backgroundColor: item.colorHex }}
+                          />
+                          <span>{item.colorName}</span>
+                        </span>
+                        {item.inkColorName && (
+                          <>
+                            <span aria-hidden="true">·</span>
+                            <span className="inline-flex items-center gap-1">
+                              <span
+                                className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/25 inline-block"
+                                style={{ backgroundColor: item.inkColorHex || '#111827' }}
+                              />
+                              <span>{item.inkColorName} Ink</span>
+                            </span>
+                          </>
+                        )}
                       </div>
                       <div className="flex items-center justify-between pt-1">
                         <div className="inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-input)]">
                           <button
                             type="button"
                             onClick={() => updateCartQuantity(item.key, item.quantity - 1)}
-                            className="w-7 h-7 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
+                            className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
                             aria-label="Decrease quantity"
                           >
-                            <Minus className="w-3 h-3" />
+                            <Minus className="w-3.5 h-3.5" />
                           </button>
                           <span className="px-2.5 text-xs font-mono-num font-semibold text-[var(--text-main)]">
                             {item.quantity}
@@ -176,10 +190,10 @@ export const CartDrawer: React.FC = () => {
                           <button
                             type="button"
                             onClick={() => updateCartQuantity(item.key, item.quantity + 1)}
-                            className="w-7 h-7 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
+                            className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
                             aria-label="Increase quantity"
                           >
-                            <Plus className="w-3 h-3" />
+                            <Plus className="w-3.5 h-3.5" />
                           </button>
                         </div>
                         <span className="text-sm font-bold font-mono-num text-[var(--text-main)]">
@@ -192,7 +206,7 @@ export const CartDrawer: React.FC = () => {
               })}
             </div>
 
-            <div className="px-5 pt-4 pb-6 border-t border-[var(--border-subtle)] bg-[var(--bg-secondary)] space-y-4 shrink-0">
+            <div className="px-4 sm:px-5 pt-4 pb-[max(1.25rem,env(safe-area-inset-bottom))] border-t border-[var(--border-subtle)] bg-[var(--bg-secondary)] space-y-3.5 sm:space-y-4 shrink-0">
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between text-sm">
                   <span className="text-[var(--text-secondary)]">Subtotal</span>
@@ -280,13 +294,13 @@ export const SettingsPanel: React.FC = () => {
   if (!isSettingsOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-start justify-end p-4 sm:p-6 pt-20" role="dialog" aria-modal="true" aria-label="Display Settings">
+    <div className="fixed inset-0 z-50 flex items-center sm:items-start justify-center sm:justify-end p-3 sm:p-6 sm:pt-20" role="dialog" aria-modal="true" aria-label="Display Settings">
       <div
         className="fixed inset-0 bg-black/50 backdrop-blur-[2px]"
         onClick={() => setIsSettingsOpen(false)}
       />
 
-      <div className="relative z-10 w-full max-w-sm rounded-2xl border border-accent/45 bg-white dark:bg-[var(--bg-input)] p-5 shadow-2xl space-y-5 max-h-[85vh] overflow-y-auto">
+      <div className="relative z-10 w-full max-w-sm rounded-2xl border border-accent/45 bg-white dark:bg-[var(--bg-input)] p-4 sm:p-5 shadow-2xl space-y-5 max-h-[88dvh] overflow-y-auto">
         <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
           <h2 className="font-display text-base font-bold text-[var(--text-main)]">
             Display &amp; Accessibility Settings
@@ -447,12 +461,12 @@ export const AuthModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label="Account">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4" role="dialog" aria-modal="true" aria-label="Account">
       <div
         className="fixed inset-0 bg-black/75 backdrop-blur-sm"
         onClick={() => setIsAuthModalOpen(false)}
       />
-      <div className="relative z-10 w-full max-w-md rounded-2xl border border-accent/45 bg-white dark:bg-[var(--bg-input)] p-6 shadow-2xl space-y-5">
+      <div className="relative z-10 w-full max-w-md rounded-2xl border border-accent/45 bg-white dark:bg-[var(--bg-input)] p-4 sm:p-6 shadow-2xl space-y-5 max-h-[90dvh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-full bg-accent/15 border border-accent/40 flex items-center justify-center text-accent-bright">
@@ -561,6 +575,8 @@ export const AuthModal: React.FC = () => {
                 <input
                   id="auth-optional-phone"
                   type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="017XXXXXXXX"
@@ -599,7 +615,7 @@ export const ToastBanner: React.FC = () => {
 
   return (
     <div
-      className="fixed bottom-5 right-5 z-50 max-w-sm px-4 py-3 rounded-xl bg-[var(--bg-secondary)]/95 border border-accent/60 text-[var(--text-main)] shadow-[0_12px_32px_rgba(var(--accent-rgb),0.25)] flex items-center gap-2.5 text-sm backdrop-blur-md"
+      className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-5 sm:bottom-5 z-50 max-w-sm mx-auto sm:mx-0 px-4 py-3 rounded-xl bg-[var(--bg-secondary)]/95 border border-accent/60 text-[var(--text-main)] shadow-[0_12px_32px_rgba(var(--accent-rgb),0.25)] flex items-center gap-2.5 text-sm backdrop-blur-md"
       role="status"
       aria-live="polite"
     >

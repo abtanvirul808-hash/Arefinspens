@@ -25,9 +25,9 @@ export const Footer: React.FC = () => {
   };
 
   return (
-    <footer className="relative z-10 mt-20 border-t border-accent/35 bg-gradient-to-b from-[var(--footer-top)] via-[#0B0809] to-[#050505] text-white">
+    <footer className="relative z-10 mt-14 sm:mt-20 border-t border-accent/35 bg-gradient-to-b from-[var(--footer-top)] via-[#0B0809] to-[#050505] text-white">
       <div className="section-hairline w-full" />
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-16">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 lg:py-16">
         <FadeUp>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
           {/* Column 1: Brand */}

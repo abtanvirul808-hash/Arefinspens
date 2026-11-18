@@ -13,6 +13,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
+import { getProductInkColors } from '../data/products';
 import { ProductCard } from '../components/ProductCard';
 import { SafeImage } from '../components/SafeImage';
 
@@ -26,6 +27,10 @@ export const ProductDetailsPage: React.FC = () => {
   const [selectedColorId, setSelectedColorId] = useState<string>(
     product?.colors.find((c) => c.inStock)?.id || product?.colors[0]?.id || ''
   );
+  const productInkColors = product ? getProductInkColors(product) : [];
+  const [selectedInkId, setSelectedInkId] = useState<string>(
+    productInkColors[0]?.id || 'black'
+  );
   const [activeImage, setActiveImage] = useState<string>(product?.images[0] || '');
   const [quantity, setQuantity] = useState<number>(1);
   const [imageFading, setImageFading] = useState<boolean>(false);
@@ -34,7 +39,9 @@ export const ProductDetailsPage: React.FC = () => {
   useEffect(() => {
     if (!product) return;
     const defaultColor = product.colors.find((c) => c.inStock) || product.colors[0];
+    const inks = getProductInkColors(product);
     setSelectedColorId(defaultColor?.id || '');
+    setSelectedInkId(inks[0]?.id || 'black');
     setActiveImage(defaultColor?.image || product.images[0] || '');
     setQuantity(1);
   }, [product]);
@@ -61,6 +68,9 @@ export const ProductDetailsPage: React.FC = () => {
 
   const activeColor =
     product.colors.find((c) => c.id === selectedColorId) || product.colors[0];
+  const activeInk =
+    productInkColors.find((i) => i.id === selectedInkId) ||
+    productInkColors[0] || { id: 'black', name: 'Black', hex: '#111827' };
   const wishlisted = isWishlisted(product.id);
 
   const switchImageSmoothly = (nextSrc: string) => {
@@ -92,7 +102,7 @@ export const ProductDetailsPage: React.FC = () => {
   );
 
   return (
-    <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 space-y-16">
+    <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 lg:py-14 space-y-10 sm:space-y-16">
       {/* Breadcrumb */}
       <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-[var(--text-muted)]">
         <button
@@ -134,13 +144,13 @@ export const ProductDetailsPage: React.FC = () => {
           </div>
 
           {galleryImages.length > 1 && (
-            <div className="flex items-center gap-3 overflow-x-auto pb-1">
+            <div className="flex items-center gap-2.5 sm:gap-3 overflow-x-auto pb-1">
               {galleryImages.map((imgUrl, idx) => (
                 <button
                   key={`${imgUrl}-${idx}`}
                   type="button"
                   onClick={() => switchImageSmoothly(imgUrl)}
-                  className={`w-24 aspect-[4/3] rounded-xl overflow-hidden border-2 shrink-0 transition-all ${
+                  className={`w-20 sm:w-24 aspect-[4/3] rounded-xl overflow-hidden border-2 shrink-0 transition-all ${
                     activeImage === imgUrl
                       ? 'border-accent shadow-[0_0_12px_rgba(var(--accent-rgb),0.45)]'
                       : 'border-[var(--border-subtle)] opacity-70 hover:opacity-100'
@@ -219,46 +229,89 @@ export const ProductDetailsPage: React.FC = () => {
             )}
           </div>
 
-          {/* Clickable Circular Colour Swatches */}
-          <div className="p-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] space-y-3">
-            <div className="flex items-center justify-between text-sm">
-              <span className="font-semibold text-[var(--text-main)]">Selected Colour:</span>
-              <span className="font-semibold text-accent dark:text-accent-bright">
-                {activeColor.name}
-              </span>
+          {/* Clickable Body Colour Swatches & Multi Ink Colour Selector */}
+          <div className="p-4 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] space-y-4">
+            <div className="space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                <span className="font-semibold text-[var(--text-main)]">Body Colour:</span>
+                <span className="font-semibold text-accent dark:text-accent-bright">
+                  {activeColor.name}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                {product.colors
+                  .filter((c) => c.inStock)
+                  .map((color) => {
+                    const selected = color.id === selectedColorId;
+                    return (
+                      <button
+                        key={color.id}
+                        type="button"
+                        onClick={() => handleSelectColor(color.id)}
+                        aria-label={`Select colour ${color.name}`}
+                        aria-pressed={selected}
+                        className={`group relative w-11 h-11 sm:w-10 sm:h-10 rounded-full flex items-center justify-center transition-all duration-150 ${
+                          selected
+                            ? 'ring-2 ring-accent ring-offset-2 ring-offset-[var(--bg-card)] scale-110 shadow-[0_0_16px_rgba(var(--accent-rgb),0.45)]'
+                            : 'ring-1 ring-black/20 dark:ring-white/25 hover:scale-105'
+                        }`}
+                        style={{ backgroundColor: color.hex }}
+                        title={color.name}
+                      >
+                        {selected && (
+                          <Check className="w-4 h-4 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]" />
+                        )}
+                      </button>
+                    );
+                  })}
+              </div>
             </div>
-            <div className="flex flex-wrap items-center gap-3">
-              {product.colors
-                .filter((c) => c.inStock)
-                .map((color) => {
-                  const selected = color.id === selectedColorId;
+
+            <div className="pt-3 border-t border-[var(--border-subtle)]/60 space-y-2.5">
+              <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                <span className="font-semibold text-[var(--text-main)]">Ink Colour:</span>
+                <span className="inline-flex items-center gap-1.5 font-semibold text-accent dark:text-accent-bright">
+                  <span
+                    className="w-3 h-3 rounded-full border border-black/20 dark:border-white/30 inline-block shrink-0"
+                    style={{ backgroundColor: activeInk.hex }}
+                  />
+                  <span>{activeInk.name}</span>
+                </span>
+              </div>
+              <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Select ink colour">
+                {productInkColors.map((ink) => {
+                  const selected = ink.id === activeInk.id;
                   return (
                     <button
-                      key={color.id}
+                      key={ink.id}
                       type="button"
-                      onClick={() => handleSelectColor(color.id)}
-                      aria-label={`Select colour ${color.name}`}
+                      onClick={() => setSelectedInkId(ink.id)}
                       aria-pressed={selected}
-                      className={`group relative w-10 h-10 rounded-full flex items-center justify-center transition-all duration-150 ${
+                      className={`min-h-[40px] px-3 py-1.5 rounded-xl border text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-all ${
                         selected
-                          ? 'ring-2 ring-accent ring-offset-2 ring-offset-[var(--bg-card)] scale-110 shadow-[0_0_16px_rgba(var(--accent-rgb),0.45)]'
-                          : 'ring-1 ring-black/20 dark:ring-white/25 hover:scale-105'
+                          ? 'border-accent bg-accent/15 text-[var(--text-main)] font-semibold shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)]'
+                          : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
                       }`}
-                      style={{ backgroundColor: color.hex }}
-                      title={color.name}
                     >
-                      {selected && (
-                        <Check className="w-4 h-4 text-white drop-shadow-[0_1px_2px_rgba(0,0,0,0.85)]" />
-                      )}
+                      <span
+                        className="w-3.5 h-3.5 rounded-full border border-black/20 dark:border-white/30 shrink-0 flex items-center justify-center"
+                        style={{ backgroundColor: ink.hex }}
+                      >
+                        {selected && (
+                          <Check className="w-2.5 h-2.5 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.85)]" />
+                        )}
+                      </span>
+                      <span>{ink.name}</span>
                     </button>
                   );
                 })}
+              </div>
             </div>
           </div>
 
           {/* Quantity + Action Buttons */}
           <div className="space-y-3">
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
               <div className="inline-flex items-center rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] h-12">
                 <button
                   type="button"
@@ -287,8 +340,8 @@ export const ProductDetailsPage: React.FC = () => {
               <button
                 type="button"
                 disabled={!product.inStock}
-                onClick={() => addToCart(product, selectedColorId, quantity, true)}
-                className={`flex-1 min-w-[170px] h-12 px-6 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2 ${
+                onClick={() => addToCart(product, selectedColorId, quantity, true, activeInk.id)}
+                className={`flex-1 min-w-[140px] h-12 px-5 sm:px-6 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2 ${
                   product.inStock
                     ? 'cta-glow-red'
                     : 'bg-black/10 dark:bg-white/10 text-[var(--text-muted)] border border-[var(--border-subtle)] cursor-not-allowed'
@@ -317,7 +370,7 @@ export const ProductDetailsPage: React.FC = () => {
               disabled={!product.inStock}
               onClick={() => {
                 if (!product.inStock) return;
-                addToCart(product, selectedColorId, quantity, false);
+                addToCart(product, selectedColorId, quantity, false, activeInk.id);
                 navigate('checkout');
               }}
               className={`w-full h-12 rounded-xl border text-sm font-semibold transition-colors ${
@@ -350,8 +403,8 @@ export const ProductDetailsPage: React.FC = () => {
       </div>
 
       {/* Specifications & Sample Reviews */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-6 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 space-y-4">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8">
+        <div className="lg:col-span-6 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 sm:p-6 space-y-4">
           <h2 className="font-display text-lg font-bold text-[var(--text-main)]">
             Product Specifications
           </h2>
@@ -359,19 +412,37 @@ export const ProductDetailsPage: React.FC = () => {
             {[
               { label: 'Tip / Nib Size', value: product.specs.tipSize },
               { label: 'Ink / Lead Type', value: product.specs.inkType },
+              {
+                label: productInkColors.length > 1 ? 'Ink Colours' : 'Ink Colour',
+                value: productInkColors.map((i) => i.name).join(', '),
+                inks: productInkColors,
+              },
               { label: 'Body Material', value: product.specs.bodyMaterial },
               { label: 'Weight', value: product.specs.weight },
               { label: 'Series / Origin', value: product.specs.origin },
             ].map((row) => (
-              <div key={row.label} className="py-3 flex justify-between gap-4">
+              <div key={row.label} className="py-3 flex justify-between items-center gap-4">
                 <dt className="text-[var(--text-muted)]">{row.label}</dt>
-                <dd className="text-[var(--text-main)] font-medium text-right">{row.value}</dd>
+                <dd className="text-[var(--text-main)] font-medium text-right inline-flex flex-wrap justify-end items-center gap-2">
+                  {'inks' in row && row.inks && (
+                    <span className="inline-flex items-center -space-x-1">
+                      {row.inks.map((ink) => (
+                        <span
+                          key={ink.id}
+                          className="w-3 h-3 rounded-full border border-black/20 dark:border-white/30 inline-block shrink-0"
+                          style={{ backgroundColor: ink.hex }}
+                        />
+                      ))}
+                    </span>
+                  )}
+                  <span>{row.value}</span>
+                </dd>
               </div>
             ))}
           </dl>
         </div>
 
-        <div className="lg:col-span-6 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 space-y-4">
+        <div className="lg:col-span-6 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 sm:p-6 space-y-4">
           <div className="flex items-center justify-between">
             <h2 className="font-display text-lg font-bold text-[var(--text-main)]">
               Customer Reviews

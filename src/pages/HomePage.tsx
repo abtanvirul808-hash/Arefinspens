@@ -30,7 +30,7 @@ export const HomePage: React.FC = () => {
   return (
     <div className="relative z-10">
       {/* 1. HERO SECTION (Clean, centered, typography-focused — no pen photography in hero) */}
-      <section className="relative pt-16 pb-20 sm:pt-24 sm:pb-28 px-4 sm:px-6 lg:px-8">
+      <section className="relative pt-10 pb-12 sm:pt-16 sm:pb-20 lg:pt-24 lg:pb-28 px-4 sm:px-6 lg:px-8">
         <div
           className="pointer-events-none absolute inset-x-0 top-12 mx-auto w-[min(720px,90vw)] h-[320px] rounded-full opacity-30 dark:opacity-55 blur-3xl"
           style={{
@@ -98,11 +98,11 @@ export const HomePage: React.FC = () => {
       <div className="section-hairline max-w-6xl mx-auto" />
 
       {/* 2. PRODUCT CATEGORY SECTION */}
-      <section id="home-categories" className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-7xl mx-auto space-y-10">
+      <section id="home-categories" className="py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto space-y-8 sm:space-y-10">
           <FadeUp className="text-center max-w-2xl mx-auto space-y-3">
             <h2
-              className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-[var(--text-main)]"
+              className="font-display text-2xl sm:text-4xl font-bold tracking-tight text-[var(--text-main)]"
               style={{ textWrap: 'balance' }}
             >
               Find Your <span className="text-accent">Perfect Writing</span> Companion
@@ -112,26 +112,26 @@ export const HomePage: React.FC = () => {
             </p>
           </FadeUp>
 
-          <div className="flex flex-wrap justify-center gap-5 sm:gap-6">
+          <div className="flex flex-wrap justify-center gap-4 sm:gap-5 lg:gap-6">
             {HOMEPAGE_CATEGORIES.map((cat, idx) => (
               <FadeUp
                 key={cat.id}
                 delay={idx * 0.06}
-                className="w-full md:w-[calc(50%-0.75rem)] lg:w-[calc(33.333%-1rem)] flex"
+                className="w-full sm:w-[calc(50%-0.625rem)] lg:w-[calc(33.333%-1rem)] flex"
               >
                 <button
                   type="button"
                   onClick={() => navigate('shop', { category: cat.id })}
-                  className="group category-card-surface relative w-full rounded-2xl border border-accent/50 hover:border-accent-bright p-5 sm:p-6 flex items-center justify-between gap-4 text-left transition-all duration-200 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                  className="group category-card-surface relative w-full rounded-2xl border border-accent/50 hover:border-accent-bright p-4 sm:p-5 lg:p-6 flex items-center justify-between gap-3 sm:gap-4 text-left transition-all duration-200 hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
                 >
-                  <div className="flex items-center gap-4 min-w-0">
-                    {/* Large circular icon container on left */}
-                    <div className="w-16 h-16 rounded-full border border-accent/55 bg-accent/10 dark:bg-accent/20 flex items-center justify-center text-accent dark:text-accent-bright shrink-0 transition-transform duration-200 group-hover:scale-105 group-hover:shadow-[0_0_20px_rgba(var(--accent-rgb),0.4)]">
-                      <CategoryVectorIcon category={cat.id} className="w-7 h-7" />
+                  <div className="flex items-center gap-3 sm:gap-4 min-w-0">
+                    {/* Circular icon container on left */}
+                    <div className="w-12 h-12 sm:w-14 sm:h-14 lg:w-16 lg:h-16 rounded-full border border-accent/55 bg-accent/10 dark:bg-accent/20 flex items-center justify-center text-accent dark:text-accent-bright shrink-0 transition-transform duration-200 group-hover:scale-105 group-hover:shadow-[0_0_20px_rgba(var(--accent-rgb),0.4)]">
+                      <CategoryVectorIcon category={cat.id} className="w-6 h-6 sm:w-7 sm:h-7" />
                     </div>
 
                     <div className="min-w-0 space-y-1">
-                      <h3 className="font-display text-lg font-bold text-[var(--text-main)] truncate">
+                      <h3 className="font-display text-base sm:text-lg font-bold text-[var(--text-main)] truncate">
                         {cat.title}
                       </h3>
                       <p className="text-xs sm:text-sm text-[var(--text-secondary)] line-clamp-2">
@@ -156,8 +156,8 @@ export const HomePage: React.FC = () => {
       {/* 3. FEATURED PRODUCTS SECTION */}
       {featuredProducts.length > 0 && (
         <>
-          <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8">
-            <div className="max-w-7xl mx-auto space-y-10">
+          <section className="py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8">
+            <div className="max-w-7xl mx-auto space-y-8 sm:space-y-10">
               <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
                 <div className="space-y-2 max-w-2xl">
                   <h2 className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-[var(--text-main)]">
@@ -201,14 +201,14 @@ export const HomePage: React.FC = () => {
       )}
 
       {/* 4. ABOUT AREFIN'S PEN SECTION */}
-      <section className="py-16 sm:py-20 px-4 sm:px-6 lg:px-8">
+      <section className="py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-stretch">
-          <FadeUp className="lg:col-span-6 flex flex-col justify-center space-y-5">
+          <FadeUp className="lg:col-span-6 flex flex-col justify-center space-y-4 sm:space-y-5">
             <p className="text-xs font-semibold uppercase tracking-widest text-accent dark:text-accent-bright">
               Craft &amp; Purpose
             </p>
             <h2
-              className="font-display text-3xl sm:text-4xl font-bold tracking-tight text-[var(--text-main)]"
+              className="font-display text-2xl sm:text-4xl font-bold tracking-tight text-[var(--text-main)]"
               style={{ textWrap: 'balance' }}
             >
               About <span className="text-accent">Arefin&apos;s Pen</span>
@@ -243,7 +243,7 @@ export const HomePage: React.FC = () => {
           </FadeUp>
 
           <FadeUp delay={0.1} className="lg:col-span-6">
-            <div className="h-full min-h-[280px] sm:min-h-[360px] rounded-2xl overflow-hidden border border-accent/40 shadow-[0_20px_50px_-20px_rgba(var(--accent-rgb),0.28)] bg-[#0B0809]">
+            <div className="h-full min-h-[220px] sm:min-h-[320px] lg:min-h-[360px] rounded-2xl overflow-hidden border border-accent/40 shadow-[0_20px_50px_-20px_rgba(var(--accent-rgb),0.28)] bg-[#0B0809]">
               <SafeImage
                 src={PRODUCT_IMAGES.aboutStationeryDesk}
                 alt="Arefin's Pen luxury fountain pen, matte gel pen, drafting pencil, and notebook on a studio desk"
@@ -362,13 +362,13 @@ export const HomePage: React.FC = () => {
 
       {/* Bottom CTA Strip */}
       <section className="px-4 sm:px-6 lg:px-8 pb-6">
-        <FadeUp className="max-w-7xl mx-auto rounded-3xl border border-accent/45 bg-gradient-to-r from-[var(--surface-edge)] via-[#0c0a0b] to-[var(--surface-edge)] p-8 sm:p-10 text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-6">
+        <FadeUp className="max-w-7xl mx-auto rounded-2xl sm:rounded-3xl border border-accent/45 bg-gradient-to-r from-[var(--surface-edge)] via-[#0c0a0b] to-[var(--surface-edge)] p-6 sm:p-8 lg:p-10 text-white flex flex-col md:flex-row items-start md:items-center justify-between gap-5 sm:gap-6">
           <div className="space-y-2 max-w-xl">
             <div className="inline-flex items-center gap-2 text-xs font-semibold text-accent-bright">
               <Sparkles className="w-4 h-4" />
               <span>Ready to upgrade your desk?</span>
             </div>
-            <h2 className="font-display text-2xl sm:text-3xl font-bold">
+            <h2 className="font-display text-xl sm:text-3xl font-bold">
               Explore the complete Arefin&apos;s Pen collection
             </h2>
             <p className="text-sm text-[#B8B8B8]">
@@ -379,7 +379,7 @@ export const HomePage: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate('shop', { category: 'all' })}
-            className="px-6 py-3 rounded-full text-sm font-semibold cta-glow-red inline-flex items-center gap-2 whitespace-nowrap shrink-0"
+            className="w-full md:w-auto px-6 py-3 rounded-full text-sm font-semibold cta-glow-red inline-flex items-center justify-center gap-2 whitespace-nowrap shrink-0"
           >
             <span>Shop Now</span>
             <ArrowRight className="w-4 h-4" />

@@ -39,9 +39,18 @@ export interface ProductColorVariant {
   image?: string;
 }
 
+export interface InkColorOption {
+  id: string;
+  name: string;
+  hex: string;
+}
+
 export interface ProductSpecs {
   tipSize: string;
   inkType: string;
+  inkColor?: string;
+  inkColorHex?: string;
+  inkColors?: InkColorOption[];
   bodyMaterial: string;
   weight: string;
   origin: string;
@@ -81,11 +90,14 @@ export interface Product {
 }
 
 export interface CartItem {
-  key: string; // `${productId}__${colorId}`
+  key: string; // `${productId}__${colorId}__${inkColorId}`
   productId: string;
   colorId: string;
   colorName: string;
   colorHex: string;
+  inkColorId?: string;
+  inkColorName?: string;
+  inkColorHex?: string;
   quantity: number;
 }
 

@@ -6,9 +6,11 @@ import {
   Cloud,
   Copy,
   Download,
+  Droplets,
   Eye,
   EyeOff,
   FolderPlus,
+  Image as ImageIcon,
   ImagePlus,
   LogOut,
   MapPin,
@@ -25,8 +27,10 @@ import {
   X,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { CATALOGUE_CATEGORIES } from '../data/products';
-import { CategoryId, Product } from '../types';
+import { CATALOGUE_CATEGORIES, getProductInkColors } from '../data/products';
+import { PRODUCT_IMAGES } from '../data/productImages';
+import { formatLiveSyncError } from '../firebase';
+import { CategoryId, InkColorOption, Product } from '../types';
 import { SafeImage } from './SafeImage';
 
 const ADMIN_STAGE_OPTIONS = [
@@ -39,6 +43,35 @@ const ADMIN_STAGE_OPTIONS = [
 const PEN_CATEGORIES = CATALOGUE_CATEGORIES.filter(
   (c): c is { id: Exclude<CategoryId, 'all'>; label: string } => c.id !== 'all'
 );
+
+const INK_COLOR_PRESETS: { name: string; hex: string }[] = [
+  { name: 'Black', hex: '#111827' },
+  { name: 'Blue', hex: '#1D4ED8' },
+  { name: 'Sky Blue', hex: '#0EA5E9' },
+  { name: 'Red', hex: '#DC2626' },
+  { name: 'Green', hex: '#059669' },
+  { name: 'Purple', hex: '#7C3AED' },
+  { name: 'Pink', hex: '#EC4899' },
+  { name: 'Orange', hex: '#EA580C' },
+  { name: 'Brown', hex: '#92400E' },
+  { name: 'Multi-Color', hex: '#F59E0B' },
+];
+
+const PEN_IMAGE_PRESETS: { id: string; label: string; src: string }[] = [
+  { id: 'neucose-pink', label: 'Neucose B (Pink)', src: '/assets/aistudio/20261115_191701_6025b891.jpg' },
+  { id: 'neucose-yellow', label: 'Neucose B (Yellow)', src: '/assets/aistudio/20261115_191311_29fd86e7.jpg' },
+  { id: 'neucose-aqua', label: 'Neucose B (Aqua)', src: '/assets/aistudio/20261115_191847_c391cd06.jpg' },
+  { id: 'gel-black', label: 'Gel Pen Studio', src: PRODUCT_IMAGES.gelPenBlackStudio },
+  { id: 'gel-multi', label: 'Gel Multicolor Set', src: PRODUCT_IMAGES.gelPenMulticolorSet },
+  { id: 'ball-exec', label: 'Ballpoint Executive', src: PRODUCT_IMAGES.ballpointPenExecutive },
+  { id: 'ball-pack', label: 'Ballpoint Pack', src: PRODUCT_IMAGES.ballpointPenEverydayPack },
+  { id: 'fountain-gold', label: 'Fountain Gold', src: PRODUCT_IMAGES.fountainPenObsidianGold },
+  { id: 'fountain-red', label: 'Fountain Crimson', src: PRODUCT_IMAGES.fountainPenCrimsonLacquer },
+  { id: 'marker-set', label: 'Marker Pen Set', src: PRODUCT_IMAGES.markerPenCreativeSet },
+  { id: 'mech-pencil', label: 'Mechanical Pencil', src: PRODUCT_IMAGES.mechanicalPencilDrafting },
+  { id: 'highlighter', label: 'Highlighter Set', src: PRODUCT_IMAGES.highlighterPastelNeonSet },
+  { id: 'gift-box', label: 'Luxury Gift Set', src: PRODUCT_IMAGES.luxuryPenGiftBox },
+];
 
 interface ColorDraft {
   id: string;
@@ -141,17 +174,41 @@ export const AdminModal: React.FC = () => {
   const [prodStock, setProdStock] = useState<string>('100');
   const [prodTipSize, setProdTipSize] = useState('0.5 mm Needle Tip');
   const [prodInkType, setProdInkType] = useState('Smooth Gel Ink');
+  const [prodInkColors, setProdInkColors] = useState<InkColorOption[]>([
+    { id: 'black', name: 'Black', hex: '#111827' },
+  ]);
+  const [customInkName, setCustomInkName] = useState('');
+  const [customInkHex, setCustomInkHex] = useState('#1D4ED8');
   const [prodShortDesc, setProdShortDesc] = useState('');
   const [prodFeatured, setProdFeatured] = useState(false);
   const [prodOutOfStock, setProdOutOfStock] = useState(false);
   const [colorDrafts, setColorDrafts] = useState<ColorDraft[]>([
     { id: 'c-1', name: 'Black', hex: '#1E293B', image: '' },
   ]);
+  const [activeImagePickerId, setActiveImagePickerId] = useState<string | null>(null);
   const [prodFormError, setProdFormError] = useState('');
   const [catalogListFilter, setCatalogListFilter] = useState<CategoryId>('all');
   const [prodSearchTerm, setProdSearchTerm] = useState('');
   const [confirmDeleteProductId, setConfirmDeleteProductId] = useState<string | null>(null);
   const [copiedCatalogJson, setCopiedCatalogJson] = useState(false);
+
+  const penImageOptions = useMemo(() => {
+    const map = new Map<string, { id: string; label: string; src: string }>();
+    for (const preset of PEN_IMAGE_PRESETS) {
+      map.set(preset.src, preset);
+    }
+    products.forEach((p) => {
+      const candidate = p.colors[0]?.image || p.images[0];
+      if (candidate && !map.has(candidate)) {
+        map.set(candidate, {
+          id: `prod-${p.id}`,
+          label: p.name,
+          src: candidate,
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [products]);
 
   const filteredOrders = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -203,8 +260,20 @@ export const AdminModal: React.FC = () => {
     try {
       const res = await loginAdminWithGoogle();
       if (!res.ok) {
-        setError(res.error || 'Google Admin sign-in failed.');
+        setError(
+          formatLiveSyncError(
+            res.error,
+            'Wrong Google account. Please sign in with an authorized admin Google account.'
+          )
+        );
       }
+    } catch (err) {
+      setError(
+        formatLiveSyncError(
+          err,
+          'Could not connect Live Sync. Please sign in with an authorized admin Google account.'
+        )
+      );
     } finally {
       setGoogleLoading(false);
     }
@@ -241,6 +310,54 @@ export const AdminModal: React.FC = () => {
     }
   };
 
+  const handleToggleInkColorPreset = (preset: { name: string; hex: string }) => {
+    const key = preset.name.trim().toLowerCase();
+    setProdInkColors((prev) => {
+      const exists = prev.some((i) => i.name.trim().toLowerCase() === key);
+      if (exists) {
+        if (prev.length <= 1) {
+          showToast('Keep at least one ink colour selected');
+          return prev;
+        }
+        return prev.filter((i) => i.name.trim().toLowerCase() !== key);
+      }
+      const slug =
+        key.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `ink-${Date.now()}`;
+      return [...prev, { id: slug, name: preset.name, hex: preset.hex }];
+    });
+  };
+
+  const handleAddCustomInkColor = () => {
+    const trimmed = customInkName.trim();
+    if (!trimmed) {
+      showToast('Enter a custom ink colour name first');
+      return;
+    }
+    const key = trimmed.toLowerCase();
+    setProdInkColors((prev) => {
+      const exists = prev.some((i) => i.name.trim().toLowerCase() === key);
+      if (exists) {
+        return prev.map((i) =>
+          i.name.trim().toLowerCase() === key ? { ...i, hex: customInkHex } : i
+        );
+      }
+      const slug =
+        key.replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || `ink-${Date.now()}`;
+      return [...prev, { id: slug, name: trimmed, hex: customInkHex }];
+    });
+    setCustomInkName('');
+  };
+
+  const handleRemoveSelectedInkColor = (idOrName: string) => {
+    setProdInkColors((prev) => {
+      if (prev.length <= 1) {
+        showToast('At least one ink colour is required');
+        return prev;
+      }
+      return prev.filter((i) => i.id !== idOrName && i.name !== idOrName);
+    });
+  };
+
   const resetProductForm = () => {
     setEditingProductId(null);
     setProdFormError('');
@@ -251,9 +368,13 @@ export const AdminModal: React.FC = () => {
     setProdStock('100');
     setProdTipSize('0.5 mm Needle Tip');
     setProdInkType('Smooth Gel Ink');
+    setProdInkColors([{ id: 'black', name: 'Black', hex: '#111827' }]);
+    setCustomInkName('');
+    setCustomInkHex('#1D4ED8');
     setProdShortDesc('');
     setProdFeatured(false);
     setProdOutOfStock(false);
+    setActiveImagePickerId(null);
     setColorDrafts([{ id: `c-${Date.now()}`, name: 'Black', hex: '#1E293B', image: '' }]);
   };
 
@@ -268,9 +389,13 @@ export const AdminModal: React.FC = () => {
     setProdStock(String(prod.stockCount));
     setProdTipSize(prod.specs.tipSize);
     setProdInkType(prod.specs.inkType);
+    setProdInkColors(getProductInkColors(prod));
+    setCustomInkName('');
+    setCustomInkHex('#1D4ED8');
     setProdShortDesc(prod.shortDescription);
     setProdFeatured(Boolean(prod.featured));
     setProdOutOfStock(!prod.inStock);
+    setActiveImagePickerId(null);
     setColorDrafts(
       prod.colors.length > 0
         ? prod.colors.map((c, idx) => ({
@@ -328,6 +453,9 @@ export const AdminModal: React.FC = () => {
       shortDescription: prodShortDesc,
       tipSize: prodTipSize,
       inkType: prodInkType,
+      inkColor: prodInkColors.map((i) => i.name).join(', '),
+      inkColorHex: prodInkColors[0]?.hex || '#111827',
+      inkColors: prodInkColors,
       featured: prodFeatured,
       images: colorDrafts.map((c) => c.image).filter(Boolean),
       colors: colorDrafts.map((c) => ({
@@ -345,7 +473,12 @@ export const AdminModal: React.FC = () => {
         : await addAdminProduct(payload);
 
       if (!result.ok) {
-        setProdFormError(result.error || 'Please fill in all required product fields.');
+        setProdFormError(
+          formatLiveSyncError(
+            result.error,
+            'Could not save product to live cloud database. Please ensure you are signed in with an authorized admin account.'
+          )
+        );
         return;
       }
 
@@ -354,9 +487,10 @@ export const AdminModal: React.FC = () => {
       setCatalogListFilter(savedCategory);
     } catch (err) {
       setProdFormError(
-        err instanceof Error
-          ? err.message
-          : 'Could not save product to live cloud database. Please try again.'
+        formatLiveSyncError(
+          err,
+          'Could not save product to live cloud database. Please ensure you are signed in with an authorized admin account.'
+        )
       );
     } finally {
       setSavingProduct(false);
@@ -365,7 +499,7 @@ export const AdminModal: React.FC = () => {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-label="Admin Control Panel"
@@ -378,7 +512,7 @@ export const AdminModal: React.FC = () => {
       <div
         className={`relative z-10 w-full ${
           isAdmin ? 'max-w-4xl' : 'max-w-md'
-        } rounded-2xl border border-accent/50 bg-white dark:bg-[var(--bg-input)] p-4 sm:p-6 shadow-2xl space-y-4 max-h-[92vh] flex flex-col`}
+        } rounded-2xl border border-accent/50 bg-white dark:bg-[var(--bg-input)] p-3.5 sm:p-6 shadow-2xl space-y-4 max-h-[94dvh] flex flex-col`}
       >
         {/* Modal Header */}
         <div className="flex items-center justify-between gap-3 pb-3 border-b border-[var(--border-subtle)] shrink-0">
@@ -1026,6 +1160,109 @@ export const AdminModal: React.FC = () => {
                       />
                     </div>
 
+                    {/* Dedicated Multi Ink Colour Selector */}
+                    <div className="sm:col-span-2 p-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] space-y-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-[var(--text-secondary)] inline-flex items-center gap-1.5">
+                          <Droplets className="w-3.5 h-3.5 text-accent-bright" />
+                          <span>Multi Ink Colour Selector * (Select one or more)</span>
+                        </span>
+                        <span className="text-[11px] font-semibold font-mono-num text-accent dark:text-accent-bright">
+                          {prodInkColors.length} selected
+                        </span>
+                      </div>
+
+                      {/* Selected Ink Colours Pills */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {prodInkColors.map((ink) => (
+                          <span
+                            key={ink.id}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-accent/50 bg-accent/10 text-xs font-semibold text-[var(--text-main)]"
+                          >
+                            <span
+                              className="w-3 h-3 rounded-full border border-black/20 dark:border-white/30 shrink-0"
+                              style={{ backgroundColor: ink.hex }}
+                            />
+                            <span>{ink.name}</span>
+                            {prodInkColors.length > 1 && (
+                              <button
+                                type="button"
+                                onClick={() => handleRemoveSelectedInkColor(ink.id)}
+                                className="ml-0.5 text-[var(--text-muted)] hover:text-rose-500"
+                                aria-label={`Remove ${ink.name} ink`}
+                              >
+                                <X className="w-3 h-3" />
+                              </button>
+                            )}
+                          </span>
+                        ))}
+                      </div>
+
+                      {/* Multi-Toggle Preset Chips */}
+                      <div className="flex flex-wrap gap-1.5">
+                        {INK_COLOR_PRESETS.map((ink) => {
+                          const selected = prodInkColors.some(
+                            (item) => item.name.trim().toLowerCase() === ink.name.toLowerCase()
+                          );
+                          return (
+                            <button
+                              key={ink.name}
+                              type="button"
+                              aria-pressed={selected}
+                              onClick={() => handleToggleInkColorPreset(ink)}
+                              className={`min-h-[34px] px-2.5 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 transition-all ${
+                                selected
+                                  ? 'border-accent bg-accent/20 text-[var(--text-main)] font-semibold shadow-[0_0_10px_rgba(var(--accent-rgb),0.22)]'
+                                  : 'border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
+                              }`}
+                            >
+                              <span
+                                className="w-3 h-3 rounded-full border border-black/20 dark:border-white/25 shrink-0 flex items-center justify-center"
+                                style={{ backgroundColor: ink.hex }}
+                              >
+                                {selected && (
+                                  <Check className="w-2 h-2 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.85)]" />
+                                )}
+                              </span>
+                              <span>{ink.name}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+
+                      {/* Custom Ink Colour Adder */}
+                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 pt-0.5">
+                        <input
+                          type="color"
+                          value={customInkHex}
+                          onChange={(e) => setCustomInkHex(e.target.value)}
+                          aria-label="Custom ink colour picker"
+                          className="w-10 h-9 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
+                        />
+                        <input
+                          type="text"
+                          value={customInkName}
+                          onChange={(e) => setCustomInkName(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault();
+                              handleAddCustomInkColor();
+                            }
+                          }}
+                          placeholder="Add custom ink (e.g. Blue-Black)"
+                          className="flex-1 min-w-[140px] px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] focus:outline-none focus:border-accent"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleAddCustomInkColor}
+                          className="min-h-[36px] px-3 py-2 rounded-lg border border-accent/55 bg-accent/10 text-xs font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 inline-flex items-center gap-1 shrink-0"
+                        >
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Add Ink</span>
+                        </button>
+                      </div>
+                    </div>
+
                     <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-3 pt-1">
                       <label className="flex items-center gap-2 text-xs sm:text-sm font-medium text-[var(--text-main)] cursor-pointer">
                         <input
@@ -1071,79 +1308,178 @@ export const AdminModal: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Colour Options + Per-Colour Product Photo */}
+                  {/* Body / Pen Colour Options + Visual Pen Image Selector */}
                   <div className="space-y-2.5 pt-2 border-t border-[var(--border-subtle)]">
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs font-semibold text-[var(--text-secondary)]">
-                        Colour Choices &amp; Photos *
+                        Pen Body Colours &amp; Image Selector *
                       </span>
                       <button
                         type="button"
                         onClick={handleAddColorDraft}
-                        className="px-2.5 py-1 rounded-lg border border-accent/50 text-xs font-semibold text-accent dark:text-accent-bright hover:bg-accent/10 inline-flex items-center gap-1"
+                        className="px-2.5 py-1.5 rounded-lg border border-accent/50 text-xs font-semibold text-accent dark:text-accent-bright hover:bg-accent/10 inline-flex items-center gap-1"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>Add Colour</span>
                       </button>
                     </div>
 
-                    <div className="space-y-2">
-                      {colorDrafts.map((col, idx) => (
-                        <div
-                          key={col.id}
-                          className="p-2.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] flex flex-wrap sm:flex-nowrap items-center gap-2"
-                        >
-                          <input
-                            type="color"
-                            value={col.hex}
-                            onChange={(e) =>
-                              handleUpdateColorDraft(col.id, { hex: e.target.value })
-                            }
-                            aria-label={`Colour picker ${idx + 1}`}
-                            className="w-9 h-9 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
-                          />
-                          <input
-                            type="text"
-                            value={col.name}
-                            onChange={(e) =>
-                              handleUpdateColorDraft(col.id, { name: e.target.value })
-                            }
-                            placeholder="Colour name (e.g. Pink)"
-                            className="w-28 sm:w-32 px-2.5 py-1.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] focus:outline-none focus:border-accent"
-                          />
-                          <input
-                            type="text"
-                            value={col.image}
-                            onChange={(e) =>
-                              handleUpdateColorDraft(col.id, { image: e.target.value })
-                            }
-                            placeholder="Photo URL or upload ->"
-                            className="flex-1 min-w-[130px] px-2.5 py-1.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] focus:outline-none focus:border-accent"
-                          />
-                          <label className="px-2.5 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-xs font-medium text-[var(--text-main)] hover:border-accent cursor-pointer inline-flex items-center gap-1 shrink-0">
-                            <ImagePlus className="w-3.5 h-3.5 text-accent-bright" />
-                            <span>Photo</span>
-                            <input
-                              type="file"
-                              accept="image/*"
-                              className="hidden"
-                              onChange={(e) =>
-                                handleColorImageUpload(col.id, e.target.files?.[0])
-                              }
-                            />
-                          </label>
-                          {colorDrafts.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveColorDraft(col.id)}
-                              className="p-1.5 text-[var(--text-muted)] hover:text-rose-500"
-                              aria-label="Remove colour option"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      ))}
+                    <div className="space-y-2.5">
+                      {colorDrafts.map((col, idx) => {
+                        const pickerOpen = activeImagePickerId === col.id;
+                        return (
+                          <div
+                            key={col.id}
+                            className="p-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] space-y-2.5"
+                          >
+                            <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
+                              {/* Preview + Body Colour Picker + Name */}
+                              <div className="flex items-center gap-2">
+                                <div className="w-12 h-10 rounded-lg overflow-hidden border border-[var(--border-subtle)] bg-[#0B0809] shrink-0 flex items-center justify-center">
+                                  {col.image ? (
+                                    <SafeImage
+                                      src={col.image}
+                                      alt={col.name || `Pen variant ${idx + 1}`}
+                                      className="w-full h-full object-cover"
+                                    />
+                                  ) : (
+                                    <ImageIcon className="w-4 h-4 text-[var(--text-muted)]" />
+                                  )}
+                                </div>
+
+                                <input
+                                  type="color"
+                                  value={col.hex}
+                                  onChange={(e) =>
+                                    handleUpdateColorDraft(col.id, { hex: e.target.value })
+                                  }
+                                  aria-label={`Colour picker ${idx + 1}`}
+                                  className="w-9 h-9 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
+                                />
+
+                                <input
+                                  type="text"
+                                  value={col.name}
+                                  onChange={(e) =>
+                                    handleUpdateColorDraft(col.id, { name: e.target.value })
+                                  }
+                                  placeholder="Body colour (e.g. Pink)"
+                                  className="flex-1 sm:w-32 px-2.5 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] focus:outline-none focus:border-accent"
+                                />
+
+                                {colorDrafts.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveColorDraft(col.id)}
+                                    className="sm:hidden p-2 text-[var(--text-muted)] hover:text-rose-500"
+                                    aria-label="Remove colour option"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+
+                              {/* Image URL + Image Selector Toggle + File Upload */}
+                              <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 flex-1 min-w-0">
+                                <input
+                                  type="text"
+                                  value={col.image}
+                                  onChange={(e) =>
+                                    handleUpdateColorDraft(col.id, { image: e.target.value })
+                                  }
+                                  placeholder="Image URL or select pen photo"
+                                  className="w-full sm:flex-1 min-w-[120px] px-2.5 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] focus:outline-none focus:border-accent"
+                                />
+
+                                <button
+                                  type="button"
+                                  onClick={() =>
+                                    setActiveImagePickerId(pickerOpen ? null : col.id)
+                                  }
+                                  className={`px-2.5 py-2 rounded-lg border text-xs font-semibold inline-flex items-center gap-1 shrink-0 transition-colors ${
+                                    pickerOpen
+                                      ? 'border-accent bg-accent/15 text-accent-bright'
+                                      : 'border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-main)] hover:border-accent'
+                                  }`}
+                                >
+                                  <ImageIcon className="w-3.5 h-3.5 text-accent-bright" />
+                                  <span>{pickerOpen ? 'Hide Gallery' : 'Select Pen Image'}</span>
+                                </button>
+
+                                <label className="px-2.5 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-xs font-medium text-[var(--text-main)] hover:border-accent cursor-pointer inline-flex items-center gap-1 shrink-0">
+                                  <ImagePlus className="w-3.5 h-3.5 text-accent-bright" />
+                                  <span>Upload</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) =>
+                                      handleColorImageUpload(col.id, e.target.files?.[0])
+                                    }
+                                  />
+                                </label>
+
+                                {colorDrafts.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveColorDraft(col.id)}
+                                    className="hidden sm:inline-flex p-1.5 text-[var(--text-muted)] hover:text-rose-500"
+                                    aria-label="Remove colour option"
+                                  >
+                                    <X className="w-4 h-4" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Visual Pen Image Selector Grid */}
+                            {pickerOpen && (
+                              <div className="pt-2.5 border-t border-[var(--border-subtle)]/60 space-y-2">
+                                <p className="text-[11px] font-semibold text-[var(--text-muted)]">
+                                  Tap a pen photo to assign to {col.name || `Variant ${idx + 1}`}:
+                                </p>
+                                <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2 max-h-52 overflow-y-auto pr-1">
+                                  {penImageOptions.map((imgOpt) => {
+                                    const isChosen = col.image === imgOpt.src;
+                                    return (
+                                      <button
+                                        key={imgOpt.id}
+                                        type="button"
+                                        onClick={() => {
+                                          handleUpdateColorDraft(col.id, { image: imgOpt.src });
+                                          setActiveImagePickerId(null);
+                                          showToast(`Selected ${imgOpt.label}`);
+                                        }}
+                                        className={`group relative rounded-lg overflow-hidden border text-left transition-all ${
+                                          isChosen
+                                            ? 'border-accent ring-2 ring-accent/50'
+                                            : 'border-[var(--border-subtle)] hover:border-accent/70'
+                                        }`}
+                                      >
+                                        <div className="aspect-[4/3] w-full bg-[#080506] overflow-hidden">
+                                          <SafeImage
+                                            src={imgOpt.src}
+                                            alt={imgOpt.label}
+                                            className="w-full h-full object-cover group-hover:scale-105 transition-transform"
+                                          />
+                                        </div>
+                                        <p className="px-1.5 py-1 text-[10px] font-medium text-[var(--text-main)] truncate bg-[var(--bg-card)]">
+                                          {imgOpt.label}
+                                        </p>
+                                        {isChosen && (
+                                          <span className="absolute top-1 right-1 w-4 h-4 rounded-full bg-accent text-white flex items-center justify-center">
+                                            <Check className="w-2.5 h-2.5" />
+                                          </span>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
@@ -1258,6 +1594,25 @@ export const AdminModal: React.FC = () => {
                                 <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
                                   <span className="font-mono-num font-semibold text-[var(--text-main)]">
                                     ৳{prod.priceBdt.toLocaleString('en-US')}
+                                  </span>
+                                  <span>·</span>
+                                  <span className="inline-flex items-center gap-1.5">
+                                    <span className="inline-flex items-center -space-x-1">
+                                      {getProductInkColors(prod).map((ink) => (
+                                        <span
+                                          key={ink.id}
+                                          title={`${ink.name} Ink`}
+                                          className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/30 inline-block"
+                                          style={{ backgroundColor: ink.hex }}
+                                        />
+                                      ))}
+                                    </span>
+                                    <span>
+                                      {getProductInkColors(prod)
+                                        .map((i) => i.name)
+                                        .join(', ')}{' '}
+                                      Ink
+                                    </span>
                                   </span>
                                   <span>·</span>
                                   <span className="truncate">

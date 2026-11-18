@@ -22,8 +22,8 @@ export const CartPage: React.FC = () => {
   } = useStore();
 
   return (
-    <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 lg:py-14 space-y-6 sm:space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
           <h1 className="font-display text-3xl font-bold text-[var(--text-main)]">
             Shopping <span className="text-accent">Cart</span>
@@ -106,12 +106,26 @@ export const CartPage: React.FC = () => {
                     >
                       {product.name}
                     </button>
-                    <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)]">
-                      <span
-                        className="w-3.5 h-3.5 rounded-full border border-white/25 inline-block"
-                        style={{ backgroundColor: item.colorHex }}
-                      />
-                      <span>Colour: {item.colorName}</span>
+                    <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span
+                          className="w-3.5 h-3.5 rounded-full border border-white/25 inline-block"
+                          style={{ backgroundColor: item.colorHex }}
+                        />
+                        <span>Colour: {item.colorName}</span>
+                      </span>
+                      {item.inkColorName && (
+                        <>
+                          <span aria-hidden="true">·</span>
+                          <span className="inline-flex items-center gap-1">
+                            <span
+                              className="w-3 h-3 rounded-full border border-black/20 dark:border-white/25 inline-block"
+                              style={{ backgroundColor: item.inkColorHex || '#111827' }}
+                            />
+                            <span>{item.inkColorName} Ink</span>
+                          </span>
+                        </>
+                      )}
                       <span aria-hidden="true">·</span>
                       <span className="font-mono-num">
                         ৳{product.priceBdt.toLocaleString('en-US')} each
@@ -124,7 +138,7 @@ export const CartPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => updateCartQuantity(item.key, item.quantity - 1)}
-                        className="w-9 h-9 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
+                        className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
                         aria-label="Decrease quantity"
                       >
                         <Minus className="w-3.5 h-3.5" />
@@ -135,7 +149,7 @@ export const CartPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => updateCartQuantity(item.key, item.quantity + 1)}
-                        className="w-9 h-9 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
+                        className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
                         aria-label="Increase quantity"
                       >
                         <Plus className="w-3.5 h-3.5" />
@@ -149,7 +163,7 @@ export const CartPage: React.FC = () => {
                       <button
                         type="button"
                         onClick={() => removeFromCart(item.key)}
-                        className="text-[var(--text-muted)] hover:text-accent-bright p-1.5"
+                        className="text-[var(--text-muted)] hover:text-accent-bright p-2"
                         aria-label={`Remove ${product.name}`}
                       >
                         <Trash2 className="w-4 h-4" />
@@ -162,7 +176,7 @@ export const CartPage: React.FC = () => {
           </div>
 
           {/* Order Summary */}
-          <div className="lg:col-span-4 rounded-2xl border border-accent/45 bg-[var(--bg-card)] p-6 space-y-5 sticky top-24">
+          <div className="lg:col-span-4 rounded-2xl border border-accent/45 bg-[var(--bg-card)] p-5 sm:p-6 space-y-5 lg:sticky lg:top-24">
             <h2 className="font-display text-lg font-bold text-[var(--text-main)]">
               Order Summary
             </h2>

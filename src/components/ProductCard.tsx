@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { Check, Heart, ShoppingBag, Star } from 'lucide-react';
 import { Product } from '../types';
 import { useStore } from '../context/StoreContext';
+import { getProductInkColors } from '../data/products';
 import { SafeImage } from './SafeImage';
 
 interface ProductCardProps {
@@ -13,11 +14,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const [selectedColorId, setSelectedColorId] = useState(
     product.colors.find((c) => c.inStock)?.id || product.colors[0].id
   );
+  const inkColors = getProductInkColors(product);
+  const [selectedInkId, setSelectedInkId] = useState(inkColors[0]?.id || 'black');
   const [justAdded, setJustAdded] = useState(false);
 
   const wishlisted = isWishlisted(product.id);
   const activeColor =
     product.colors.find((c) => c.id === selectedColorId) || product.colors[0];
+  const activeInk =
+    inkColors.find((i) => i.id === selectedInkId) || inkColors[0];
   const displayImage = activeColor?.image || product.images[0];
 
   const discountPercent =
@@ -30,7 +35,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!product.inStock) return;
-    addToCart(product, selectedColorId, 1, true);
+    addToCart(product, selectedColorId, 1, true, activeInk?.id);
     setJustAdded(true);
     window.setTimeout(() => setJustAdded(false), 1200);
   };
@@ -61,7 +66,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             toggleWishlist(product.id);
           }}
           aria-label={wishlisted ? `Remove ${product.name} from wishlist` : `Save ${product.name} to wishlist`}
-          className={`absolute top-3 right-3 w-9 h-9 rounded-full backdrop-blur-md border flex items-center justify-center transition-colors ${
+          className={`absolute top-2.5 right-2.5 sm:top-3 sm:right-3 w-10 h-10 sm:w-9 sm:h-9 rounded-full backdrop-blur-md border flex items-center justify-center transition-colors ${
             wishlisted
               ? 'bg-accent border-accent-bright text-[var(--accent-cta-text)]'
               : 'bg-black/55 border-white/15 text-white/85 hover:border-accent hover:text-accent-bright'
@@ -85,8 +90,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       </div>
 
       {/* Content Zone */}
-      <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between gap-3.5">
-        <div className="space-y-2">
+      <div className="p-3.5 sm:p-5 flex-1 flex flex-col justify-between gap-3">
+        <div className="space-y-1.5 sm:space-y-2">
           {/* Clean Unboxed Metadata */}
           <div className="flex items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
             <span className="truncate">{product.categoryLabel}</span>
@@ -113,10 +118,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </p>
         </div>
 
-        <div className="space-y-3 pt-1">
-          {/* Available Colour Indicator Swatches */}
+        <div className="space-y-2.5 sm:space-y-3 pt-1">
+          {/* Available Body Colour Swatches */}
           <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-1.5" role="group" aria-label="Available colours">
+            <div className="flex items-center gap-2 sm:gap-1.5" role="group" aria-label="Available colours">
               {product.colors.map((color) => {
                 const selected = color.id === selectedColorId;
                 return (
@@ -128,7 +133,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                     title={color.name}
                     aria-label={`Select ${color.name} colour`}
                     aria-pressed={selected}
-                    className={`w-5 h-5 rounded-full transition-transform ${
+                    className={`w-6 h-6 sm:w-5 sm:h-5 rounded-full transition-transform ${
                       selected
                         ? 'ring-2 ring-accent ring-offset-2 ring-offset-[var(--bg-card)] scale-110'
                         : 'ring-1 ring-black/20 dark:ring-white/25 hover:scale-105'
@@ -140,6 +145,44 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             </div>
             <span className="text-xs text-[var(--text-muted)] truncate">
               {activeColor?.name}
+            </span>
+          </div>
+
+          {/* Ink Colour Selector / Indicator */}
+          <div className="flex items-center justify-between gap-2 text-xs">
+            <div className="flex items-center gap-1.5" role="group" aria-label="Available ink colours">
+              <span className="text-[11px] text-[var(--text-muted)] shrink-0">Ink:</span>
+              {inkColors.length > 1 ? (
+                <div className="flex items-center gap-1.5">
+                  {inkColors.map((ink) => {
+                    const selected = ink.id === activeInk?.id;
+                    return (
+                      <button
+                        key={ink.id}
+                        type="button"
+                        onClick={() => setSelectedInkId(ink.id)}
+                        title={`${ink.name} Ink`}
+                        aria-label={`Select ${ink.name} ink colour`}
+                        aria-pressed={selected}
+                        className={`w-5 h-5 sm:w-4 sm:h-4 rounded-full transition-transform ${
+                          selected
+                            ? 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--bg-card)] scale-110'
+                            : 'ring-1 ring-black/20 dark:ring-white/25 hover:scale-105 opacity-80 hover:opacity-100'
+                        }`}
+                        style={{ backgroundColor: ink.hex }}
+                      />
+                    );
+                  })}
+                </div>
+              ) : (
+                <span
+                  className="w-3 h-3 rounded-full border border-black/20 dark:border-white/25 inline-block shrink-0"
+                  style={{ backgroundColor: activeInk?.hex || '#111827' }}
+                />
+              )}
+            </div>
+            <span className="text-[11px] font-medium text-[var(--text-secondary)] truncate">
+              {activeInk?.name || 'Black'} Ink
             </span>
           </div>
 
@@ -160,7 +203,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               type="button"
               onClick={handleQuickAdd}
               disabled={!product.inStock}
-              className={`px-3.5 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 ${
+              className={`min-h-[40px] px-3 sm:px-3.5 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 ${
                 !product.inStock
                   ? 'bg-black/10 dark:bg-white/10 text-[var(--text-muted)] border border-[var(--border-subtle)] cursor-not-allowed'
                   : justAdded

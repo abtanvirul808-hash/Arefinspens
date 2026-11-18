@@ -75,7 +75,7 @@ export const TrackOrderPage: React.FC = () => {
   };
 
   return (
-    <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 space-y-10">
+    <div className="relative z-10 max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16 space-y-8 sm:space-y-10">
       <div className="text-center space-y-3 max-w-2xl mx-auto">
         <h1 className="font-display text-3xl sm:text-4xl font-bold text-[var(--text-main)]">
           Track Your <span className="text-accent">Order</span>
@@ -127,7 +127,7 @@ export const TrackOrderPage: React.FC = () => {
           {/* Lookup / Filter Form across user's own orders */}
           <form
             onSubmit={handleTrack}
-            className="rounded-2xl border border-accent/40 bg-[var(--bg-card)] p-6 space-y-4"
+            className="rounded-2xl border border-accent/40 bg-[var(--bg-card)] p-4 sm:p-6 space-y-4"
           >
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -157,6 +157,8 @@ export const TrackOrderPage: React.FC = () => {
                 <input
                   id="track-order-phone"
                   type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
                   required
                   value={phoneInput}
                   onChange={(e) => setPhoneInput(e.target.value)}
@@ -182,7 +184,7 @@ export const TrackOrderPage: React.FC = () => {
                         setSelectedOrderId(ord.orderId);
                         setSearched(true);
                       }}
-                      className={`px-2.5 py-1 rounded-lg border font-mono-num transition-colors ${
+                      className={`min-h-[34px] px-3 py-1.5 rounded-lg border font-mono-num transition-colors ${
                         selectedOrderId === ord.orderId
                           ? 'border-accent bg-accent/15 text-accent-bright font-semibold'
                           : 'border-[var(--border-subtle)] hover:border-accent text-[var(--text-secondary)]'
@@ -197,7 +199,7 @@ export const TrackOrderPage: React.FC = () => {
               <button
                 type="submit"
                 disabled={searching}
-                className="px-6 py-2.5 rounded-xl text-sm font-semibold cta-glow-red inline-flex items-center justify-center gap-2 shrink-0 disabled:opacity-60"
+                className="min-h-[44px] px-6 py-2.5 rounded-xl text-sm font-semibold cta-glow-red inline-flex items-center justify-center gap-2 shrink-0 disabled:opacity-60"
               >
                 <Search className="w-4 h-4" />
                 <span>{searching ? 'Searching...' : 'Track Order'}</span>
@@ -207,7 +209,7 @@ export const TrackOrderPage: React.FC = () => {
 
           {/* Result Timeline, Empty Account Orders, or Order Not Found */}
           {result ? (
-            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 sm:p-8 space-y-8">
+            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 sm:p-8 space-y-6 sm:space-y-8">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-[var(--border-subtle)]">
                 <div className="space-y-1">
                   <p className="text-xs text-[var(--text-muted)]">

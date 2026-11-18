@@ -19,15 +19,17 @@ import {
   CategoryId,
   DemoUser,
   InfoTopic,
+  InkColorOption,
   PageRoute,
   Product,
   StorePreferences,
   TrackedOrder,
 } from '../types';
-import { CATALOGUE_CATEGORIES, PRODUCTS } from '../data/products';
+import { CATALOGUE_CATEGORIES, getProductInkColors, PRODUCTS } from '../data/products';
 import {
   auth,
   db,
+  formatLiveSyncError,
   googleProvider,
   handleFirestoreError,
   isAuthorizedAdminEmail,
@@ -58,6 +60,9 @@ export interface NewProductInput {
   description?: string;
   tipSize?: string;
   inkType?: string;
+  inkColor?: string;
+  inkColorHex?: string;
+  inkColors?: InkColorOption[];
   bodyMaterial?: string;
   featured?: boolean;
   images: string[];
@@ -86,7 +91,13 @@ interface StoreContextValue {
   cartSubtotal: number;
   isCartDrawerOpen: boolean;
   setIsCartDrawerOpen: (open: boolean) => void;
-  addToCart: (product: Product, colorId?: string, quantity?: number, openDrawer?: boolean) => void;
+  addToCart: (
+    product: Product,
+    colorId?: string,
+    quantity?: number,
+    openDrawer?: boolean,
+    inkColorId?: string
+  ) => void;
   updateCartQuantity: (key: string, quantity: number) => void;
   removeFromCart: (key: string) => void;
   clearCart: () => void;
@@ -202,6 +213,42 @@ function slugifyProductName(name: string): string {
   return base || 'pen';
 }
 
+function normalizeInkColorsList(
+  inkColors?: InkColorOption[],
+  fallbackName?: string,
+  fallbackHex?: string
+): InkColorOption[] {
+  const seen = new Set<string>();
+  const list: InkColorOption[] = [];
+
+  if (Array.isArray(inkColors)) {
+    for (const item of inkColors) {
+      const name = item?.name?.trim().slice(0, 40);
+      if (!name) continue;
+      const dedupeKey = name.toLowerCase();
+      if (seen.has(dedupeKey)) continue;
+      seen.add(dedupeKey);
+      list.push({
+        id: item.id?.trim() || slugifyProductName(name),
+        name,
+        hex: item.hex?.trim() || '#111827',
+      });
+      if (list.length >= 12) break;
+    }
+  }
+
+  if (list.length === 0) {
+    const safeName = fallbackName?.trim().slice(0, 40) || 'Black';
+    list.push({
+      id: slugifyProductName(safeName),
+      name: safeName,
+      hex: fallbackHex?.trim() || '#111827',
+    });
+  }
+
+  return list;
+}
+
 function sanitizeProductForFirestore(product: Product): Record<string, unknown> {
   const cleanColors = product.colors.slice(0, 12).map((c, idx) => {
     const entry: Record<string, unknown> = {
@@ -215,6 +262,12 @@ function sanitizeProductForFirestore(product: Product): Record<string, unknown> 
     }
     return entry;
   });
+
+  const normalizedInks = normalizeInkColorsList(
+    product.specs?.inkColors,
+    product.specs?.inkColor,
+    product.specs?.inkColorHex
+  );
 
   const payload: Record<string, unknown> = {
     id: product.id,
@@ -238,6 +291,9 @@ function sanitizeProductForFirestore(product: Product): Record<string, unknown> 
     specs: {
       tipSize: product.specs?.tipSize || '0.5 mm Fine Point',
       inkType: product.specs?.inkType || 'Smooth Writing Ink',
+      inkColor: normalizedInks.map((i) => i.name).join(', '),
+      inkColorHex: normalizedInks[0].hex,
+      inkColors: normalizedInks,
       bodyMaterial: product.specs?.bodyMaterial || 'Ergonomic Studio Barrel',
       weight: product.specs?.weight || '12 g',
       origin: product.specs?.origin || product.brand || "Arefin's Pen",
@@ -414,7 +470,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setCloudProducts(list);
       },
       (error) => {
-        handleFirestoreError(error, OperationType.GET, 'products');
+        try {
+          handleFirestoreError(error, OperationType.GET, 'products');
+        } catch {
+          // Handled safely without leaking credentials
+        }
       }
     );
 
@@ -517,7 +577,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setCloudAdminOrders(list);
       },
       (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'orders');
+        try {
+          handleFirestoreError(error, OperationType.LIST, 'orders');
+        } catch {
+          // Handled safely without leaking credentials
+        }
       }
     );
 
@@ -764,7 +828,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     product: Product,
     colorId?: string,
     quantity = 1,
-    openDrawer = true
+    openDrawer = true,
+    inkColorId?: string
   ) => {
     if (!product.inStock) {
       showToast(`${product.name} is currently out of stock`);
@@ -773,7 +838,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const availableColors = product.colors.filter((c) => c.inStock);
     const chosen =
       availableColors.find((c) => c.id === colorId) || availableColors[0] || product.colors[0];
-    const key = `${product.id}__${chosen.id}`;
+    const availableInks = getProductInkColors(product);
+    const chosenInk =
+      availableInks.find((i) => i.id === inkColorId) || availableInks[0];
+    const key = `${product.id}__${chosen.id}__${chosenInk.id}`;
 
     setCart((prev) => {
       const existing = prev.find((item) => item.key === key);
@@ -790,12 +858,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           colorId: chosen.id,
           colorName: chosen.name,
           colorHex: chosen.hex,
+          inkColorId: chosenInk.id,
+          inkColorName: chosenInk.name,
+          inkColorHex: chosenInk.hex,
           quantity,
         },
       ];
     });
 
-    showToast(`Added ${product.name} (${chosen.name}) to cart`);
+    showToast(
+      `Added ${product.name} (${chosen.name}${availableInks.length > 1 ? ` · ${chosenInk.name} Ink` : ''}) to cart`
+    );
     if (openDrawer) {
       setIsCartDrawerOpen(true);
     }
@@ -1096,7 +1169,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       });
       showToast(`Order ${orderId} marked as ${STAGE_LABELS[clamped]}`);
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `orders/${docId}`);
+      try {
+        handleFirestoreError(err, OperationType.UPDATE, `orders/${docId}`);
+      } catch {
+        // Redacted error logged cleanly
+      }
+      showToast(formatLiveSyncError(err, 'Could not update order status in Live Sync.'));
     }
   };
 
@@ -1114,7 +1192,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       await deleteDoc(doc(db, 'orders', docId));
       showToast(`Order ${orderId} deleted`);
     } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `orders/${docId}`);
+      try {
+        handleFirestoreError(err, OperationType.DELETE, `orders/${docId}`);
+      } catch {
+        // Redacted error logged cleanly
+      }
+      showToast(formatLiveSyncError(err, 'Could not delete order in Live Sync.'));
     }
   };
 
@@ -1216,13 +1299,23 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         inStock: true,
         image: c.image || mergedImages[0],
       })),
-      specs: {
-        tipSize: input.tipSize?.trim() || '0.5 mm Fine Point',
-        inkType: input.inkType?.trim() || 'Smooth Writing Ink',
-        bodyMaterial: input.bodyMaterial?.trim() || 'Ergonomic Studio Barrel',
-        weight: '12 g',
-        origin: trimmedBrand,
-      },
+      specs: (() => {
+        const normalizedInks = normalizeInkColorsList(
+          input.inkColors,
+          input.inkColor,
+          input.inkColorHex
+        );
+        return {
+          tipSize: input.tipSize?.trim() || '0.5 mm Fine Point',
+          inkType: input.inkType?.trim() || 'Smooth Writing Ink',
+          inkColor: normalizedInks.map((i) => i.name).join(', '),
+          inkColorHex: normalizedInks[0].hex,
+          inkColors: normalizedInks,
+          bodyMaterial: input.bodyMaterial?.trim() || 'Ergonomic Studio Barrel',
+          weight: '12 g',
+          origin: trimmedBrand,
+        };
+      })(),
       sampleReviews: [],
     };
 
@@ -1236,7 +1329,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       showToast(`Added ${newProduct.name} live across all devices`);
       return { ok: true, product: newProduct };
     } catch (err) {
-      handleFirestoreError(err, OperationType.CREATE, `products/${newProduct.id}`);
+      try {
+        handleFirestoreError(err, OperationType.CREATE, `products/${newProduct.id}`);
+      } catch {
+        // Redacted error logged cleanly
+      }
+      return {
+        ok: false,
+        error: formatLiveSyncError(err, 'Could not save product to Live Sync.'),
+      };
     }
   };
 
@@ -1318,13 +1419,23 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         inStock: true,
         image: c.image || mergedImages[0] || existing.images[0],
       })),
-      specs: {
-        ...existing.specs,
-        tipSize: input.tipSize?.trim() || existing.specs.tipSize,
-        inkType: input.inkType?.trim() || existing.specs.inkType,
-        bodyMaterial: input.bodyMaterial?.trim() || existing.specs.bodyMaterial,
-        origin: trimmedBrand,
-      },
+      specs: (() => {
+        const normalizedInks = normalizeInkColorsList(
+          input.inkColors,
+          input.inkColor || existing.specs.inkColor,
+          input.inkColorHex || existing.specs.inkColorHex
+        );
+        return {
+          ...existing.specs,
+          tipSize: input.tipSize?.trim() || existing.specs.tipSize,
+          inkType: input.inkType?.trim() || existing.specs.inkType,
+          inkColor: normalizedInks.map((i) => i.name).join(', '),
+          inkColorHex: normalizedInks[0].hex,
+          inkColors: normalizedInks,
+          bodyMaterial: input.bodyMaterial?.trim() || existing.specs.bodyMaterial,
+          origin: trimmedBrand,
+        };
+      })(),
     };
 
     try {
@@ -1346,7 +1457,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       showToast(`Updated ${updatedProduct.name} live across all devices`);
       return { ok: true, product: updatedProduct };
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `products/${productId}`);
+      try {
+        handleFirestoreError(err, OperationType.UPDATE, `products/${productId}`);
+      } catch {
+        // Redacted error logged cleanly
+      }
+      return {
+        ok: false,
+        error: formatLiveSyncError(err, 'Could not update product in Live Sync.'),
+      };
     }
   };
 
@@ -1392,7 +1511,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           : `${existing.name} marked Out of Stock (Live)`
       );
     } catch (err) {
-      handleFirestoreError(err, OperationType.UPDATE, `products/${productId}`);
+      try {
+        handleFirestoreError(err, OperationType.UPDATE, `products/${productId}`);
+      } catch {
+        // Redacted error logged cleanly
+      }
+      showToast(formatLiveSyncError(err, 'Could not update stock status in Live Sync.'));
     }
   };
 
@@ -1408,7 +1532,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       await deleteDoc(doc(db, 'products', productId));
       showToast('Product deleted live across all devices');
     } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `products/${productId}`);
+      try {
+        handleFirestoreError(err, OperationType.DELETE, `products/${productId}`);
+      } catch {
+        // Redacted error logged cleanly
+      }
+      showToast(formatLiveSyncError(err, 'Could not delete product in Live Sync.'));
     }
   };
 
@@ -1439,7 +1568,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         await signOut(auth);
         return {
           ok: false,
-          error: 'Please sign in with an authorized admin Google account.',
+          error: 'Wrong Google account. Please sign in with an authorized admin Google account.',
         };
       }
       setCloudAdminAllowed(true);
@@ -1447,18 +1576,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       showToast('Live Cloud Admin connected across all devices');
       return { ok: true };
     } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes('auth/unauthorized-domain')) {
-        return {
-          ok: false,
-          error:
-            'Add this domain (e.g. your Netlify URL) in Firebase Console → Authentication → Settings → Authorized domains.',
-        };
-      }
-      if (msg.includes('auth/popup-closed-by-user')) {
-        return { ok: false, error: 'Google sign-in popup was closed.' };
-      }
-      return { ok: false, error: 'Could not sign in with Google. Please try again.' };
+      return {
+        ok: false,
+        error: formatLiveSyncError(
+          err,
+          'Could not sign in with Google. Please try again with an authorized admin account.'
+        ),
+      };
     }
   };
 

@@ -137,7 +137,8 @@ export const CheckoutPage: React.FC = () => {
       ? [`${customItemNote.trim()} (৳${effectiveSubtotal.toLocaleString('en-US')})`]
       : validCartItems.map((item) => {
           const prod = products.find((p) => p.id === item.productId);
-          return `${prod?.name || item.productId} (${item.colorName}) × ${item.quantity}`;
+          const inkPart = item.inkColorName ? ` · ${item.inkColorName} Ink` : '';
+          return `${prod?.name || item.productId} (${item.colorName}${inkPart}) × ${item.quantity}`;
         });
 
     const fullAddress =
@@ -251,8 +252,8 @@ export const CheckoutPage: React.FC = () => {
   }
 
   return (
-    <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-14 space-y-8">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 lg:py-14 space-y-6 sm:space-y-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 sm:gap-4">
         <div>
           <h1 className="font-display text-3xl font-bold text-[var(--text-main)]">Checkout</h1>
           <p className="text-sm text-[var(--text-secondary)]">
@@ -328,8 +329,8 @@ export const CheckoutPage: React.FC = () => {
         noValidate
       >
         {/* Left: Shipping & Payment Form */}
-        <div className="lg:col-span-7 space-y-6">
-          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 space-y-4">
+        <div className="lg:col-span-7 space-y-5 sm:space-y-6">
+          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 sm:p-6 space-y-4">
             <h2 className="font-display text-lg font-bold text-[var(--text-main)]">
               Customer &amp; Delivery Information
             </h2>
@@ -341,6 +342,7 @@ export const CheckoutPage: React.FC = () => {
                 </label>
                 <input
                   type="text"
+                  autoComplete="name"
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
@@ -355,6 +357,8 @@ export const CheckoutPage: React.FC = () => {
                 </label>
                 <input
                   type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
                   required
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
@@ -466,7 +470,7 @@ export const CheckoutPage: React.FC = () => {
           </div>
 
           {/* Payment Method: Cash on Delivery */}
-          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 space-y-4">
+          <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 sm:p-6 space-y-4">
             <h2 className="font-display text-lg font-bold text-[var(--text-main)]">
               Payment Method
             </h2>
@@ -495,7 +499,7 @@ export const CheckoutPage: React.FC = () => {
         </div>
 
         {/* Right: Order Summary */}
-        <div className="lg:col-span-5 rounded-2xl border border-accent/45 bg-[var(--bg-card)] p-6 space-y-5 sticky top-24">
+        <div className="lg:col-span-5 rounded-2xl border border-accent/45 bg-[var(--bg-card)] p-4 sm:p-6 space-y-5 lg:sticky lg:top-24">
           <div className="flex items-center justify-between gap-2">
             <h2 className="font-display text-lg font-bold text-[var(--text-main)]">
               Order Summary
@@ -559,7 +563,8 @@ export const CheckoutPage: React.FC = () => {
                         {product.name}
                       </p>
                       <p className="text-xs text-[var(--text-muted)]">
-                        {item.colorName} · Qty {item.quantity}
+                        {item.colorName}
+                        {item.inkColorName ? ` · ${item.inkColorName} Ink` : ''} · Qty {item.quantity}
                       </p>
                     </div>
                     <span className="font-mono-num font-semibold text-[var(--text-main)] shrink-0">

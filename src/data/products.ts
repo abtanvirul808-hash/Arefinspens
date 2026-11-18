@@ -1,4 +1,4 @@
-import { CategoryId, Product } from '../types';
+import { CategoryId, InkColorOption, Product } from '../types';
 
 export interface CategoryMeta {
   id: CategoryId;
@@ -95,6 +95,9 @@ export const PRODUCTS: Product[] = [
     specs: {
       tipSize: '0.5 mm Black Needle Tip',
       inkType: 'Smooth Quick-Dry Black Gel Ink',
+      inkColor: 'Black',
+      inkColorHex: '#111827',
+      inkColors: [{ id: 'black', name: 'Black', hex: '#111827' }],
       bodyMaterial: 'Matte Pastel Gradient Barrel with Ink Window & Clip Cap',
       weight: '11 g',
       origin: 'Neucos-B Series',
@@ -120,3 +123,74 @@ export const ALL_FILTER_COLORS: { id: string; name: string; hex: string }[] = [
   { id: 'yellow', name: 'Yellow', hex: '#E6D47A' },
   { id: 'aqua', name: 'Aqua', hex: '#3FD0E4' },
 ];
+
+const INK_COLOR_HEX_FALLBACK: Record<string, string> = {
+  black: '#111827',
+  blue: '#1D4ED8',
+  'sky blue': '#0EA5E9',
+  red: '#DC2626',
+  green: '#059669',
+  purple: '#7C3AED',
+  pink: '#EC4899',
+  orange: '#EA580C',
+  brown: '#92400E',
+  'multi-color': '#F59E0B',
+};
+
+export function getProductInkColors(product: Product): InkColorOption[] {
+  const rawList = product.specs?.inkColors;
+  if (Array.isArray(rawList) && rawList.length > 0) {
+    const cleaned = rawList
+      .filter((item) => item && typeof item.name === 'string' && item.name.trim().length > 0)
+      .map((item) => {
+        const name = item.name.trim();
+        const id =
+          item.id?.trim() ||
+          name
+            .toLowerCase()
+            .replace(/[^a-z0-9]+/g, '-')
+            .replace(/^-+|-+$/g, '') ||
+          'black';
+        return {
+          id,
+          name,
+          hex: item.hex?.trim() || INK_COLOR_HEX_FALLBACK[name.toLowerCase()] || '#111827',
+        };
+      });
+    if (cleaned.length > 0) return cleaned;
+  }
+
+  const singleRaw = (product.specs?.inkColor || 'Black').trim();
+  const names = singleRaw
+    .split(',')
+    .map((s) => s.trim())
+    .filter(Boolean);
+
+  if (names.length > 1) {
+    return names.map((name, idx) => ({
+      id:
+        name
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '') || `ink-${idx + 1}`,
+      name,
+      hex:
+        idx === 0 && product.specs?.inkColorHex
+          ? product.specs.inkColorHex
+          : INK_COLOR_HEX_FALLBACK[name.toLowerCase()] || '#111827',
+    }));
+  }
+
+  const singleName = names[0] || 'Black';
+  return [
+    {
+      id:
+        singleName
+          .toLowerCase()
+          .replace(/[^a-z0-9]+/g, '-')
+          .replace(/^-+|-+$/g, '') || 'black',
+      name: singleName,
+      hex: product.specs?.inkColorHex || INK_COLOR_HEX_FALLBACK[singleName.toLowerCase()] || '#111827',
+    },
+  ];
+}

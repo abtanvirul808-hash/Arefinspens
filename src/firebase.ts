@@ -19,6 +19,51 @@ export function isAuthorizedAdminEmail(email?: string | null): boolean {
   return ADMIN_ALLOWED_EMAILS.includes(email.trim().toLowerCase());
 }
 
+export function redactSensitiveEmails(text: string): string {
+  let cleaned = text;
+  for (const adminEmail of ADMIN_ALLOWED_EMAILS) {
+    const escaped = adminEmail.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    cleaned = cleaned.replace(new RegExp(escaped, 'gi'), '[authorized-admin]');
+  }
+  return cleaned;
+}
+
+export function formatLiveSyncError(
+  error: unknown,
+  fallback = 'Live sync could not be completed. Please sign in with an authorized admin Google account.'
+): string {
+  const raw = error instanceof Error ? error.message : String(error || '');
+  const trimmed = raw.trim();
+  if (!trimmed || trimmed.startsWith('{')) {
+    return fallback;
+  }
+
+  const lower = trimmed.toLowerCase();
+  if (lower.includes('permission') || lower.includes('insufficient')) {
+    return 'Live sync permission denied. Please connect an authorized admin Google account.';
+  }
+  if (lower.includes('offline') || lower.includes('network')) {
+    return 'Unable to reach live cloud database. Please check your internet connection.';
+  }
+  if (lower.includes('unauthorized-domain')) {
+    return 'This site domain is not authorized in Firebase Authentication settings.';
+  }
+  if (lower.includes('popup-closed-by-user')) {
+    return 'Google sign-in popup was closed before finishing.';
+  }
+
+  // Never expose any email address in Live Sync UI error banners
+  const withoutEmails = redactSensitiveEmails(trimmed).replace(
+    /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g,
+    '[redacted]'
+  );
+
+  if (withoutEmails.includes('[authorized-admin]') || withoutEmails.includes('[redacted]')) {
+    return fallback;
+  }
+  return withoutEmails || fallback;
+}
+
 export enum OperationType {
   CREATE = 'create',
   UPDATE = 'update',
@@ -50,18 +95,25 @@ export function handleFirestoreError(
   operationType: OperationType,
   path: string | null
 ): never {
+  const rawEmail = auth.currentUser?.email;
+  const safeEmail = rawEmail && isAuthorizedAdminEmail(rawEmail) ? '[authorized-admin]' : rawEmail;
+  const rawMessage = error instanceof Error ? error.message : String(error);
+
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: redactSensitiveEmails(rawMessage),
     authInfo: {
       userId: auth.currentUser?.uid,
-      email: auth.currentUser?.email,
+      email: safeEmail,
       emailVerified: auth.currentUser?.emailVerified,
       isAnonymous: auth.currentUser?.isAnonymous,
       tenantId: auth.currentUser?.tenantId,
       providerInfo:
         auth.currentUser?.providerData?.map((provider) => ({
           providerId: provider.providerId,
-          email: provider.email,
+          email:
+            provider.email && isAuthorizedAdminEmail(provider.email)
+              ? '[authorized-admin]'
+              : provider.email,
         })) || [],
     },
     operationType,

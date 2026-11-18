@@ -68,13 +68,13 @@ export const Header: React.FC = () => {
           : 'bg-white/75 dark:bg-[#050505]/75 backdrop-blur-md border-accent/35'
       }`}
     >
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 sm:h-[72px] flex items-center justify-between gap-4 lg:gap-8">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 h-16 sm:h-[72px] flex items-center justify-between gap-2 sm:gap-4 lg:gap-8">
         {/* Left: Original Logo + Brand Name */}
-        <div className="flex items-center gap-3 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3 min-w-0 shrink-0">
           <button
             type="button"
             onClick={() => setMobileOpen((prev) => !prev)}
-            className="lg:hidden inline-flex items-center justify-center w-10 h-10 rounded-full border border-accent/35 text-[var(--text-main)] hover:border-accent transition-colors"
+            className="lg:hidden inline-flex items-center justify-center w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-accent/35 text-[var(--text-main)] hover:border-accent transition-colors shrink-0"
             aria-label={mobileOpen ? 'Close navigation menu' : 'Open navigation menu'}
             aria-expanded={mobileOpen}
           >
@@ -87,28 +87,29 @@ export const Header: React.FC = () => {
               navigate('home');
               setMobileOpen(false);
             }}
-            className="flex items-center gap-2.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-lg py-1"
+            className="flex items-center gap-2 sm:gap-2.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-lg py-1 min-w-0"
           >
-            <BrandNibLogo className="w-8 h-8 transition-transform duration-200 group-hover:scale-105" />
-            <span className="font-display text-lg sm:text-xl font-bold tracking-tight whitespace-nowrap">
+            <BrandNibLogo className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 transition-transform duration-200 group-hover:scale-105" />
+            <span className="font-display text-base sm:text-xl font-bold tracking-tight whitespace-nowrap">
               <span className="text-[var(--text-main)]">Arefin&apos;s </span>
               <span className="text-accent">Pen</span>
             </span>
           </button>
         </div>
 
-        {/* Center: Desktop Square Liquid Glass Navigation */}
-        <nav className="hidden lg:flex items-center gap-2 text-sm font-medium" aria-label="Primary">
+        {/* Center: Unified Frosted Liquid Glass Navigation Dock */}
+        <nav
+          className="hidden lg:flex items-center gap-1 liquid-glass-dock text-sm font-medium"
+          aria-label="Primary"
+        >
           <button
             type="button"
             onClick={() => navigate('home')}
-            className={`liquid-glass-nav relative px-3.5 py-2 whitespace-nowrap transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-              isNavActive('home')
-                ? 'liquid-glass-nav-active text-[var(--text-main)] font-semibold'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-main)]'
+            className={`liquid-glass-item px-4 py-1.5 inline-flex items-center justify-center whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+              isNavActive('home') ? 'liquid-glass-item-active' : ''
             }`}
           >
-            <span className="relative z-10">Home</span>
+            <span>Home</span>
           </button>
 
           <div className="relative" ref={dropdownRef}>
@@ -116,23 +117,21 @@ export const Header: React.FC = () => {
               type="button"
               onClick={() => setCatOpen((prev) => !prev)}
               aria-expanded={catOpen}
-              className={`liquid-glass-nav relative px-3.5 py-2 inline-flex items-center gap-1.5 whitespace-nowrap transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-                isNavActive('categories') || catOpen
-                  ? 'liquid-glass-nav-active text-[var(--text-main)] font-semibold'
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-main)]'
+              className={`liquid-glass-item px-4 py-1.5 inline-flex items-center justify-center gap-1.5 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                isNavActive('categories') || catOpen ? 'liquid-glass-item-active' : ''
               }`}
             >
-              <span className="relative z-10">Categories</span>
+              <span>Categories</span>
               <ChevronDown
-                className={`relative z-10 w-4 h-4 transition-transform duration-200 ${
-                  catOpen ? 'rotate-180 text-accent' : ''
+                className={`w-4 h-4 transition-transform duration-200 ${
+                  catOpen ? 'rotate-180' : ''
                 }`}
               />
             </button>
 
             {catOpen && (
               <div
-                className="liquid-glass-menu absolute left-0 mt-2.5 w-60 p-2 z-50"
+                className="liquid-glass-menu absolute left-0 mt-3 w-60 p-2 z-50"
                 role="menu"
               >
                 {CATALOGUE_CATEGORIES.map((cat) => {
@@ -146,7 +145,7 @@ export const Header: React.FC = () => {
                         setCatOpen(false);
                         navigate('shop', { category: cat.id });
                       }}
-                      className={`w-full text-left px-3.5 py-2.5 rounded-[6px] text-sm flex items-center justify-between transition-colors ${
+                      className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm flex items-center justify-between transition-colors ${
                         active
                           ? 'bg-accent/20 text-accent font-semibold border border-accent/35'
                           : 'text-[var(--text-secondary)] hover:bg-accent/10 hover:text-[var(--text-main)]'
@@ -164,37 +163,31 @@ export const Header: React.FC = () => {
           <button
             type="button"
             onClick={() => navigate('track-order')}
-            className={`liquid-glass-nav relative px-3.5 py-2 whitespace-nowrap transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-              isNavActive('track-order')
-                ? 'liquid-glass-nav-active text-[var(--text-main)] font-semibold'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-main)]'
+            className={`liquid-glass-item px-4 py-1.5 inline-flex items-center justify-center whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+              isNavActive('track-order') ? 'liquid-glass-item-active' : ''
             }`}
           >
-            <span className="relative z-10">Track Order</span>
+            <span>Track Order</span>
           </button>
 
           <button
             type="button"
             onClick={() => navigate('about')}
-            className={`liquid-glass-nav relative px-3.5 py-2 whitespace-nowrap transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-              isNavActive('about')
-                ? 'liquid-glass-nav-active text-[var(--text-main)] font-semibold'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-main)]'
+            className={`liquid-glass-item px-4 py-1.5 inline-flex items-center justify-center whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+              isNavActive('about') ? 'liquid-glass-item-active' : ''
             }`}
           >
-            <span className="relative z-10">About</span>
+            <span>About</span>
           </button>
 
           <button
             type="button"
             onClick={() => navigate('contact')}
-            className={`liquid-glass-nav relative px-3.5 py-2 whitespace-nowrap transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
-              isNavActive('contact')
-                ? 'liquid-glass-nav-active text-[var(--text-main)] font-semibold'
-                : 'text-[var(--text-secondary)] hover:text-[var(--text-main)]'
+            className={`liquid-glass-item px-4 py-1.5 inline-flex items-center justify-center whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+              isNavActive('contact') ? 'liquid-glass-item-active' : ''
             }`}
           >
-            <span className="relative z-10">Contact</span>
+            <span>Contact</span>
           </button>
         </nav>
 
@@ -280,12 +273,12 @@ export const Header: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsCartDrawerOpen(true)}
-            className="relative w-10 h-10 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-main)] hover:border-accent hover:text-accent-bright inline-flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+            className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-main)] hover:border-accent hover:text-accent-bright inline-flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             aria-label={`Shopping cart with ${cartCount} items`}
           >
-            <ShoppingCart className="w-[18px] h-[18px]" />
+            <ShoppingCart className="w-[17px] h-[17px] sm:w-[18px] sm:h-[18px]" />
             <span
-              className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 rounded-full bg-accent text-[var(--accent-cta-text)] text-[11px] font-bold font-mono-num flex items-center justify-center shadow-[0_0_10px_rgba(var(--accent-rgb),0.75)] transition-transform duration-150"
+              className="absolute -top-1 -right-1 min-w-[19px] sm:min-w-[20px] h-[19px] sm:h-5 px-1 rounded-full bg-accent text-[var(--accent-cta-text)] text-[10px] sm:text-[11px] font-bold font-mono-num flex items-center justify-center shadow-[0_0_10px_rgba(var(--accent-rgb),0.75)] transition-transform duration-150"
               key={cartCount}
             >
               {cartCount}
@@ -294,23 +287,21 @@ export const Header: React.FC = () => {
         </div>
       </div>
 
-      {/* Mobile Navigation Drawer */}
+      {/* Mobile & Tablet Navigation Drawer */}
       {mobileOpen && (
-        <div className="lg:hidden border-t border-accent/30 bg-white/90 dark:bg-[var(--bg-secondary)]/90 backdrop-blur-xl px-4 py-4 space-y-2.5">
-          <div className="grid grid-cols-2 gap-2">
+        <div className="lg:hidden border-t border-accent/30 bg-white/95 dark:bg-[var(--bg-secondary)]/95 backdrop-blur-xl px-4 py-4 space-y-3 max-h-[calc(100dvh-4rem)] overflow-y-auto overscroll-contain">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
             <button
               type="button"
               onClick={() => {
                 navigate('home');
                 setMobileOpen(false);
               }}
-              className={`liquid-glass-nav px-3.5 py-2.5 text-left text-sm font-medium ${
-                route === 'home'
-                  ? 'liquid-glass-nav-active text-[var(--text-main)] font-semibold'
-                  : 'text-[var(--text-main)]'
+              className={`liquid-glass-drawer-tile min-h-[44px] px-3.5 py-2.5 text-left text-sm font-medium flex items-center ${
+                route === 'home' ? 'liquid-glass-drawer-tile-active' : ''
               }`}
             >
-              <span className="relative z-10">Home</span>
+              <span>Home</span>
             </button>
             <button
               type="button"
@@ -318,13 +309,11 @@ export const Header: React.FC = () => {
                 navigate('shop', { category: 'all' });
                 setMobileOpen(false);
               }}
-              className={`liquid-glass-nav px-3.5 py-2.5 text-left text-sm font-medium ${
-                route === 'shop'
-                  ? 'liquid-glass-nav-active text-[var(--text-main)] font-semibold'
-                  : 'text-[var(--text-main)]'
+              className={`liquid-glass-drawer-tile min-h-[44px] px-3.5 py-2.5 text-left text-sm font-medium flex items-center ${
+                route === 'shop' ? 'liquid-glass-drawer-tile-active' : ''
               }`}
             >
-              <span className="relative z-10">Categories</span>
+              <span>Categories</span>
             </button>
             <button
               type="button"
@@ -332,13 +321,11 @@ export const Header: React.FC = () => {
                 navigate('track-order');
                 setMobileOpen(false);
               }}
-              className={`liquid-glass-nav px-3.5 py-2.5 text-left text-sm font-medium ${
-                route === 'track-order'
-                  ? 'liquid-glass-nav-active text-[var(--text-main)] font-semibold'
-                  : 'text-[var(--text-main)]'
+              className={`liquid-glass-drawer-tile min-h-[44px] px-3.5 py-2.5 text-left text-sm font-medium flex items-center ${
+                route === 'track-order' ? 'liquid-glass-drawer-tile-active' : ''
               }`}
             >
-              <span className="relative z-10">Track Order</span>
+              <span>Track Order</span>
             </button>
             <button
               type="button"
@@ -346,13 +333,11 @@ export const Header: React.FC = () => {
                 navigate('about');
                 setMobileOpen(false);
               }}
-              className={`liquid-glass-nav px-3.5 py-2.5 text-left text-sm font-medium ${
-                route === 'about'
-                  ? 'liquid-glass-nav-active text-[var(--text-main)] font-semibold'
-                  : 'text-[var(--text-main)]'
+              className={`liquid-glass-drawer-tile min-h-[44px] px-3.5 py-2.5 text-left text-sm font-medium flex items-center ${
+                route === 'about' ? 'liquid-glass-drawer-tile-active' : ''
               }`}
             >
-              <span className="relative z-10">About</span>
+              <span>About</span>
             </button>
             <button
               type="button"
@@ -360,13 +345,11 @@ export const Header: React.FC = () => {
                 navigate('contact');
                 setMobileOpen(false);
               }}
-              className={`liquid-glass-nav px-3.5 py-2.5 text-left text-sm font-medium ${
-                route === 'contact'
-                  ? 'liquid-glass-nav-active text-[var(--text-main)] font-semibold'
-                  : 'text-[var(--text-main)]'
+              className={`liquid-glass-drawer-tile min-h-[44px] px-3.5 py-2.5 text-left text-sm font-medium flex items-center ${
+                route === 'contact' ? 'liquid-glass-drawer-tile-active' : ''
               }`}
             >
-              <span className="relative z-10">Contact</span>
+              <span>Contact</span>
             </button>
             <button
               type="button"
@@ -374,13 +357,11 @@ export const Header: React.FC = () => {
                 navigate('cart');
                 setMobileOpen(false);
               }}
-              className={`liquid-glass-nav px-3.5 py-2.5 text-left text-sm font-medium ${
-                route === 'cart'
-                  ? 'liquid-glass-nav-active text-[var(--text-main)] font-semibold'
-                  : 'text-[var(--text-main)]'
+              className={`liquid-glass-drawer-tile min-h-[44px] px-3.5 py-2.5 text-left text-sm font-medium flex items-center ${
+                route === 'cart' ? 'liquid-glass-drawer-tile-active' : ''
               }`}
             >
-              <span className="relative z-10">View Cart ({cartCount})</span>
+              <span>View Cart ({cartCount})</span>
             </button>
           </div>
 
@@ -397,22 +378,22 @@ export const Header: React.FC = () => {
                     navigate('shop', { category: cat.id });
                     setMobileOpen(false);
                   }}
-                  className="liquid-glass-nav px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-main)]"
+                  className="liquid-glass-drawer-tile min-h-[38px] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-main)]"
                 >
-                  <span className="relative z-10">{cat.label}</span>
+                  <span>{cat.label}</span>
                 </button>
               ))}
             </div>
           </div>
 
-          <div className="pt-2 flex items-center gap-2">
+          <div className="pt-2 flex items-center gap-2 pb-[env(safe-area-inset-bottom)]">
             <button
               type="button"
               onClick={() => {
                 setMobileOpen(false);
                 setIsAuthModalOpen(true);
               }}
-              className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold cta-glow-red flex items-center justify-center gap-2"
+              className="w-full min-h-[44px] py-2.5 px-4 rounded-xl text-sm font-semibold cta-glow-red flex items-center justify-center gap-2"
             >
               <User className="w-4 h-4" />
               <span>{demoUser ? `${demoUser.name} (Account)` : 'Login / Register'}</span>

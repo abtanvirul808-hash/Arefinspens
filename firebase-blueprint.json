@@ -34,7 +34,10 @@
         "stockCount": { "type": "integer" },
         "images": { "type": "array" },
         "colors": { "type": "array" },
-        "specs": { "type": "object" },
+        "specs": {
+          "type": "object",
+          "description": "Technical pen specifications including tipSize, inkType, inkColor, inkColorHex, multi-select inkColors array, bodyMaterial, weight, and origin."
+        },
         "sampleReviews": { "type": "array" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }

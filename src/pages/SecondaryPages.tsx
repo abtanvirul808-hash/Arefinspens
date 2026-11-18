@@ -22,7 +22,7 @@ export const AboutPage: React.FC = () => {
   const { navigate } = useStore();
 
   return (
-    <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 space-y-16">
+    <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16 space-y-12 sm:space-y-16">
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-stretch">
         <div className="lg:col-span-6 space-y-5 flex flex-col justify-center">
           <p className="text-xs font-semibold uppercase tracking-widest text-accent dark:text-accent-bright">
@@ -54,7 +54,7 @@ export const AboutPage: React.FC = () => {
         </div>
 
         <div className="lg:col-span-6">
-          <div className="h-full min-h-[300px] rounded-2xl overflow-hidden border border-accent/40 bg-[#0B0809]">
+          <div className="h-full min-h-[220px] sm:min-h-[300px] rounded-2xl overflow-hidden border border-accent/40 bg-[#0B0809]">
             <SafeImage
               src={PRODUCT_IMAGES.aboutStationeryDesk}
               alt="Fine writing instruments and stitched journal on a dark studio desk"
@@ -140,7 +140,7 @@ export const ContactPage: React.FC = () => {
   };
 
   return (
-    <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-16 space-y-10">
+    <div className="relative z-10 max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 lg:py-16 space-y-8 sm:space-y-10">
       <div className="text-center space-y-3 max-w-2xl mx-auto">
         <h1 className="font-display text-3xl sm:text-4xl font-bold text-[var(--text-main)]">
           Let&apos;s Get in <span className="text-accent">Touch</span>
@@ -151,8 +151,8 @@ export const ContactPage: React.FC = () => {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        <div className="lg:col-span-5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 space-y-5">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 sm:gap-8 items-start">
+        <div className="lg:col-span-5 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 sm:p-6 space-y-5">
           <h2 className="font-display text-lg font-bold text-[var(--text-main)]">
             Store Contact Details
           </h2>
@@ -199,7 +199,7 @@ export const ContactPage: React.FC = () => {
 
         <form
           onSubmit={handleSubmit}
-          className="lg:col-span-7 rounded-2xl border border-accent/40 bg-[var(--bg-card)] p-6 space-y-4"
+          className="lg:col-span-7 rounded-2xl border border-accent/40 bg-[var(--bg-card)] p-4 sm:p-6 space-y-4"
           noValidate
         >
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -269,7 +269,7 @@ export const ContactPage: React.FC = () => {
 
           <button
             type="submit"
-            className="px-6 py-3 rounded-xl text-sm font-semibold cta-glow-red inline-flex items-center gap-2"
+            className="w-full sm:w-auto px-6 py-3 rounded-xl text-sm font-semibold cta-glow-red inline-flex items-center justify-center gap-2"
           >
             <Send className="w-4 h-4" />
             <span>Send Message</span>
