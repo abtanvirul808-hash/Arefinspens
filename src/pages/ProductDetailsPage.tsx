@@ -23,8 +23,15 @@ import { ProductCard } from '../components/ProductCard';
 import { SafeImage } from '../components/SafeImage';
 
 export const ProductDetailsPage: React.FC = () => {
-  const { selectedProductSlug, navigate, addToCart, toggleWishlist, isWishlisted, products } =
-    useStore();
+  const {
+    cart,
+    selectedProductSlug,
+    navigate,
+    addToCart,
+    toggleWishlist,
+    isWishlisted,
+    products,
+  } = useStore();
 
   const product =
     products.find((p) => p.slug === selectedProductSlug) || products[0];
@@ -76,6 +83,11 @@ export const ProductDetailsPage: React.FC = () => {
   const activeColor =
     product.colors.find((c) => c.id === selectedColorId) || product.colors[0];
   const selectedColorAvailable = getColorAvailableCount(product, activeColor);
+  const inCartForSelectedColor = cart.reduce((sum, item) => {
+    if (item.productId !== product.id || item.colorId !== activeColor?.id) return sum;
+    return sum + item.quantity;
+  }, 0);
+  const remainingAddableForColor = Math.max(0, selectedColorAvailable - inCartForSelectedColor);
   const totalAvailable = getProductTotalAvailableCount(product);
   const availableColorCount = product.colors.filter(
     (c) => getColorAvailableCount(product, c) > 0
@@ -108,7 +120,12 @@ export const ProductDetailsPage: React.FC = () => {
       switchImageSmoothly(variant.image);
     }
     const nextColorAvail = getColorAvailableCount(product, variant);
-    setQuantity((q) => Math.max(1, Math.min(q, nextColorAvail || 1)));
+    const nextInCart = cart.reduce((sum, item) => {
+      if (item.productId !== product.id || item.colorId !== colorId) return sum;
+      return sum + item.quantity;
+    }, 0);
+    const nextRemaining = Math.max(1, nextColorAvail - nextInCart);
+    setQuantity((q) => Math.max(1, Math.min(q, nextRemaining)));
     const nextInks = getVariantInkColors(product, variant);
     if (!nextInks.some((i) => i.id === selectedInkId)) {
       setSelectedInkId(nextInks[0]?.id || 'black');
@@ -416,12 +433,17 @@ export const ProductDetailsPage: React.FC = () => {
                 </span>
                 <button
                   type="button"
-                  disabled={!canPurchase}
+                  disabled={!canPurchase || quantity >= Math.max(1, remainingAddableForColor)}
                   onClick={() =>
-                    setQuantity((q) => Math.min(Math.max(1, selectedColorAvailable), q + 1))
+                    setQuantity((q) => Math.min(Math.max(1, remainingAddableForColor), q + 1))
                   }
                   className="w-11 h-full flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)] disabled:opacity-40"
                   aria-label="Increase quantity"
+                  title={
+                    remainingAddableForColor <= 0
+                      ? `All ${selectedColorAvailable} ${activeColor.name} already in cart`
+                      : `Max ${remainingAddableForColor} more available`
+                  }
                 >
                   <Plus className="w-4 h-4" />
                 </button>
@@ -460,6 +482,14 @@ export const ProductDetailsPage: React.FC = () => {
                 <Heart className={`w-5 h-5 ${wishlisted ? 'fill-current' : ''}`} />
               </button>
             </div>
+            {canPurchase && inCartForSelectedColor > 0 && (
+              <p className="text-xs font-mono-num text-[var(--text-secondary)]">
+                {inCartForSelectedColor} {activeColor.name} already in your cart
+                {remainingAddableForColor > 0
+                  ? ` · up to ${remainingAddableForColor} more can be added`
+                  : ` · maximum stock (${selectedColorAvailable}) reached`}
+              </p>
+            )}
 
             <button
               type="button"

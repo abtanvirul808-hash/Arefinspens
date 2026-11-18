@@ -3,6 +3,8 @@ import { Product } from '../types';
 
 export interface ParsedOrderItem {
   key: string;
+  productId?: string;
+  colorId?: string;
   name: string;
   quantity: string;
   bodyColorName?: string;
@@ -95,10 +97,13 @@ export function parseOrderSummaryItems(
           lowerName.includes(p.name.trim().toLowerCase())
       );
 
+    let productId: string | undefined;
+    let colorId: string | undefined;
     let bodyColorHex: string | undefined;
     let image: string | undefined;
 
     if (matchedProduct) {
+      productId = matchedProduct.id;
       const matchedVariant = bodyColorName
         ? matchedProduct.colors.find(
             (c) => c.name.trim().toLowerCase() === bodyColorName!.toLowerCase()
@@ -108,6 +113,7 @@ export function parseOrderSummaryItems(
           )
         : matchedProduct.colors[0];
 
+      colorId = matchedVariant?.id;
       bodyColorHex =
         matchedVariant?.hex || (bodyColorName ? resolveColorHex(bodyColorName) : undefined);
       image = matchedVariant?.image || matchedProduct.colors[0]?.image || matchedProduct.images[0];
@@ -134,6 +140,8 @@ export function parseOrderSummaryItems(
 
     return {
       key: `${idx}-${itemName}`,
+      productId,
+      colorId,
       name: itemName,
       quantity,
       bodyColorName,

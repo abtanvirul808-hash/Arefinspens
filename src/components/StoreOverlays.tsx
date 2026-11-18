@@ -12,6 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
+import { getColorAvailableCount } from '../data/products';
 import { AccentThemeColor } from '../types';
 import { CartItemVariantEditor } from './CartItemVariantEditor';
 import { SafeImage } from './SafeImage';
@@ -131,6 +132,20 @@ export const CartDrawer: React.FC = () => {
                 const activePreviewColorId =
                   (isEditing ? previewColorByKey[item.key] : undefined) || item.colorId;
                 const variant = product.colors.find((c) => c.id === activePreviewColorId);
+                const cartColorVariant = product.colors.find((c) => c.id === item.colorId);
+                const colorAvailable = getColorAvailableCount(product, cartColorVariant);
+                const otherUsedInColor = cart.reduce((sum, other) => {
+                  if (
+                    other.key === item.key ||
+                    other.productId !== item.productId ||
+                    other.colorId !== item.colorId
+                  ) {
+                    return sum;
+                  }
+                  return sum + other.quantity;
+                }, 0);
+                const maxQtyForItem = Math.max(0, colorAvailable - otherUsedInColor);
+                const atColorMax = item.quantity >= maxQtyForItem;
                 const thumb = variant?.image || product.images[0];
 
                 return (
@@ -219,26 +234,43 @@ export const CartDrawer: React.FC = () => {
                           )}
                         </div>
                         <div className="flex items-center justify-between pt-1">
-                          <div className="inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-input)]">
-                            <button
-                              type="button"
-                              onClick={() => updateCartQuantity(item.key, item.quantity - 1)}
-                              className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
-                              aria-label="Decrease quantity"
-                            >
-                              <Minus className="w-3.5 h-3.5" />
-                            </button>
-                            <span className="px-2.5 text-xs font-mono-num font-semibold text-[var(--text-main)]">
-                              {item.quantity}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => updateCartQuantity(item.key, item.quantity + 1)}
-                              className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
-                              aria-label="Increase quantity"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                            </button>
+                          <div className="flex items-center gap-2">
+                            <div className="inline-flex items-center rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-input)]">
+                              <button
+                                type="button"
+                                onClick={() => updateCartQuantity(item.key, item.quantity - 1)}
+                                className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
+                                aria-label="Decrease quantity"
+                              >
+                                <Minus className="w-3.5 h-3.5" />
+                              </button>
+                              <span className="px-2.5 text-xs font-mono-num font-semibold text-[var(--text-main)]">
+                                {item.quantity}
+                              </span>
+                              <button
+                                type="button"
+                                disabled={atColorMax}
+                                onClick={() => updateCartQuantity(item.key, item.quantity + 1)}
+                                className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)] disabled:opacity-35 disabled:cursor-not-allowed"
+                                aria-label="Increase quantity"
+                                title={
+                                  atColorMax
+                                    ? `Maximum available reached (${colorAvailable} ${item.colorName} in stock)`
+                                    : 'Increase quantity'
+                                }
+                              >
+                                <Plus className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            {colorAvailable <= 0 ? (
+                              <span className="text-[10px] font-semibold text-rose-500">
+                                Out of stock
+                              </span>
+                            ) : atColorMax ? (
+                              <span className="text-[10px] font-mono-num text-[var(--text-muted)]">
+                                Max {colorAvailable}
+                              </span>
+                            ) : null}
                           </div>
                           <span className="text-sm font-bold font-mono-num text-[var(--text-main)]">
                             ৳{(product.priceBdt * item.quantity).toLocaleString('en-US')}

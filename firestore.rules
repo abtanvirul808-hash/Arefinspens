@@ -89,6 +89,22 @@ service cloud.firestore {
       data.updatedAt is timestamp;
     }
 
+    function isValidOrderItem(item) {
+      return item is map &&
+        item.keys().hasAll(['productId', 'productName', 'colorId', 'colorName', 'quantity']) &&
+        item.keys().hasOnly([
+          'productId', 'productName', 'colorId', 'colorName',
+          'inkColorId', 'inkColorName', 'quantity'
+        ]) &&
+        isValidId(item.productId) &&
+        item.productName is string && item.productName.size() >= 1 && item.productName.size() <= 120 &&
+        isValidId(item.colorId) &&
+        item.colorName is string && item.colorName.size() >= 1 && item.colorName.size() <= 80 &&
+        (!('inkColorId' in item) || isValidId(item.inkColorId)) &&
+        (!('inkColorName' in item) || (item.inkColorName is string && item.inkColorName.size() >= 1 && item.inkColorName.size() <= 60)) &&
+        item.quantity is int && item.quantity >= 1 && item.quantity <= 10000;
+    }
+
     function isValidOrder(data) {
       return data.keys().hasAll([
         'orderId', 'serialNumber', 'userId', 'userEmail', 'phone', 'phoneSuffix',
@@ -98,7 +114,7 @@ service cloud.firestore {
       data.keys().hasOnly([
         'orderId', 'serialNumber', 'userId', 'userEmail', 'phone', 'phoneSuffix',
         'customerName', 'city', 'academyClass', 'address', 'paymentMethod', 'totalBdt',
-        'itemsSummary', 'placedAt', 'currentStageIndex', 'createdAt', 'updatedAt'
+        'itemsSummary', 'orderItems', 'placedAt', 'currentStageIndex', 'createdAt', 'updatedAt'
       ]) &&
       data.orderId is string && data.orderId.size() >= 2 && data.orderId.size() <= 32 &&
       data.orderId.matches('^#[0-9]+$') &&
@@ -115,6 +131,11 @@ service cloud.firestore {
       data.paymentMethod == 'cod' &&
       data.totalBdt is number && data.totalBdt >= 0 && data.totalBdt <= 10000000 &&
       data.itemsSummary is string && data.itemsSummary.size() >= 2 && data.itemsSummary.size() <= 1000 &&
+      (!('orderItems' in data) || (
+        data.orderItems is list &&
+        data.orderItems.size() <= 30 &&
+        (data.orderItems.size() == 0 || isValidOrderItem(data.orderItems[0]))
+      )) &&
       data.placedAt is string && data.placedAt.size() >= 2 && data.placedAt.size() <= 80 &&
       data.currentStageIndex is int && data.currentStageIndex >= 0 && data.currentStageIndex <= 4 &&
       data.createdAt is timestamp &&
@@ -129,7 +150,29 @@ service cloud.firestore {
       data.updatedAt is timestamp;
     }
 
-    // Storefront products: public read, admin-only write
+    function isCustomerOrderStockDeduction() {
+      return isVerified() &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['inStock', 'stockCount', 'colors', 'updatedAt']) &&
+        existing().inStock == true &&
+        existing().stockCount is number &&
+        incoming().stockCount is int &&
+        incoming().stockCount >= 0 &&
+        incoming().stockCount < existing().stockCount &&
+        ((incoming().stockCount > 0 && incoming().inStock == true) || (incoming().stockCount == 0 && incoming().inStock == false)) &&
+        incoming().colors.size() == existing().colors.size() &&
+        (
+          (
+            exists(/databases/$(database)/documents/meta/orderCounter) &&
+            getAfter(/databases/$(database)/documents/meta/orderCounter).data.lastOrderNumber ==
+              get(/databases/$(database)/documents/meta/orderCounter).data.lastOrderNumber + 1
+          ) || (
+            !exists(/databases/$(database)/documents/meta/orderCounter) &&
+            getAfter(/databases/$(database)/documents/meta/orderCounter).data.lastOrderNumber == 1
+          )
+        );
+    }
+
+    // Storefront products: public read, admin-full write, verified-customer atomic stock deduction on checkout
     match /products/{productId} {
       allow get, list: if true;
       allow create: if isValidId(productId) &&
@@ -142,8 +185,10 @@ service cloud.firestore {
         isValidProduct(incoming()) &&
         incoming().id == existing().id &&
         incoming().createdAt == existing().createdAt &&
-        incoming().updatedAt == request.time &&
-        isAdmin();
+        incoming().updatedAt == request.time && (
+          isAdmin() ||
+          isCustomerOrderStockDeduction()
+        );
       allow delete: if isValidId(productId) && isAdmin();
     }
 

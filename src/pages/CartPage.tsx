@@ -9,6 +9,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
+import { getColorAvailableCount } from '../data/products';
 import { BrandNibLogo } from '../components/BrandIcons';
 import { CartItemVariantEditor } from '../components/CartItemVariantEditor';
 import { SafeImage } from '../components/SafeImage';
@@ -91,6 +92,20 @@ export const CartPage: React.FC = () => {
               const activePreviewColorId =
                 (isEditing ? previewColorByKey[item.key] : undefined) || item.colorId;
               const variant = product.colors.find((c) => c.id === activePreviewColorId);
+              const cartColorVariant = product.colors.find((c) => c.id === item.colorId);
+              const colorAvailable = getColorAvailableCount(product, cartColorVariant);
+              const otherUsedInColor = cart.reduce((sum, other) => {
+                if (
+                  other.key === item.key ||
+                  other.productId !== item.productId ||
+                  other.colorId !== item.colorId
+                ) {
+                  return sum;
+                }
+                return sum + other.quantity;
+              }, 0);
+              const maxQtyForItem = Math.max(0, colorAvailable - otherUsedInColor);
+              const atColorMax = item.quantity >= maxQtyForItem;
               const thumb = variant?.image || product.images[0];
 
               return (
@@ -158,13 +173,28 @@ export const CartPage: React.FC = () => {
                         </span>
                         <button
                           type="button"
+                          disabled={atColorMax}
                           onClick={() => updateCartQuantity(item.key, item.quantity + 1)}
-                          className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
+                          className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)] disabled:opacity-35 disabled:cursor-not-allowed"
                           aria-label="Increase quantity"
+                          title={
+                            atColorMax
+                              ? `Maximum available reached (${colorAvailable} ${item.colorName} in stock)`
+                              : 'Increase quantity'
+                          }
                         >
                           <Plus className="w-3.5 h-3.5" />
                         </button>
                       </div>
+                      {colorAvailable <= 0 ? (
+                        <span className="text-[11px] font-semibold text-rose-500">
+                          Out of stock
+                        </span>
+                      ) : atColorMax ? (
+                        <span className="text-[11px] font-mono-num text-[var(--text-muted)]">
+                          Max {colorAvailable} available
+                        </span>
+                      ) : null}
 
                       <div className="flex items-center gap-2">
                         <span className="text-base font-bold font-mono-num text-[var(--text-main)]">

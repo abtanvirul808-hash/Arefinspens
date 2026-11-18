@@ -174,6 +174,7 @@ export const AdminModal: React.FC = () => {
   const [searchTerm, setSearchTerm] = useState('');
   const [stageFilter, setStageFilter] = useState<number | 'all'>('all');
   const [confirmDeleteOrderId, setConfirmDeleteOrderId] = useState<string | null>(null);
+  const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
 
   // Set Category + Manage/Add/Edit Product form state
   const productsTabScrollRef = useRef<HTMLDivElement | null>(null);
@@ -1013,24 +1014,38 @@ export const AdminModal: React.FC = () => {
                               </div>
 
                               {confirmingDelete ? (
-                                <div className="flex items-center gap-1.5">
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      void deleteOrder(order.orderId);
-                                      setConfirmDeleteOrderId(null);
-                                    }}
-                                    className="px-2.5 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 transition-colors"
-                                  >
-                                    Confirm Delete
-                                  </button>
-                                  <button
-                                    type="button"
-                                    onClick={() => setConfirmDeleteOrderId(null)}
-                                    className="px-2 py-1.5 rounded-lg border border-[var(--border-subtle)] text-xs text-[var(--text-secondary)] hover:text-[var(--text-main)]"
-                                  >
-                                    Cancel
-                                  </button>
+                                <div className="flex flex-col items-end gap-1">
+                                  <div className="flex items-center gap-1.5">
+                                    <button
+                                      type="button"
+                                      disabled={deletingOrderId === order.orderId}
+                                      onClick={async () => {
+                                        setDeletingOrderId(order.orderId);
+                                        try {
+                                          await deleteOrder(order.orderId);
+                                        } finally {
+                                          setDeletingOrderId(null);
+                                          setConfirmDeleteOrderId(null);
+                                        }
+                                      }}
+                                      className="px-2.5 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 disabled:opacity-60 transition-colors"
+                                    >
+                                      {deletingOrderId === order.orderId
+                                        ? 'Restoring & Deleting...'
+                                        : 'Confirm Delete'}
+                                    </button>
+                                    <button
+                                      type="button"
+                                      disabled={deletingOrderId === order.orderId}
+                                      onClick={() => setConfirmDeleteOrderId(null)}
+                                      className="px-2 py-1.5 rounded-lg border border-[var(--border-subtle)] text-xs text-[var(--text-secondary)] hover:text-[var(--text-main)] disabled:opacity-60"
+                                    >
+                                      Cancel
+                                    </button>
+                                  </div>
+                                  <span className="text-[10px] text-[var(--text-muted)]">
+                                    Deletes order &amp; restores ordered pen stock
+                                  </span>
                                 </div>
                               ) : (
                                 <button
@@ -1038,7 +1053,7 @@ export const AdminModal: React.FC = () => {
                                   onClick={() => setConfirmDeleteOrderId(order.orderId)}
                                   className="px-2.5 py-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 text-rose-500 hover:bg-rose-600 hover:text-white text-xs font-semibold inline-flex items-center gap-1 transition-colors"
                                   aria-label={`Delete order ${order.orderId}`}
-                                  title="Delete Order"
+                                  title="Delete Order & Restore Stock"
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />
                                   <span>Delete</span>

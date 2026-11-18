@@ -20,6 +20,7 @@ import {
   DemoUser,
   InfoTopic,
   InkColorOption,
+  OrderLineItem,
   PageRoute,
   Product,
   StorePreferences,
@@ -41,6 +42,7 @@ import {
   isAuthorizedAdminEmail,
   OperationType,
 } from '../firebase';
+import { parseOrderSummaryItems } from '../utils/orderItems';
 
 interface ToastState {
   id: number;
@@ -262,6 +264,83 @@ function normalizeInkColorsList(
   }
 
   return list;
+}
+
+class StockValidationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'StockValidationError';
+  }
+}
+
+function getCartColorUsedCount(
+  cartItems: CartItem[],
+  productId: string,
+  colorId: string,
+  excludeKey?: string
+): number {
+  return cartItems.reduce((sum, item) => {
+    if (item.productId !== productId || item.colorId !== colorId) return sum;
+    if (excludeKey && item.key === excludeKey) return sum;
+    return sum + Math.max(0, Math.round(item.quantity));
+  }, 0);
+}
+
+function sanitizeColorListForFirestore(
+  colors: Product['colors']
+): Record<string, unknown>[] {
+  return colors.slice(0, 12).map((c, idx) => {
+    const stock =
+      typeof c.stockCount === 'number' && Number.isFinite(c.stockCount)
+        ? Math.max(0, Math.round(c.stockCount))
+        : c.inStock
+        ? 1
+        : 0;
+    const entry: Record<string, unknown> = {
+      id: c.id || `color-${idx + 1}`,
+      name: (c.name || '').trim().slice(0, 60) || `Colour ${idx + 1}`,
+      hex: c.hex || '#FF1428',
+      inStock: Boolean(c.inStock) && stock > 0,
+      stockCount: stock,
+    };
+    if (c.image && c.image.trim()) {
+      entry.image = c.image.trim();
+    }
+    if (Array.isArray(c.inkColors) && c.inkColors.length > 0) {
+      entry.inkColors = normalizeInkColorsList(c.inkColors);
+    }
+    return entry;
+  });
+}
+
+function sanitizeOrderItemsForFirestore(
+  items?: OrderLineItem[]
+): Record<string, unknown>[] | undefined {
+  if (!Array.isArray(items) || items.length === 0) return undefined;
+  const cleaned: Record<string, unknown>[] = [];
+  for (const item of items.slice(0, 30)) {
+    const productId = (item.productId || '').trim().slice(0, 128);
+    const colorId = (item.colorId || '').trim().slice(0, 128);
+    const quantity = Math.max(0, Math.round(Number(item.quantity) || 0));
+    if (!productId || !colorId || quantity <= 0) continue;
+    const entry: Record<string, unknown> = {
+      productId,
+      productName: (item.productName || productId).trim().slice(0, 120),
+      colorId,
+      colorName: (item.colorName || colorId).trim().slice(0, 80),
+      quantity: Math.min(10000, quantity),
+    };
+    const inkId = item.inkColorId?.trim().slice(0, 128);
+    const inkName = item.inkColorName?.trim().slice(0, 60);
+    if (inkId && /^[a-zA-Z0-9_\-]+$/.test(inkId)) {
+      entry.inkColorId = inkId;
+    }
+    if (inkName) {
+      entry.inkColorName = inkName;
+    }
+    cleaned.push(entry);
+  }
+  return cleaned.length > 0 ? cleaned : undefined;
 }
 
 function sanitizeProductForFirestore(product: Product): Record<string, unknown> {
@@ -878,41 +957,72 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const chosen =
       (colorId ? availableColors.find((c) => c.id === colorId) : undefined) ||
       availableColors[0];
-    if (!chosen || getColorAvailableCount(product, chosen) <= 0) {
-      showToast(`${chosen?.name || product.name} is currently out of stock`);
+    const liveProduct = products.find((p) => p.id === product.id) || product;
+    const liveChosen = liveProduct.colors.find((c) => c.id === chosen?.id) || chosen;
+    const colorAvailable = getColorAvailableCount(liveProduct, liveChosen);
+    if (!liveChosen || colorAvailable <= 0) {
+      showToast(`${liveChosen?.name || liveProduct.name} is currently out of stock`);
       return;
     }
-    const availableInks = getVariantInkColors(product, chosen);
+
+    const alreadyInColor = getCartColorUsedCount(cart, liveProduct.id, liveChosen.id);
+    const remainingAddable = Math.max(0, colorAvailable - alreadyInColor);
+    if (remainingAddable <= 0) {
+      showToast(
+        `Maximum available reached: all ${colorAvailable} ${liveChosen.name} ${liveProduct.name} are already in your cart`
+      );
+      if (openDrawer) {
+        setIsCartDrawerOpen(true);
+      }
+      return;
+    }
+
+    const requestedQty = Math.max(1, Math.round(quantity));
+    const addedQty = Math.min(requestedQty, remainingAddable);
+    const wasCapped = addedQty < requestedQty;
+
+    const availableInks = getVariantInkColors(liveProduct, liveChosen);
     const chosenInk =
       availableInks.find((i) => i.id === inkColorId) || availableInks[0];
-    const key = `${product.id}__${chosen.id}__${chosenInk.id}`;
+    const key = `${liveProduct.id}__${liveChosen.id}__${chosenInk.id}`;
 
     setCart((prev) => {
+      const prevUsed = getCartColorUsedCount(prev, liveProduct.id, liveChosen.id);
+      const prevRemaining = Math.max(0, colorAvailable - prevUsed);
+      const safeAdd = Math.min(requestedQty, prevRemaining);
+      if (safeAdd <= 0) return prev;
+
       const existing = prev.find((item) => item.key === key);
       if (existing) {
         return prev.map((item) =>
-          item.key === key ? { ...item, quantity: item.quantity + quantity } : item
+          item.key === key ? { ...item, quantity: item.quantity + safeAdd } : item
         );
       }
       return [
         ...prev,
         {
           key,
-          productId: product.id,
-          colorId: chosen.id,
-          colorName: chosen.name,
-          colorHex: chosen.hex,
+          productId: liveProduct.id,
+          colorId: liveChosen.id,
+          colorName: liveChosen.name,
+          colorHex: liveChosen.hex,
           inkColorId: chosenInk.id,
           inkColorName: chosenInk.name,
           inkColorHex: chosenInk.hex,
-          quantity,
+          quantity: safeAdd,
         },
       ];
     });
 
-    showToast(
-      `Added ${product.name} (${chosen.name}${availableInks.length > 1 ? ` · ${chosenInk.name} Ink` : ''}) to cart`
-    );
+    if (wasCapped) {
+      showToast(
+        `Added ${addedQty} ${liveProduct.name} (${liveChosen.name}) — capped at ${colorAvailable} available`
+      );
+    } else {
+      showToast(
+        `Added ${liveProduct.name} (${liveChosen.name}${availableInks.length > 1 ? ` · ${chosenInk.name} Ink` : ''}) to cart`
+      );
+    }
     if (openDrawer) {
       setIsCartDrawerOpen(true);
     }
@@ -923,7 +1033,34 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       removeFromCart(key);
       return;
     }
-    setCart((prev) => prev.map((item) => (item.key === key ? { ...item, quantity } : item)));
+    const target = cart.find((item) => item.key === key);
+    if (!target) return;
+    const product = products.find((p) => p.id === target.productId);
+    const variant = product?.colors.find((c) => c.id === target.colorId);
+    const colorAvailable = product ? getColorAvailableCount(product, variant) : quantity;
+    const otherUsed = getCartColorUsedCount(cart, target.productId, target.colorId, key);
+    const maxForThisItem = Math.max(0, colorAvailable - otherUsed);
+
+    if (product && colorAvailable <= 0) {
+      showToast(`${target.colorName} ${product.name} is currently out of stock`);
+      return;
+    }
+
+    const desiredQty = Math.round(quantity);
+    const clampedQty = product ? Math.min(desiredQty, Math.max(1, maxForThisItem)) : desiredQty;
+    if (product && maxForThisItem === 0) {
+      showToast(
+        `All ${colorAvailable} ${target.colorName} ${product.name} are already allocated across your cart`
+      );
+      return;
+    }
+    if (product && desiredQty > maxForThisItem) {
+      showToast(`Only ${colorAvailable} ${target.colorName} ${product.name} available in stock`);
+    }
+
+    setCart((prev) =>
+      prev.map((item) => (item.key === key ? { ...item, quantity: clampedQty } : item))
+    );
   };
 
   const updateCartItemVariant = (
@@ -936,13 +1073,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const product = products.find((p) => p.id === target.productId);
     if (!product) return;
 
-    const availableColors = product.colors.filter((c) => c.inStock);
+    const availableColors = product.colors.filter((c) => getColorAvailableCount(product, c) > 0);
     if (availableColors.length === 0) {
       showToast(`${product.name} has no colours in stock right now`);
       return;
     }
     const explicitColor = product.colors.find((c) => c.id === nextColorId);
-    if (explicitColor && !explicitColor.inStock) {
+    if (explicitColor && getColorAvailableCount(product, explicitColor) <= 0) {
       showToast(`${explicitColor.name} colour is currently out of stock`);
       return;
     }
@@ -956,13 +1093,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     if (!chosenInk) return;
 
     const nextKey = `${product.id}__${chosen.id}__${chosenInk.id}`;
+    const colorAvailable = getColorAvailableCount(product, chosen);
+    const existingMatch = cart.find((item) => item.key === nextKey);
 
-    setCart((prev) => {
-      const currentTarget = prev.find((item) => item.key === key);
-      if (!currentTarget) return prev;
-
-      if (nextKey === key) {
-        return prev.map((item) =>
+    if (nextKey === key) {
+      const otherUsed = getCartColorUsedCount(cart, product.id, chosen.id, key);
+      const maxAllowed = Math.max(0, colorAvailable - otherUsed);
+      const safeQty = Math.min(target.quantity, Math.max(1, maxAllowed));
+      setCart((prev) =>
+        prev.map((item) =>
           item.key === key
             ? {
                 ...item,
@@ -972,23 +1111,54 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 inkColorId: chosenInk.id,
                 inkColorName: chosenInk.name,
                 inkColorHex: chosenInk.hex,
+                quantity: safeQty,
               }
             : item
-        );
-      }
+        )
+      );
+      showToast(`Updated ${product.name} (${chosen.name} · ${chosenInk.name} Ink)`);
+      return;
+    }
 
-      const existingMatch = prev.find((item) => item.key === nextKey);
-      if (existingMatch) {
-        return prev
+    if (existingMatch) {
+      const otherUsedOutsidePair = cart.reduce((sum, item) => {
+        if (item.productId !== product.id || item.colorId !== chosen.id) return sum;
+        if (item.key === key || item.key === nextKey) return sum;
+        return sum + Math.max(0, item.quantity);
+      }, 0);
+      const remainingPool = Math.max(0, colorAvailable - otherUsedOutsidePair);
+      const combinedRequested = existingMatch.quantity + target.quantity;
+      const cappedCombined = Math.min(combinedRequested, Math.max(existingMatch.quantity, remainingPool));
+      const wasCapped = cappedCombined < combinedRequested;
+
+      setCart((prev) =>
+        prev
           .map((item) =>
-            item.key === nextKey
-              ? { ...item, quantity: item.quantity + currentTarget.quantity }
-              : item
+            item.key === nextKey ? { ...item, quantity: cappedCombined } : item
           )
-          .filter((item) => item.key !== key);
-      }
+          .filter((item) => item.key !== key)
+      );
+      showToast(
+        wasCapped
+          ? `Updated ${product.name} (${chosen.name} · ${chosenInk.name} Ink) — capped at ${colorAvailable} available`
+          : `Updated ${product.name} (${chosen.name} · ${chosenInk.name} Ink)`
+      );
+      return;
+    }
 
-      return prev.map((item) =>
+    const otherUsed = getCartColorUsedCount(cart, product.id, chosen.id, key);
+    const maxForChosenColor = Math.max(0, colorAvailable - otherUsed);
+    if (maxForChosenColor <= 0) {
+      showToast(
+        `No remaining ${chosen.name} stock available — all ${colorAvailable} are already in your cart`
+      );
+      return;
+    }
+    const cappedQty = Math.min(target.quantity, maxForChosenColor);
+    const wasCapped = cappedQty < target.quantity;
+
+    setCart((prev) =>
+      prev.map((item) =>
         item.key === key
           ? {
               ...item,
@@ -999,12 +1169,17 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               inkColorId: chosenInk.id,
               inkColorName: chosenInk.name,
               inkColorHex: chosenInk.hex,
+              quantity: cappedQty,
             }
           : item
-      );
-    });
+      )
+    );
 
-    showToast(`Updated ${product.name} (${chosen.name} · ${chosenInk.name} Ink)`);
+    showToast(
+      wasCapped
+        ? `Updated ${product.name} (${chosen.name} · ${chosenInk.name} Ink) — capped at ${cappedQty} available`
+        : `Updated ${product.name} (${chosen.name} · ${chosenInk.name} Ink)`
+    );
   };
 
   const removeFromCart = (key: string) => {
@@ -1205,8 +1380,120 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     try {
       const counterRef = doc(db, 'meta', 'orderCounter');
+      const sanitizedOrderItems = sanitizeOrderItemsForFirestore(order.orderItems);
+
+      // Group requested quantities per (productId, colorId) across ink combos
+      const groupedDeductions = new Map<
+        string,
+        Map<string, { colorName: string; productName: string; qty: number }>
+      >();
+      if (Array.isArray(order.orderItems)) {
+        for (const item of order.orderItems) {
+          const qty = Math.max(0, Math.round(Number(item.quantity) || 0));
+          if (!item.productId || !item.colorId || qty <= 0) continue;
+          let colorMap = groupedDeductions.get(item.productId);
+          if (!colorMap) {
+            colorMap = new Map();
+            groupedDeductions.set(item.productId, colorMap);
+          }
+          const existingEntry = colorMap.get(item.colorId);
+          colorMap.set(item.colorId, {
+            colorName: item.colorName || existingEntry?.colorName || item.colorId,
+            productName: item.productName || existingEntry?.productName || item.productId,
+            qty: (existingEntry?.qty || 0) + qty,
+          });
+        }
+      }
+
       const assigned = await runTransaction(db, async (transaction) => {
+        // 1. ALL READS FIRST: order counter + every ordered product document
         const counterSnap = await transaction.get(counterRef);
+        const productIds = Array.from(groupedDeductions.keys());
+        const productRefs = productIds.map((pid) => doc(db, 'products', pid));
+        const productSnaps = await Promise.all(
+          productRefs.map((ref) => transaction.get(ref))
+        );
+
+        // 2. VALIDATE STOCK & PREPARE PRODUCT UPDATES
+        const productUpdates: {
+          ref: ReturnType<typeof doc>;
+          colors: Record<string, unknown>[];
+          stockCount: number;
+          inStock: boolean;
+        }[] = [];
+
+        productIds.forEach((pid, idx) => {
+          const prodSnap = productSnaps[idx];
+          const colorMap = groupedDeductions.get(pid);
+          if (!colorMap || !prodSnap.exists()) return;
+
+          const prodData = prodSnap.data() as Product;
+          const colors = Array.isArray(prodData.colors) ? prodData.colors : [];
+
+          if (!prodData.inStock) {
+            throw new StockValidationError(`${prodData.name} is currently out of stock.`);
+          }
+
+          // Track remaining count per colour index so multiple requested colours update cleanly
+          const normalizedCounts = colors.map((c) => getColorAvailableCount(prodData, c));
+          const updatedColors = colors.map((c, cIdx) => ({
+            ...c,
+            stockCount: c.inStock
+              ? normalizedCounts[cIdx]
+              : typeof c.stockCount === 'number' && Number.isFinite(c.stockCount)
+              ? Math.max(0, Math.round(c.stockCount))
+              : 0,
+          }));
+
+          for (const [colorId, req] of colorMap.entries()) {
+            let targetIdx = updatedColors.findIndex((c) => c.id === colorId);
+            if (targetIdx === -1) {
+              targetIdx = updatedColors.findIndex(
+                (c) => c.name.trim().toLowerCase() === req.colorName.trim().toLowerCase()
+              );
+            }
+            if (targetIdx === -1) {
+              throw new StockValidationError(
+                `${req.colorName} colour is no longer available for ${prodData.name}.`
+              );
+            }
+
+            const avail = normalizedCounts[targetIdx];
+            if (avail <= 0) {
+              throw new StockValidationError(
+                `${prodData.name} (${updatedColors[targetIdx].name}) is currently out of stock.`
+              );
+            }
+            if (req.qty > avail) {
+              throw new StockValidationError(
+                `Only ${avail} left for ${prodData.name} (${updatedColors[targetIdx].name}). Please reduce your cart quantity.`
+              );
+            }
+
+            const nextCount = avail - req.qty;
+            updatedColors[targetIdx] = {
+              ...updatedColors[targetIdx],
+              stockCount: nextCount,
+              inStock: nextCount > 0,
+            };
+          }
+
+          const nextTotalStock = updatedColors.reduce(
+            (sum, c) => sum + (c.inStock && (c.stockCount || 0) > 0 ? c.stockCount || 0 : 0),
+            0
+          );
+          const nextProductInStock =
+            updatedColors.some((c) => c.inStock && (c.stockCount || 0) > 0) && nextTotalStock > 0;
+
+          productUpdates.push({
+            ref: productRefs[idx],
+            colors: sanitizeColorListForFirestore(updatedColors),
+            stockCount: nextTotalStock,
+            inStock: nextProductInStock,
+          });
+        });
+
+        // 3. ALL WRITES: increment counter, deduct stock on products, save order
         const currentNum = counterSnap.exists()
           ? Number(counterSnap.data()?.lastOrderNumber || 0)
           : 0;
@@ -1223,6 +1510,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         } else {
           transaction.set(counterRef, {
             lastOrderNumber: nextNum,
+            updatedAt: serverTimestamp(),
+          });
+        }
+
+        for (const upd of productUpdates) {
+          transaction.update(upd.ref, {
+            colors: upd.colors,
+            stockCount: upd.stockCount,
+            inStock: upd.inStock,
             updatedAt: serverTimestamp(),
           });
         }
@@ -1251,6 +1547,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           updatedAt: serverTimestamp(),
         };
 
+        if (sanitizedOrderItems) {
+          orderPayload.orderItems = sanitizedOrderItems;
+        }
         if (order.city === 'Al Amanah Academy' && order.academyClass) {
           orderPayload.academyClass = order.academyClass;
         }
@@ -1272,6 +1571,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       };
       return finalOrder;
     } catch (err) {
+      if (err instanceof StockValidationError) {
+        throw err;
+      }
       handleFirestoreError(err, OperationType.CREATE, `orders/${order.orderId}`);
     }
   };
@@ -1314,8 +1616,138 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const docId = `order-${serialNumber}`;
     try {
-      await deleteDoc(doc(db, 'orders', docId));
-      showToast(`Order ${orderId} deleted`);
+      const result = await runTransaction(db, async (transaction) => {
+        const orderRef = doc(db, 'orders', docId);
+        const orderSnap = await transaction.get(orderRef);
+        if (!orderSnap.exists()) {
+          return { deleted: false, restoredUnits: 0 };
+        }
+
+        const orderData = orderSnap.data() as TrackedOrder & { orderItems?: OrderLineItem[] };
+
+        // Resolve line items from structured snapshot or legacy summary fallback
+        const restoreList: {
+          productId: string;
+          colorId?: string;
+          colorName?: string;
+          qty: number;
+        }[] = [];
+
+        if (Array.isArray(orderData.orderItems) && orderData.orderItems.length > 0) {
+          for (const item of orderData.orderItems) {
+            const qty = Math.max(0, Math.round(Number(item.quantity) || 0));
+            if (item.productId && qty > 0) {
+              restoreList.push({
+                productId: item.productId,
+                colorId: item.colorId,
+                colorName: item.colorName,
+                qty,
+              });
+            }
+          }
+        } else if (orderData.itemsSummary) {
+          const parsedLegacy = parseOrderSummaryItems(orderData.itemsSummary, products);
+          for (const parsed of parsedLegacy) {
+            const qty = Math.max(0, Math.round(Number.parseInt(parsed.quantity, 10) || 0));
+            if (parsed.productId && qty > 0) {
+              restoreList.push({
+                productId: parsed.productId,
+                colorId: parsed.colorId,
+                colorName: parsed.bodyColorName,
+                qty,
+              });
+            }
+          }
+        }
+
+        const groupedRestores = new Map<
+          string,
+          { colorId?: string; colorName?: string; qty: number }[]
+        >();
+        let totalUnitsToRestore = 0;
+        for (const item of restoreList) {
+          const list = groupedRestores.get(item.productId) || [];
+          list.push(item);
+          groupedRestores.set(item.productId, list);
+          totalUnitsToRestore += item.qty;
+        }
+
+        const productIds = Array.from(groupedRestores.keys());
+        const productRefs = productIds.map((pid) => doc(db, 'products', pid));
+        const productSnaps = await Promise.all(
+          productRefs.map((ref) => transaction.get(ref))
+        );
+
+        productIds.forEach((pid, idx) => {
+          const prodSnap = productSnaps[idx];
+          const entries = groupedRestores.get(pid);
+          if (!prodSnap.exists() || !entries || entries.length === 0) return;
+
+          const prodData = prodSnap.data() as Product;
+          const colors = Array.isArray(prodData.colors) ? prodData.colors : [];
+          if (colors.length === 0) return;
+
+          const updatedColors = colors.map((c) => {
+            const avail = getColorAvailableCount(prodData, c);
+            return {
+              ...c,
+              inStock: c.inStock && avail > 0,
+              stockCount: c.inStock ? avail : 0,
+            };
+          });
+
+          for (const entry of entries) {
+            let targetIdx = entry.colorId
+              ? updatedColors.findIndex((c) => c.id === entry.colorId)
+              : -1;
+            if (targetIdx === -1 && entry.colorName) {
+              const lowerColor = entry.colorName.trim().toLowerCase();
+              targetIdx = updatedColors.findIndex(
+                (c) => c.name.trim().toLowerCase() === lowerColor
+              );
+            }
+            if (targetIdx === -1 && updatedColors.length === 1) {
+              targetIdx = 0;
+            }
+            if (targetIdx !== -1) {
+              const prevQty = Math.max(0, Math.round(updatedColors[targetIdx].stockCount || 0));
+              const nextQty = prevQty + entry.qty;
+              updatedColors[targetIdx] = {
+                ...updatedColors[targetIdx],
+                stockCount: nextQty,
+                inStock: nextQty > 0,
+              };
+            }
+          }
+
+          const nextTotalStock = updatedColors.reduce(
+            (sum, c) => sum + (c.inStock && (c.stockCount || 0) > 0 ? c.stockCount || 0 : 0),
+            0
+          );
+          const nextInStock =
+            updatedColors.some((c) => c.inStock && (c.stockCount || 0) > 0) && nextTotalStock > 0;
+
+          transaction.update(productRefs[idx], {
+            colors: sanitizeColorListForFirestore(updatedColors),
+            stockCount: nextTotalStock,
+            inStock: nextInStock,
+            updatedAt: serverTimestamp(),
+          });
+        });
+
+        transaction.delete(orderRef);
+        return { deleted: true, restoredUnits: totalUnitsToRestore };
+      });
+
+      if (result.deleted) {
+        showToast(
+          result.restoredUnits > 0
+            ? `Order ${orderId} deleted · restored ${result.restoredUnits} pen${
+                result.restoredUnits === 1 ? '' : 's'
+              } to stock`
+            : `Order ${orderId} deleted`
+        );
+      }
     } catch (err) {
       try {
         handleFirestoreError(err, OperationType.DELETE, `orders/${docId}`);

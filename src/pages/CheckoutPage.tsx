@@ -10,7 +10,8 @@ import {
   Truck,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { TrackedOrder } from '../types';
+import { getColorAvailableCount } from '../data/products';
+import { OrderLineItem, TrackedOrder } from '../types';
 
 type DeliveryLocationOption = 'Al Amanah Academy' | 'Home Delivery';
 type AcademyClassOption = '' | '5' | '6' | '7';
@@ -130,6 +131,35 @@ export const CheckoutPage: React.FC = () => {
       return;
     }
 
+    const requestedByColor = new Map<string, { label: string; qty: number; available: number }>();
+    if (!isDirectOrder) {
+      for (const item of validCartItems) {
+        const prod = products.find((p) => p.id === item.productId);
+        if (!prod) continue;
+        const variant = prod.colors.find((c) => c.id === item.colorId);
+        const avail = getColorAvailableCount(prod, variant);
+        const groupKey = `${prod.id}__${item.colorId}`;
+        const prevEntry = requestedByColor.get(groupKey);
+        requestedByColor.set(groupKey, {
+          label: `${prod.name} (${item.colorName})`,
+          qty: (prevEntry?.qty || 0) + item.quantity,
+          available: avail,
+        });
+      }
+      for (const entry of requestedByColor.values()) {
+        if (entry.available <= 0) {
+          failValidation(`${entry.label} is currently out of stock. Please update your cart.`);
+          return;
+        }
+        if (entry.qty > entry.available) {
+          failValidation(
+            `Only ${entry.available} left for ${entry.label}. Please cap your order quantity at ${entry.available}.`
+          );
+          return;
+        }
+      }
+    }
+
     setFormError('');
     setSubmittingOrder(true);
 
@@ -139,6 +169,21 @@ export const CheckoutPage: React.FC = () => {
           const prod = products.find((p) => p.id === item.productId);
           const inkPart = item.inkColorName ? ` · ${item.inkColorName} Ink` : '';
           return `${prod?.name || item.productId} (${item.colorName}${inkPart}) × ${item.quantity}`;
+        });
+
+    const structuredOrderItems: OrderLineItem[] | undefined = isDirectOrder
+      ? undefined
+      : validCartItems.map((item) => {
+          const prod = products.find((p) => p.id === item.productId);
+          return {
+            productId: item.productId,
+            productName: prod?.name || item.productId,
+            colorId: item.colorId,
+            colorName: item.colorName,
+            inkColorId: item.inkColorId,
+            inkColorName: item.inkColorName,
+            quantity: item.quantity,
+          };
         });
 
     const fullAddress =
@@ -157,6 +202,7 @@ export const CheckoutPage: React.FC = () => {
       paymentMethod: 'cod',
       totalBdt: finalTotal,
       itemsSummary: summaryParts.join(', '),
+      orderItems: structuredOrderItems,
       placedAt: 'Just now',
       currentStageIndex: 1,
       isDemoRecord: false,

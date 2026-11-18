@@ -88,6 +88,10 @@
         "paymentMethod": { "type": "string", "enum": ["cod"] },
         "totalBdt": { "type": "number" },
         "itemsSummary": { "type": "string", "minLength": 2, "maxLength": 1000 },
+        "orderItems": {
+          "type": "array",
+          "description": "Structured ordered items (productId, productName, colorId, colorName, optional inkColorId/inkColorName, quantity) used for atomic stock deduction and order-deletion restoration."
+        },
         "placedAt": { "type": "string", "minLength": 2, "maxLength": 80 },
         "currentStageIndex": { "type": "integer" },
         "createdAt": { "type": "string", "format": "date-time" },

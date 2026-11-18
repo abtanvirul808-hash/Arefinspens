@@ -112,6 +112,16 @@ export interface OrderTimelineStep {
   status: OrderStageStatus;
 }
 
+export interface OrderLineItem {
+  productId: string;
+  productName: string;
+  colorId: string;
+  colorName: string;
+  inkColorId?: string;
+  inkColorName?: string;
+  quantity: number;
+}
+
 export interface TrackedOrder {
   orderId: string;
   serialNumber?: number;
@@ -125,6 +135,7 @@ export interface TrackedOrder {
   paymentMethod: 'cod';
   totalBdt: number;
   itemsSummary: string;
+  orderItems?: OrderLineItem[];
   placedAt: string;
   currentStageIndex: number; // 0..4
   isDemoRecord?: boolean;
