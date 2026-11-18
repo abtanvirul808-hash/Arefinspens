@@ -4,6 +4,7 @@ import {
   Check,
   CheckCircle2,
   Heart,
+  Maximize2,
   Minus,
   Plus,
   ShieldCheck,
@@ -19,6 +20,7 @@ import {
   getProductTotalAvailableCount,
   getVariantInkColors,
 } from '../data/products';
+import { ImageLightboxModal, LightboxSlide } from '../components/ImageLightboxModal';
 import { ProductCard } from '../components/ProductCard';
 import { SafeImage } from '../components/SafeImage';
 
@@ -48,6 +50,7 @@ export const ProductDetailsPage: React.FC = () => {
   const [activeImage, setActiveImage] = useState<string>(product?.images[0] || '');
   const [quantity, setQuantity] = useState<number>(1);
   const [imageFading, setImageFading] = useState<boolean>(false);
+  const [isLightboxOpen, setIsLightboxOpen] = useState<boolean>(false);
 
   // Reset variant & gallery when navigating between products
   useEffect(() => {
@@ -143,6 +146,16 @@ export const ProductDetailsPage: React.FC = () => {
     ])
   );
 
+  const lightboxSlides: LightboxSlide[] = galleryImages.map((imgUrl) => {
+    const matchedColor = product.colors.find((c) => c.image === imgUrl);
+    return {
+      src: imgUrl,
+      label: matchedColor ? `${matchedColor.name} Colour` : product.name,
+      colorHex: matchedColor?.hex,
+    };
+  });
+  const activeSlideIndex = Math.max(0, galleryImages.indexOf(activeImage));
+
   return (
     <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 lg:py-14 space-y-10 sm:space-y-16">
       {/* Breadcrumb */}
@@ -171,18 +184,30 @@ export const ProductDetailsPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
         {/* Left: Product Gallery */}
         <div className="lg:col-span-6 space-y-4">
-          <div className="relative aspect-[4/3] rounded-2xl overflow-hidden border border-accent/40 bg-[#0B0809] shadow-[0_20px_50px_-20px_rgba(var(--accent-rgb),0.3)]">
-            <div
-              className={`w-full h-full transition-all duration-200 ${
+          <div className="relative aspect-[4/3] rounded-2xl overflow-hidden border border-accent/40 bg-[#0B0809] shadow-[0_20px_50px_-20px_rgba(var(--accent-rgb),0.3)] group">
+            <button
+              type="button"
+              onClick={() => setIsLightboxOpen(true)}
+              className={`w-full h-full block cursor-zoom-in transition-all duration-200 ${
                 imageFading ? 'opacity-40 scale-[0.985]' : 'opacity-100 scale-100'
               }`}
+              aria-label={`View ${product.name} (${activeColor.name}) full screen`}
             >
               <SafeImage
                 src={activeImage}
                 alt={`${product.name} — ${activeColor.name}`}
                 className="w-full h-full object-cover"
               />
-            </div>
+            </button>
+            <button
+              type="button"
+              onClick={() => setIsLightboxOpen(true)}
+              className="absolute bottom-3 right-3 px-3 py-1.5 rounded-xl bg-black/75 backdrop-blur-md border border-white/20 text-xs font-semibold text-white hover:border-accent inline-flex items-center gap-1.5 shadow-lg transition-colors"
+              aria-label="Open full-screen pen photo"
+            >
+              <Maximize2 className="w-3.5 h-3.5 text-accent-bright" />
+              <span>Full Screen</span>
+            </button>
           </div>
 
           {galleryImages.length > 1 && (
@@ -616,6 +641,14 @@ export const ProductDetailsPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      <ImageLightboxModal
+        isOpen={isLightboxOpen}
+        slides={lightboxSlides}
+        initialIndex={activeSlideIndex}
+        title={product.name}
+        onClose={() => setIsLightboxOpen(false)}
+      />
     </div>
   );
 };

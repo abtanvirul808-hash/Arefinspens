@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, Heart, ShoppingBag, Star } from 'lucide-react';
+import { Check, Heart, Maximize2, ShoppingBag, Star } from 'lucide-react';
 import { Product } from '../types';
 import { useStore } from '../context/StoreContext';
 import {
@@ -7,6 +7,7 @@ import {
   getProductTotalAvailableCount,
   getVariantInkColors,
 } from '../data/products';
+import { ImageLightboxModal, LightboxSlide } from './ImageLightboxModal';
 import { SafeImage } from './SafeImage';
 
 interface ProductCardProps {
@@ -23,6 +24,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const inkColors = getVariantInkColors(product, activeColor);
   const [selectedInkId, setSelectedInkId] = useState(inkColors[0]?.id || 'black');
   const [justAdded, setJustAdded] = useState(false);
+  const [isLightboxOpen, setIsLightboxOpen] = useState(false);
 
   const selectedColorAvailable = getColorAvailableCount(product, activeColor);
   const totalAvailable = getProductTotalAvailableCount(product);
@@ -38,6 +40,25 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const activeInk =
     inkColors.find((i) => i.id === selectedInkId) || inkColors[0];
   const displayImage = activeColor?.image || product.images[0];
+
+  const lightboxSlides: LightboxSlide[] = [];
+  const seenSrc = new Set<string>();
+  for (const c of product.colors) {
+    if (c.image && !seenSrc.has(c.image)) {
+      seenSrc.add(c.image);
+      lightboxSlides.push({ src: c.image, label: `${c.name} Colour`, colorHex: c.hex });
+    }
+  }
+  for (const img of product.images) {
+    if (img && !seenSrc.has(img)) {
+      seenSrc.add(img);
+      lightboxSlides.push({ src: img, label: product.name });
+    }
+  }
+  const activeSlideIndex = Math.max(
+    0,
+    lightboxSlides.findIndex((s) => s.src === displayImage)
+  );
 
   const discountPercent =
     product.originalPriceBdt && product.originalPriceBdt > product.priceBdt
@@ -104,6 +125,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               -{discountPercent}%
             </span>
           )
+        )}
+
+        {lightboxSlides.length > 0 && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation();
+              setIsLightboxOpen(true);
+            }}
+            aria-label={`View ${product.name} full screen`}
+            title="Full screen pen preview"
+            className="absolute bottom-2.5 right-2.5 sm:bottom-3 sm:right-3 w-8 h-8 rounded-lg bg-black/65 backdrop-blur-md border border-white/20 text-white/90 hover:border-accent hover:text-white flex items-center justify-center transition-colors"
+          >
+            <Maximize2 className="w-3.5 h-3.5" />
+          </button>
         )}
       </div>
 
@@ -299,6 +335,14 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           </div>
         </div>
       </div>
+
+      <ImageLightboxModal
+        isOpen={isLightboxOpen}
+        slides={lightboxSlides}
+        initialIndex={activeSlideIndex}
+        title={product.name}
+        onClose={() => setIsLightboxOpen(false)}
+      />
     </article>
   );
 };

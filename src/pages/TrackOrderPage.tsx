@@ -4,12 +4,14 @@ import {
   Clock,
   Droplets,
   Lock,
+  Maximize2,
   Package,
   Search,
   Truck,
   XCircle,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
+import { ImageLightboxModal, LightboxSlide } from '../components/ImageLightboxModal';
 import { SafeImage } from '../components/SafeImage';
 import { TrackedOrder } from '../types';
 import { parseOrderSummaryItems } from '../utils/orderItems';
@@ -41,6 +43,10 @@ export const TrackOrderPage: React.FC = () => {
   const [searching, setSearching] = useState(false);
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [remoteResult, setRemoteResult] = useState<TrackedOrder | undefined>(undefined);
+  const [lightboxState, setLightboxState] = useState<{
+    title: string;
+    slides: LightboxSlide[];
+  } | null>(null);
 
   useEffect(() => {
     if (!isCustomerSignedIn) {
@@ -258,17 +264,45 @@ export const TrackOrderPage: React.FC = () => {
                           key={item.key}
                           className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-3 flex items-center gap-3.5 shadow-sm"
                         >
-                          <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-accent/45 bg-[#080506] shrink-0 flex items-center justify-center">
-                            {item.image ? (
+                          {item.image ? (
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setLightboxState({
+                                  title: item.name,
+                                  slides: [
+                                    {
+                                      src: item.image!,
+                                      label: item.bodyColorName
+                                        ? `${item.bodyColorName}${
+                                            item.inkColorName ? ` · ${item.inkColorName} Ink` : ''
+                                          }`
+                                        : item.inkColorName
+                                        ? `${item.inkColorName} Ink`
+                                        : undefined,
+                                      colorHex: item.bodyColorHex,
+                                    },
+                                  ],
+                                })
+                              }
+                              title="View full-screen pen photo"
+                              aria-label={`View ${item.name} full screen`}
+                              className="group relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-accent/45 hover:border-accent bg-[#080506] shrink-0 flex items-center justify-center transition-colors"
+                            >
                               <SafeImage
                                 src={item.image}
                                 alt={`${item.name}${item.bodyColorName ? ` — ${item.bodyColorName}` : ''}`}
-                                className="w-full h-full object-cover"
+                                className="w-full h-full object-cover group-hover:scale-105 transition-transform"
                               />
-                            ) : (
+                              <span className="absolute bottom-1 right-1 w-4 h-4 rounded bg-black/75 text-white flex items-center justify-center">
+                                <Maximize2 className="w-2.5 h-2.5" />
+                              </span>
+                            </button>
+                          ) : (
+                            <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-accent/45 bg-[#080506] shrink-0 flex items-center justify-center">
                               <Package className="w-6 h-6 text-accent-bright" />
-                            )}
-                          </div>
+                            </div>
+                          )}
 
                           <div className="flex-1 min-w-0 space-y-2">
                             <div className="flex items-start justify-between gap-2">
@@ -410,6 +444,16 @@ export const TrackOrderPage: React.FC = () => {
             )
           )}
         </>
+      )}
+
+      {lightboxState && (
+        <ImageLightboxModal
+          isOpen
+          title={lightboxState.title}
+          slides={lightboxState.slides}
+          initialIndex={0}
+          onClose={() => setLightboxState(null)}
+        />
       )}
     </div>
   );
