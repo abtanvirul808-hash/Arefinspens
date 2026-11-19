@@ -7,7 +7,6 @@ import {
   Headphones,
   Layers,
   Mail,
-  MapPin,
   Phone,
   Send,
   ShoppingBag,
@@ -165,7 +164,7 @@ export const ContactPage: React.FC = () => {
               <Mail className="w-4 h-4 text-accent-bright mt-1 shrink-0" />
               <div>
                 <p className="font-semibold text-[var(--text-main)]">Email</p>
-                <p className="text-[var(--text-secondary)]">{STORE_CONFIG.contact.email}</p>
+                <p className="text-[var(--text-secondary)]">a.b.tanvirul808@gmail.com</p>
               </div>
             </div>
 
@@ -173,17 +172,9 @@ export const ContactPage: React.FC = () => {
               <Phone className="w-4 h-4 text-accent-bright mt-1 shrink-0" />
               <div>
                 <p className="font-semibold text-[var(--text-main)]">Phone</p>
-                <p className="text-[var(--text-secondary)] font-mono-num">
+                <p className="text-[var(--text-secondary)] font-mono-num h-[20px]">
                   {STORE_CONFIG.contact.phone}
                 </p>
-              </div>
-            </div>
-
-            <div className="flex items-start gap-3">
-              <MapPin className="w-4 h-4 text-accent-bright mt-1 shrink-0" />
-              <div>
-                <p className="font-semibold text-[var(--text-main)]">Showroom / Dispatch</p>
-                <p className="text-[var(--text-secondary)]">{STORE_CONFIG.contact.address}</p>
               </div>
             </div>
 

@@ -6,7 +6,7 @@ export const STORE_CONFIG = {
   // Editable business contact configuration (replace with live store details before launch)
   contact: {
     email: 'support@arefinspen.example',
-    phone: '+880 1700-000000 (Sample)',
+    phone: '+8801886338818',
     address: 'House 24, Road 7, Dhanmondi, Dhaka 1205, Bangladesh (Configurable Address)',
     hours: 'Saturday – Thursday, 10:00 AM – 8:00 PM BST',
   },
