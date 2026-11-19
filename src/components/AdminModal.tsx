@@ -35,7 +35,6 @@ import {
   getProductTotalAvailableCount,
   getVariantInkColors,
 } from '../data/products';
-import { PRODUCT_IMAGES } from '../data/productImages';
 import { formatLiveSyncError } from '../firebase';
 import { CategoryId, InkColorOption, Product } from '../types';
 import { parseOrderSummaryItems } from '../utils/orderItems';
@@ -64,22 +63,6 @@ const INK_COLOR_PRESETS: { name: string; hex: string }[] = [
   { name: 'Orange', hex: '#EA580C' },
   { name: 'Brown', hex: '#92400E' },
   { name: 'Multi-Color', hex: '#F59E0B' },
-];
-
-const PEN_IMAGE_PRESETS: { id: string; label: string; src: string }[] = [
-  { id: 'neucose-pink', label: 'Neucose B (Pink)', src: '/assets/aistudio/20261115_191701_6025b891.jpg' },
-  { id: 'neucose-yellow', label: 'Neucose B (Yellow)', src: '/assets/aistudio/20261115_191311_29fd86e7.jpg' },
-  { id: 'neucose-aqua', label: 'Neucose B (Aqua)', src: '/assets/aistudio/20261115_191847_c391cd06.jpg' },
-  { id: 'gel-black', label: 'Gel Pen Studio', src: PRODUCT_IMAGES.gelPenBlackStudio },
-  { id: 'gel-multi', label: 'Gel Multicolor Set', src: PRODUCT_IMAGES.gelPenMulticolorSet },
-  { id: 'ball-exec', label: 'Ballpoint Executive', src: PRODUCT_IMAGES.ballpointPenExecutive },
-  { id: 'ball-pack', label: 'Ballpoint Pack', src: PRODUCT_IMAGES.ballpointPenEverydayPack },
-  { id: 'fountain-gold', label: 'Fountain Gold', src: PRODUCT_IMAGES.fountainPenObsidianGold },
-  { id: 'fountain-red', label: 'Fountain Crimson', src: PRODUCT_IMAGES.fountainPenCrimsonLacquer },
-  { id: 'marker-set', label: 'Marker Pen Set', src: PRODUCT_IMAGES.markerPenCreativeSet },
-  { id: 'mech-pencil', label: 'Mechanical Pencil', src: PRODUCT_IMAGES.mechanicalPencilDrafting },
-  { id: 'highlighter', label: 'Highlighter Set', src: PRODUCT_IMAGES.highlighterPastelNeonSet },
-  { id: 'gift-box', label: 'Luxury Gift Set', src: PRODUCT_IMAGES.luxuryPenGiftBox },
 ];
 
 interface ColorDraft {
@@ -211,7 +194,6 @@ export const AdminModal: React.FC = () => {
   const [comboCustomInkByDraft, setComboCustomInkByDraft] = useState<
     Record<string, { name: string; hex: string }>
   >({});
-  const [activeImagePickerId, setActiveImagePickerId] = useState<string | null>(null);
   const [prodFormError, setProdFormError] = useState('');
   const [catalogListFilter, setCatalogListFilter] = useState<CategoryId>('all');
   const [prodSearchTerm, setProdSearchTerm] = useState('');
@@ -222,24 +204,6 @@ export const AdminModal: React.FC = () => {
     slides: LightboxSlide[];
     initialIndex: number;
   } | null>(null);
-
-  const penImageOptions = useMemo(() => {
-    const map = new Map<string, { id: string; label: string; src: string }>();
-    for (const preset of PEN_IMAGE_PRESETS) {
-      map.set(preset.src, preset);
-    }
-    products.forEach((p) => {
-      const candidate = p.colors[0]?.image || p.images[0];
-      if (candidate && !map.has(candidate)) {
-        map.set(candidate, {
-          id: `prod-${p.id}`,
-          label: p.name,
-          src: candidate,
-        });
-      }
-    });
-    return Array.from(map.values());
-  }, [products]);
 
   const filteredOrders = useMemo(() => {
     const q = searchTerm.trim().toLowerCase();
@@ -507,7 +471,6 @@ export const AdminModal: React.FC = () => {
     setProdShortDesc('');
     setProdFeatured(false);
     setProdOutOfStock(false);
-    setActiveImagePickerId(null);
     setComboCustomInkByDraft({});
     setColorDrafts([
       {
@@ -540,7 +503,6 @@ export const AdminModal: React.FC = () => {
     setProdShortDesc(prod.shortDescription);
     setProdFeatured(Boolean(prod.featured));
     setProdOutOfStock(!prod.inStock);
-    setActiveImagePickerId(null);
     setComboCustomInkByDraft({});
     setColorDrafts(
       prod.colors.length > 0
@@ -770,7 +732,7 @@ export const AdminModal: React.FC = () => {
               <div>
                 <label
                   htmlFor="admin-login-email"
-                  className="block text-xs font-medium text-[var(--text-secondary)] mb-1"
+                  className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright mb-1.5"
                 >
                   Admin Gmail
                 </label>
@@ -792,7 +754,7 @@ export const AdminModal: React.FC = () => {
               <div>
                 <label
                   htmlFor="admin-login-password"
-                  className="block text-xs font-medium text-[var(--text-secondary)] mb-1"
+                  className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright mb-1.5"
                 >
                   Password
                 </label>
@@ -1165,7 +1127,7 @@ export const AdminModal: React.FC = () => {
 
                           {/* Stage Update Buttons */}
                           <div className="space-y-1.5 pt-1">
-                            <p className="text-[11px] font-semibold text-[var(--text-muted)]">
+                            <p className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-[11px] font-bold text-accent dark:text-accent-bright">
                               Update Order Status:
                             </p>
                             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
@@ -1310,7 +1272,7 @@ export const AdminModal: React.FC = () => {
 
                   {/* Category Selector across ALL pen categories */}
                   <div className="space-y-2">
-                    <label className="block text-xs font-semibold text-[var(--text-secondary)]">
+                    <label className="inline-flex items-center px-2.5 py-1 rounded-lg bg-accent/20 border border-accent/60 text-xs font-extrabold text-accent dark:text-accent-bright shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)]">
                       Select Pen Category *
                     </label>
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -1336,7 +1298,7 @@ export const AdminModal: React.FC = () => {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
-                      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                      <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright mb-1.5">
                         Product Name *
                       </label>
                       <input
@@ -1350,7 +1312,7 @@ export const AdminModal: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                      <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright mb-1.5">
                         Brand
                       </label>
                       <input
@@ -1363,7 +1325,7 @@ export const AdminModal: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                      <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright mb-1.5">
                         Price (৳ BDT) *
                       </label>
                       <input
@@ -1377,7 +1339,7 @@ export const AdminModal: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                      <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright mb-1.5">
                         Original Price (Optional ৳)
                       </label>
                       <input
@@ -1391,7 +1353,7 @@ export const AdminModal: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                      <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright mb-1.5">
                         Tip / Nib Size
                       </label>
                       <input
@@ -1404,7 +1366,7 @@ export const AdminModal: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                      <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright mb-1.5">
                         Total Stock (Auto from Colours)
                       </label>
                       <div className="w-full px-3 py-2 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-sm font-mono-num font-bold text-[var(--text-main)] flex items-center justify-between gap-2">
@@ -1416,7 +1378,7 @@ export const AdminModal: React.FC = () => {
                     </div>
 
                     <div>
-                      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                      <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright mb-1.5">
                         Ink / Lead Type
                       </label>
                       <input
@@ -1428,111 +1390,368 @@ export const AdminModal: React.FC = () => {
                       />
                     </div>
 
-                    {/* Dedicated Multi Ink Colour Selector */}
-                    <div className="sm:col-span-2 p-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] space-y-3">
+                    {/* Body / Pen Colour Options + Multi-Select Ink Combo + Photo Upload */}
+                    <div className="sm:col-span-2 space-y-2.5 pt-2 border-t border-[var(--border-subtle)]">
                       <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="text-xs font-semibold text-[var(--text-secondary)] inline-flex items-center gap-1.5">
-                          <Droplets className="w-3.5 h-3.5 text-accent-bright" />
-                          <span>Multi Ink Colour Selector * (Select one or more)</span>
-                        </span>
-                        <span className="text-[11px] font-semibold font-mono-num text-accent dark:text-accent-bright">
-                          {prodInkColors.length} selected
-                        </span>
-                      </div>
-
-                      {/* Selected Ink Colours Pills */}
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        {prodInkColors.map((ink) => (
-                          <span
-                            key={ink.id}
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-accent/50 bg-accent/10 text-xs font-semibold text-[var(--text-main)]"
-                          >
-                            <span
-                              className="w-3 h-3 rounded-full border border-black/20 dark:border-white/30 shrink-0"
-                              style={{ backgroundColor: ink.hex }}
-                            />
-                            <span>{ink.name}</span>
-                            {prodInkColors.length > 1 && (
-                              <button
-                                type="button"
-                                onClick={() => handleRemoveSelectedInkColor(ink.id)}
-                                className="ml-0.5 text-[var(--text-muted)] hover:text-rose-500"
-                                aria-label={`Remove ${ink.name} ink`}
-                              >
-                                <X className="w-3 h-3" />
-                              </button>
-                            )}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-accent/20 border border-accent/60 text-xs font-extrabold text-accent dark:text-accent-bright shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)]">
+                            Pen Body Colours, Ink Colour Combos &amp; Photo Upload *
                           </span>
-                        ))}
+                          <span className="text-[11px] font-mono-num font-bold text-accent dark:text-accent-bright">
+                            {colorDrafts.filter((c) => c.inStock).length}/{colorDrafts.length} in stock
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <button
+                            type="button"
+                            onClick={handleApplyDefaultInksToAllBodies}
+                            className="px-2.5 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[11px] font-semibold text-[var(--text-secondary)] hover:border-accent hover:text-[var(--text-main)]"
+                            title="Copy default ink colours to every body colour below"
+                          >
+                            Sync Default Inks
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleAddColorDraft}
+                            className="px-2.5 py-1.5 rounded-lg border border-accent/50 text-xs font-semibold text-accent dark:text-accent-bright hover:bg-accent/10 inline-flex items-center gap-1"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add Body Colour</span>
+                          </button>
+                        </div>
                       </div>
 
-                      {/* Multi-Toggle Preset Chips */}
-                      <div className="flex flex-wrap gap-1.5">
-                        {INK_COLOR_PRESETS.map((ink) => {
-                          const selected = prodInkColors.some(
-                            (item) => item.name.trim().toLowerCase() === ink.name.toLowerCase()
-                          );
+                      <div className="space-y-2.5">
+                        {colorDrafts.map((col, idx) => {
+                          const colorOutOfStock = !col.inStock;
                           return (
-                            <button
-                              key={ink.name}
-                              type="button"
-                              aria-pressed={selected}
-                              onClick={() => handleToggleInkColorPreset(ink)}
-                              className={`min-h-[34px] px-2.5 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 transition-all ${
-                                selected
-                                  ? 'border-accent bg-accent/20 text-[var(--text-main)] font-semibold shadow-[0_0_10px_rgba(var(--accent-rgb),0.22)]'
-                                  : 'border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
+                            <div
+                              key={col.id}
+                              className={`p-3 rounded-xl border space-y-2.5 transition-colors ${
+                                colorOutOfStock
+                                  ? 'border-rose-500/45 bg-rose-500/[0.04]'
+                                  : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)]'
                               }`}
                             >
-                              <span
-                                className="w-3 h-3 rounded-full border border-black/20 dark:border-white/25 shrink-0 flex items-center justify-center"
-                                style={{ backgroundColor: ink.hex }}
-                              >
-                                {selected && (
-                                  <Check className="w-2 h-2 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.85)]" />
-                                )}
-                              </span>
-                              <span>{ink.name}</span>
-                            </button>
+                              <div className="space-y-2.5 min-w-0">
+                                {/* Row 1: Preview + Colour Picker + Name + Qty + Stock Switch + Remove Button */}
+                                <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
+                                  <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[200px]">
+                                    {col.image ? (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const variantSlides: LightboxSlide[] = colorDrafts
+                                            .filter((draft) => Boolean(draft.image))
+                                            .map((draft, slideIdx) => ({
+                                              src: draft.image,
+                                              label: draft.name.trim() || `Body ${slideIdx + 1}`,
+                                              colorHex: draft.hex,
+                                            }));
+                                          const startIdx = Math.max(
+                                            0,
+                                            variantSlides.findIndex((s) => s.src === col.image)
+                                          );
+                                          setLightboxState({
+                                            title: prodName.trim() || col.name.trim() || 'Pen Photo',
+                                            slides:
+                                              variantSlides.length > 0
+                                                ? variantSlides
+                                                : [
+                                                    {
+                                                      src: col.image,
+                                                      label: col.name.trim() || `Body ${idx + 1}`,
+                                                      colorHex: col.hex,
+                                                    },
+                                                  ],
+                                            initialIndex: startIdx,
+                                          });
+                                        }}
+                                        title="Open pen photo full screen to inspect colour & structure"
+                                        aria-label={`View ${col.name || `Pen variant ${idx + 1}`} photo full screen`}
+                                        className="group relative w-14 h-11 rounded-lg overflow-hidden border border-accent/45 hover:border-accent bg-[#0B0809] shrink-0 flex items-center justify-center transition-all"
+                                      >
+                                        <SafeImage
+                                          src={col.image}
+                                          alt={col.name || `Pen variant ${idx + 1}`}
+                                          className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${
+                                            colorOutOfStock ? 'opacity-45 grayscale-[30%]' : ''
+                                          }`}
+                                        />
+                                        <span className="absolute bottom-1 right-1 w-4 h-4 rounded bg-black/75 border border-white/25 text-white flex items-center justify-center shadow">
+                                          <Maximize2 className="w-2.5 h-2.5" />
+                                        </span>
+                                      </button>
+                                    ) : (
+                                      <div className="w-14 h-11 rounded-lg overflow-hidden border border-[var(--border-subtle)] bg-[#0B0809] shrink-0 flex items-center justify-center relative">
+                                        <ImageIcon className="w-4 h-4 text-[var(--text-muted)]" />
+                                      </div>
+                                    )}
+
+                                    <input
+                                      type="color"
+                                      value={col.hex}
+                                      onChange={(e) =>
+                                        handleUpdateColorDraft(col.id, { hex: e.target.value })
+                                      }
+                                      aria-label={`Colour picker ${idx + 1}`}
+                                      className="w-9 h-9 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
+                                    />
+
+                                    <input
+                                      type="text"
+                                      value={col.name}
+                                      onChange={(e) =>
+                                        handleUpdateColorDraft(col.id, { name: e.target.value })
+                                      }
+                                      placeholder="Body colour (e.g. Pink)"
+                                      className="flex-1 min-w-[120px] px-2.5 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] focus:outline-none focus:border-accent"
+                                    />
+                                  </div>
+
+                                  <div className="flex flex-wrap items-center gap-2 shrink-0">
+                                    <div className="flex items-center gap-1 shrink-0">
+                                      <span className="px-1.5 py-0.5 rounded bg-accent/15 border border-accent/45 text-[10px] font-bold text-accent dark:text-accent-bright">
+                                        Qty
+                                      </span>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        value={col.stockCount}
+                                        onChange={(e) => {
+                                          const raw = e.target.value;
+                                          if (raw === '') {
+                                            handleUpdateColorDraft(col.id, { stockCount: '' });
+                                            return;
+                                          }
+                                          const parsedQty = Math.max(
+                                            0,
+                                            Math.round(Number(raw) || 0)
+                                          );
+                                          handleUpdateColorDraft(col.id, {
+                                            stockCount: String(parsedQty),
+                                            inStock: parsedQty > 0,
+                                            prevStockCount:
+                                              parsedQty > 0
+                                                ? String(parsedQty)
+                                                : col.prevStockCount,
+                                          });
+                                        }}
+                                        aria-label={`Stock quantity for ${col.name || `colour ${idx + 1}`}`}
+                                        className="w-16 px-2 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent"
+                                      />
+                                    </div>
+
+                                    <button
+                                      type="button"
+                                      role="switch"
+                                      aria-checked={colorOutOfStock}
+                                      onClick={() => {
+                                        if (col.inStock) {
+                                          handleUpdateColorDraft(col.id, {
+                                            inStock: false,
+                                            prevStockCount:
+                                              Number(col.stockCount) > 0
+                                                ? col.stockCount
+                                                : col.prevStockCount,
+                                            stockCount: '0',
+                                          });
+                                        } else {
+                                          const restored =
+                                            Number(col.prevStockCount) > 0
+                                              ? col.prevStockCount!
+                                              : '25';
+                                          handleUpdateColorDraft(col.id, {
+                                            inStock: true,
+                                            stockCount: restored,
+                                          });
+                                        }
+                                      }}
+                                      className={`px-2.5 py-2 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 shrink-0 transition-colors ${
+                                        colorOutOfStock
+                                          ? 'border-rose-500/60 bg-rose-500/15 text-rose-600 dark:text-rose-400 hover:bg-rose-500/25'
+                                          : 'border-emerald-500/45 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20'
+                                      }`}
+                                      title={`Toggle ${col.name || 'this colour'} Out of Stock ON/OFF`}
+                                    >
+                                      <span
+                                        className={`w-2 h-2 rounded-full ${
+                                          colorOutOfStock ? 'bg-rose-500' : 'bg-emerald-500'
+                                        }`}
+                                      />
+                                      <span>{colorOutOfStock ? 'Out of Stock' : 'In Stock'}</span>
+                                    </button>
+
+                                    {colorDrafts.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveColorDraft(col.id)}
+                                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-rose-500 hover:border-rose-500/50 transition-colors shrink-0"
+                                        aria-label="Remove colour option"
+                                        title="Remove colour option"
+                                      >
+                                        <X className="w-4 h-4" />
+                                      </button>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* Row 2: Image URL + Enlarged Upload Image Button */}
+                                <div className="flex flex-wrap items-center gap-2.5 min-w-0">
+                                  <input
+                                    type="text"
+                                    value={col.image}
+                                    onChange={(e) =>
+                                      handleUpdateColorDraft(col.id, { image: e.target.value })
+                                    }
+                                    placeholder="Image URL or upload pen photo"
+                                    className="flex-1 min-w-[160px] px-2.5 py-2.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] focus:outline-none focus:border-accent"
+                                  />
+
+                                  <label className="px-4 py-2.5 rounded-lg border border-accent/45 bg-accent/10 hover:bg-accent/20 text-xs sm:text-sm font-semibold text-[var(--text-main)] hover:border-accent cursor-pointer inline-flex items-center gap-2 shrink-0 transition-colors">
+                                    <ImagePlus className="w-4 h-4 text-accent-bright" />
+                                    <span>Upload Image</span>
+                                    <input
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      onChange={(e) =>
+                                        handleColorImageUpload(col.id, e.target.files?.[0])
+                                      }
+                                    />
+                                  </label>
+                                </div>
+                              </div>
+
+                              {/* Multi-Select Combo Ink Colours for this Body Colour */}
+                              <div className="pt-2.5 border-t border-[var(--border-subtle)]/60 space-y-2">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-[11px] font-bold text-accent dark:text-accent-bright">
+                                    <Droplets className="w-3.5 h-3.5 shrink-0" />
+                                    <span>
+                                      Combo Ink Colours for {col.name || `Body ${idx + 1}`} (Multi-Select)
+                                    </span>
+                                  </span>
+                                  <span className="text-[10px] font-bold font-mono-num text-accent dark:text-accent-bright">
+                                    {col.inkColors.length} ink{col.inkColors.length === 1 ? '' : 's'}
+                                  </span>
+                                </div>
+
+                                {/* Selected Combo Ink Chips */}
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {col.inkColors.map((ink) => (
+                                    <span
+                                      key={ink.id}
+                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-accent/45 bg-accent/10 text-[11px] font-semibold text-[var(--text-main)]"
+                                    >
+                                      <span
+                                        className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/30 shrink-0"
+                                        style={{ backgroundColor: ink.hex }}
+                                      />
+                                      <span>{ink.name}</span>
+                                      {col.inkColors.length > 1 && (
+                                        <button
+                                          type="button"
+                                          onClick={() => handleRemoveVariantInkColor(col.id, ink.id)}
+                                          className="text-[var(--text-muted)] hover:text-rose-500"
+                                          aria-label={`Remove ${ink.name} ink from ${col.name || `Body ${idx + 1}`}`}
+                                        >
+                                          <X className="w-3 h-3" />
+                                        </button>
+                                      )}
+                                    </span>
+                                  ))}
+                                </div>
+
+                                {/* Multi-Select Preset Ink Toggles */}
+                                <div className="flex flex-wrap gap-1.5">
+                                  {INK_COLOR_PRESETS.map((ink) => {
+                                    const selected = col.inkColors.some(
+                                      (item) =>
+                                        item.name.trim().toLowerCase() === ink.name.toLowerCase()
+                                    );
+                                    return (
+                                      <button
+                                        key={ink.name}
+                                        type="button"
+                                        aria-pressed={selected}
+                                        onClick={() => handleToggleVariantInkColor(col.id, ink)}
+                                        className={`min-h-[30px] px-2 py-1 rounded-lg border text-[11px] font-medium inline-flex items-center gap-1.5 transition-all ${
+                                          selected
+                                            ? 'border-accent bg-accent/20 text-[var(--text-main)] font-semibold shadow-[0_0_8px_rgba(var(--accent-rgb),0.2)]'
+                                            : 'border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
+                                        }`}
+                                      >
+                                        <span
+                                          className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/25 shrink-0 flex items-center justify-center"
+                                          style={{ backgroundColor: ink.hex }}
+                                        >
+                                          {selected && (
+                                            <Check className="w-2 h-2 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.85)]" />
+                                          )}
+                                        </span>
+                                        <span>{ink.name}</span>
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+
+                                {/* Custom Ink Adder for this Body Colour */}
+                                <div className="flex flex-wrap items-center gap-1.5 pt-0.5 min-w-0">
+                                  <input
+                                    type="color"
+                                    value={comboCustomInkByDraft[col.id]?.hex || '#1D4ED8'}
+                                    onChange={(e) =>
+                                      setComboCustomInkByDraft((prev) => ({
+                                        ...prev,
+                                        [col.id]: {
+                                          name: prev[col.id]?.name || '',
+                                          hex: e.target.value,
+                                        },
+                                      }))
+                                    }
+                                    aria-label={`Custom ink colour picker for ${col.name || `Body ${idx + 1}`}`}
+                                    className="w-8 h-8 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
+                                  />
+                                  <input
+                                    type="text"
+                                    value={comboCustomInkByDraft[col.id]?.name || ''}
+                                    onChange={(e) =>
+                                      setComboCustomInkByDraft((prev) => ({
+                                        ...prev,
+                                        [col.id]: {
+                                          hex: prev[col.id]?.hex || '#1D4ED8',
+                                          name: e.target.value,
+                                        },
+                                      }))
+                                    }
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        e.preventDefault();
+                                        handleAddCustomVariantInkColor(col.id);
+                                      }
+                                    }}
+                                    placeholder={`Custom ink for ${col.name || 'this body'}...`}
+                                    className="flex-1 min-w-[130px] px-2.5 py-1.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-[11px] text-[var(--text-main)] focus:outline-none focus:border-accent"
+                                  />
+                                  <button
+                                    type="button"
+                                    onClick={() => handleAddCustomVariantInkColor(col.id)}
+                                    className="min-h-[30px] px-2.5 py-1 rounded-lg border border-accent/55 bg-accent/10 text-[11px] font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 inline-flex items-center gap-1 shrink-0"
+                                  >
+                                    <Plus className="w-3 h-3" />
+                                    <span>Add</span>
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
                           );
                         })}
-                      </div>
-
-                      {/* Custom Ink Colour Adder */}
-                      <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 pt-0.5">
-                        <input
-                          type="color"
-                          value={customInkHex}
-                          onChange={(e) => setCustomInkHex(e.target.value)}
-                          aria-label="Custom ink colour picker"
-                          className="w-10 h-9 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
-                        />
-                        <input
-                          type="text"
-                          value={customInkName}
-                          onChange={(e) => setCustomInkName(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === 'Enter') {
-                              e.preventDefault();
-                              handleAddCustomInkColor();
-                            }
-                          }}
-                          placeholder="Add custom ink (e.g. Blue-Black)"
-                          className="flex-1 min-w-[140px] px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] focus:outline-none focus:border-accent"
-                        />
-                        <button
-                          type="button"
-                          onClick={handleAddCustomInkColor}
-                          className="min-h-[36px] px-3 py-2 rounded-lg border border-accent/55 bg-accent/10 text-xs font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 inline-flex items-center gap-1 shrink-0"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Add Ink</span>
-                        </button>
                       </div>
                     </div>
 
                     <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-3 pt-1">
-                      <label className="flex items-center gap-2 text-xs sm:text-sm font-medium text-[var(--text-main)] cursor-pointer">
+                      <label className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-accent/15 border border-accent/45 text-xs sm:text-sm font-bold text-accent dark:text-accent-bright cursor-pointer">
                         <input
                           type="checkbox"
                           checked={prodFeatured}
@@ -1563,7 +1782,7 @@ export const AdminModal: React.FC = () => {
                     </div>
 
                     <div className="sm:col-span-2">
-                      <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
+                      <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright mb-1.5">
                         Short Description
                       </label>
                       <textarea
@@ -1576,452 +1795,106 @@ export const AdminModal: React.FC = () => {
                     </div>
                   </div>
 
-                  {/* Body / Pen Colour Options + Multi-Select Ink Combo + Visual Pen Image Selector */}
-                  <div className="space-y-2.5 pt-2 border-t border-[var(--border-subtle)]">
+                  {/* Dedicated Multi Ink Colour Selector */}
+                  <div className="p-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] space-y-3">
                     <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-xs font-semibold text-[var(--text-secondary)]">
-                          Pen Body Colours, Ink Colour Combos &amp; Image Selector *
-                        </span>
-                        <span className="text-[11px] font-mono-num font-semibold text-accent dark:text-accent-bright">
-                          {colorDrafts.filter((c) => c.inStock).length}/{colorDrafts.length} in stock
-                        </span>
-                      </div>
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <button
-                          type="button"
-                          onClick={handleApplyDefaultInksToAllBodies}
-                          className="px-2.5 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[11px] font-semibold text-[var(--text-secondary)] hover:border-accent hover:text-[var(--text-main)]"
-                          title="Copy default ink colours to every body colour below"
-                        >
-                          Sync Default Inks
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleAddColorDraft}
-                          className="px-2.5 py-1.5 rounded-lg border border-accent/50 text-xs font-semibold text-accent dark:text-accent-bright hover:bg-accent/10 inline-flex items-center gap-1"
-                        >
-                          <Plus className="w-3.5 h-3.5" />
-                          <span>Add Body Colour</span>
-                        </button>
-                      </div>
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-accent/20 border border-accent/60 text-xs font-extrabold text-accent dark:text-accent-bright shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)]">
+                        <Droplets className="w-3.5 h-3.5 shrink-0" />
+                        <span>Multi Ink Colour Selector * (Select one or more)</span>
+                      </span>
+                      <span className="text-[11px] font-bold font-mono-num text-accent dark:text-accent-bright">
+                        {prodInkColors.length} selected
+                      </span>
                     </div>
 
-                    <div className="space-y-2.5">
-                      {colorDrafts.map((col, idx) => {
-                        const pickerOpen = activeImagePickerId === col.id;
-                        const colorOutOfStock = !col.inStock;
+                    {/* Selected Ink Colours Pills */}
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      {prodInkColors.map((ink) => (
+                        <span
+                          key={ink.id}
+                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-accent/50 bg-accent/10 text-xs font-semibold text-[var(--text-main)]"
+                        >
+                          <span
+                            className="w-3 h-3 rounded-full border border-black/20 dark:border-white/30 shrink-0"
+                            style={{ backgroundColor: ink.hex }}
+                          />
+                          <span>{ink.name}</span>
+                          {prodInkColors.length > 1 && (
+                            <button
+                              type="button"
+                              onClick={() => handleRemoveSelectedInkColor(ink.id)}
+                              className="ml-0.5 text-[var(--text-muted)] hover:text-rose-500"
+                              aria-label={`Remove ${ink.name} ink`}
+                            >
+                              <X className="w-3 h-3" />
+                            </button>
+                          )}
+                        </span>
+                      ))}
+                    </div>
+
+                    {/* Multi-Toggle Preset Chips */}
+                    <div className="flex flex-wrap gap-1.5">
+                      {INK_COLOR_PRESETS.map((ink) => {
+                        const selected = prodInkColors.some(
+                          (item) => item.name.trim().toLowerCase() === ink.name.toLowerCase()
+                        );
                         return (
-                          <div
-                            key={col.id}
-                            className={`p-3 rounded-xl border space-y-2.5 transition-colors ${
-                              colorOutOfStock
-                                ? 'border-rose-500/45 bg-rose-500/[0.04]'
-                                : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)]'
+                          <button
+                            key={ink.name}
+                            type="button"
+                            aria-pressed={selected}
+                            onClick={() => handleToggleInkColorPreset(ink)}
+                            className={`min-h-[34px] px-2.5 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 transition-all ${
+                              selected
+                                ? 'border-accent bg-accent/20 text-[var(--text-main)] font-semibold shadow-[0_0_10px_rgba(var(--accent-rgb),0.22)]'
+                                : 'border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
                             }`}
                           >
-                            <div className="space-y-2.5 min-w-0">
-                              {/* Row 1: Preview + Colour Picker + Name + Qty + Stock Switch + Remove Button */}
-                              <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
-                                <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[200px]">
-                                  {col.image ? (
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        const variantSlides: LightboxSlide[] = colorDrafts
-                                          .filter((draft) => Boolean(draft.image))
-                                          .map((draft, slideIdx) => ({
-                                            src: draft.image,
-                                            label: draft.name.trim() || `Body ${slideIdx + 1}`,
-                                            colorHex: draft.hex,
-                                          }));
-                                        const startIdx = Math.max(
-                                          0,
-                                          variantSlides.findIndex((s) => s.src === col.image)
-                                        );
-                                        setLightboxState({
-                                          title: prodName.trim() || col.name.trim() || 'Pen Photo',
-                                          slides:
-                                            variantSlides.length > 0
-                                              ? variantSlides
-                                              : [
-                                                  {
-                                                    src: col.image,
-                                                    label: col.name.trim() || `Body ${idx + 1}`,
-                                                    colorHex: col.hex,
-                                                  },
-                                                ],
-                                          initialIndex: startIdx,
-                                        });
-                                      }}
-                                      title="Open pen photo full screen to inspect colour & structure"
-                                      aria-label={`View ${col.name || `Pen variant ${idx + 1}`} photo full screen`}
-                                      className="group relative w-14 h-11 rounded-lg overflow-hidden border border-accent/45 hover:border-accent bg-[#0B0809] shrink-0 flex items-center justify-center transition-all"
-                                    >
-                                      <SafeImage
-                                        src={col.image}
-                                        alt={col.name || `Pen variant ${idx + 1}`}
-                                        className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${
-                                          colorOutOfStock ? 'opacity-45 grayscale-[30%]' : ''
-                                        }`}
-                                      />
-                                      <span className="absolute bottom-1 right-1 w-4 h-4 rounded bg-black/75 border border-white/25 text-white flex items-center justify-center shadow">
-                                        <Maximize2 className="w-2.5 h-2.5" />
-                                      </span>
-                                    </button>
-                                  ) : (
-                                    <div className="w-14 h-11 rounded-lg overflow-hidden border border-[var(--border-subtle)] bg-[#0B0809] shrink-0 flex items-center justify-center relative">
-                                      <ImageIcon className="w-4 h-4 text-[var(--text-muted)]" />
-                                    </div>
-                                  )}
-
-                                  <input
-                                    type="color"
-                                    value={col.hex}
-                                    onChange={(e) =>
-                                      handleUpdateColorDraft(col.id, { hex: e.target.value })
-                                    }
-                                    aria-label={`Colour picker ${idx + 1}`}
-                                    className="w-9 h-9 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
-                                  />
-
-                                  <input
-                                    type="text"
-                                    value={col.name}
-                                    onChange={(e) =>
-                                      handleUpdateColorDraft(col.id, { name: e.target.value })
-                                    }
-                                    placeholder="Body colour (e.g. Pink)"
-                                    className="flex-1 min-w-[120px] px-2.5 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] focus:outline-none focus:border-accent"
-                                  />
-                                </div>
-
-                                <div className="flex flex-wrap items-center gap-2 shrink-0">
-                                  <div className="flex items-center gap-1 shrink-0">
-                                    <span className="text-[10px] font-semibold text-[var(--text-muted)]">
-                                      Qty
-                                    </span>
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      value={col.stockCount}
-                                      onChange={(e) => {
-                                        const raw = e.target.value;
-                                        if (raw === '') {
-                                          handleUpdateColorDraft(col.id, { stockCount: '' });
-                                          return;
-                                        }
-                                        const parsedQty = Math.max(
-                                          0,
-                                          Math.round(Number(raw) || 0)
-                                        );
-                                        handleUpdateColorDraft(col.id, {
-                                          stockCount: String(parsedQty),
-                                          inStock: parsedQty > 0,
-                                          prevStockCount:
-                                            parsedQty > 0
-                                              ? String(parsedQty)
-                                              : col.prevStockCount,
-                                        });
-                                      }}
-                                      aria-label={`Stock quantity for ${col.name || `colour ${idx + 1}`}`}
-                                      className="w-16 px-2 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent"
-                                    />
-                                  </div>
-
-                                  <button
-                                    type="button"
-                                    role="switch"
-                                    aria-checked={colorOutOfStock}
-                                    onClick={() => {
-                                      if (col.inStock) {
-                                        handleUpdateColorDraft(col.id, {
-                                          inStock: false,
-                                          prevStockCount:
-                                            Number(col.stockCount) > 0
-                                              ? col.stockCount
-                                              : col.prevStockCount,
-                                          stockCount: '0',
-                                        });
-                                      } else {
-                                        const restored =
-                                          Number(col.prevStockCount) > 0
-                                            ? col.prevStockCount!
-                                            : '25';
-                                        handleUpdateColorDraft(col.id, {
-                                          inStock: true,
-                                          stockCount: restored,
-                                        });
-                                      }
-                                    }}
-                                    className={`px-2.5 py-2 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 shrink-0 transition-colors ${
-                                      colorOutOfStock
-                                        ? 'border-rose-500/60 bg-rose-500/15 text-rose-600 dark:text-rose-400 hover:bg-rose-500/25'
-                                        : 'border-emerald-500/45 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20'
-                                    }`}
-                                    title={`Toggle ${col.name || 'this colour'} Out of Stock ON/OFF`}
-                                  >
-                                    <span
-                                      className={`w-2 h-2 rounded-full ${
-                                        colorOutOfStock ? 'bg-rose-500' : 'bg-emerald-500'
-                                      }`}
-                                    />
-                                    <span>{colorOutOfStock ? 'Out of Stock' : 'In Stock'}</span>
-                                  </button>
-
-                                  {colorDrafts.length > 1 && (
-                                    <button
-                                      type="button"
-                                      onClick={() => handleRemoveColorDraft(col.id)}
-                                      className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-rose-500 hover:border-rose-500/50 transition-colors shrink-0"
-                                      aria-label="Remove colour option"
-                                      title="Remove colour option"
-                                    >
-                                      <X className="w-4 h-4" />
-                                    </button>
-                                  )}
-                                </div>
-                              </div>
-
-                              {/* Row 2: Image URL + Image Selector Toggle + File Upload */}
-                              <div className="flex flex-wrap items-center gap-2 min-w-0">
-                                <input
-                                  type="text"
-                                  value={col.image}
-                                  onChange={(e) =>
-                                    handleUpdateColorDraft(col.id, { image: e.target.value })
-                                  }
-                                  placeholder="Image URL or select pen photo"
-                                  className="flex-1 min-w-[160px] px-2.5 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] focus:outline-none focus:border-accent"
-                                />
-
-                                <button
-                                  type="button"
-                                  onClick={() =>
-                                    setActiveImagePickerId(pickerOpen ? null : col.id)
-                                  }
-                                  className={`px-2.5 py-2 rounded-lg border text-xs font-semibold inline-flex items-center gap-1 shrink-0 transition-colors ${
-                                    pickerOpen
-                                      ? 'border-accent bg-accent/15 text-accent-bright'
-                                      : 'border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-main)] hover:border-accent'
-                                  }`}
-                                >
-                                  <ImageIcon className="w-3.5 h-3.5 text-accent-bright" />
-                                  <span>{pickerOpen ? 'Hide Gallery' : 'Select Pen Image'}</span>
-                                </button>
-
-                                <label className="px-2.5 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-xs font-medium text-[var(--text-main)] hover:border-accent cursor-pointer inline-flex items-center gap-1 shrink-0">
-                                  <ImagePlus className="w-3.5 h-3.5 text-accent-bright" />
-                                  <span>Upload</span>
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={(e) =>
-                                      handleColorImageUpload(col.id, e.target.files?.[0])
-                                    }
-                                  />
-                                </label>
-                              </div>
-                            </div>
-
-                            {/* Multi-Select Combo Ink Colours for this Body Colour */}
-                            <div className="pt-2.5 border-t border-[var(--border-subtle)]/60 space-y-2">
-                              <div className="flex flex-wrap items-center justify-between gap-2">
-                                <span className="text-[11px] font-semibold text-[var(--text-secondary)] inline-flex items-center gap-1.5">
-                                  <Droplets className="w-3.5 h-3.5 text-accent-bright" />
-                                  <span>
-                                    Combo Ink Colours for{' '}
-                                    <span className="text-[var(--text-main)] font-bold">
-                                      {col.name || `Body ${idx + 1}`}
-                                    </span>{' '}
-                                    (Multi-Select)
-                                  </span>
-                                </span>
-                                <span className="text-[10px] font-semibold font-mono-num text-accent dark:text-accent-bright">
-                                  {col.inkColors.length} ink{col.inkColors.length === 1 ? '' : 's'}
-                                </span>
-                              </div>
-
-                              {/* Selected Combo Ink Chips */}
-                              <div className="flex flex-wrap items-center gap-1.5">
-                                {col.inkColors.map((ink) => (
-                                  <span
-                                    key={ink.id}
-                                    className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-accent/45 bg-accent/10 text-[11px] font-semibold text-[var(--text-main)]"
-                                  >
-                                    <span
-                                      className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/30 shrink-0"
-                                      style={{ backgroundColor: ink.hex }}
-                                    />
-                                    <span>{ink.name}</span>
-                                    {col.inkColors.length > 1 && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemoveVariantInkColor(col.id, ink.id)}
-                                        className="text-[var(--text-muted)] hover:text-rose-500"
-                                        aria-label={`Remove ${ink.name} ink from ${col.name || `Body ${idx + 1}`}`}
-                                      >
-                                        <X className="w-3 h-3" />
-                                      </button>
-                                    )}
-                                  </span>
-                                ))}
-                              </div>
-
-                              {/* Multi-Select Preset Ink Toggles */}
-                              <div className="flex flex-wrap gap-1.5">
-                                {INK_COLOR_PRESETS.map((ink) => {
-                                  const selected = col.inkColors.some(
-                                    (item) =>
-                                      item.name.trim().toLowerCase() === ink.name.toLowerCase()
-                                  );
-                                  return (
-                                    <button
-                                      key={ink.name}
-                                      type="button"
-                                      aria-pressed={selected}
-                                      onClick={() => handleToggleVariantInkColor(col.id, ink)}
-                                      className={`min-h-[30px] px-2 py-1 rounded-lg border text-[11px] font-medium inline-flex items-center gap-1.5 transition-all ${
-                                        selected
-                                          ? 'border-accent bg-accent/20 text-[var(--text-main)] font-semibold shadow-[0_0_8px_rgba(var(--accent-rgb),0.2)]'
-                                          : 'border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
-                                      }`}
-                                    >
-                                      <span
-                                        className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/25 shrink-0 flex items-center justify-center"
-                                        style={{ backgroundColor: ink.hex }}
-                                      >
-                                        {selected && (
-                                          <Check className="w-2 h-2 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.85)]" />
-                                        )}
-                                      </span>
-                                      <span>{ink.name}</span>
-                                    </button>
-                                  );
-                                })}
-                              </div>
-
-                              {/* Custom Ink Adder for this Body Colour */}
-                              <div className="flex flex-wrap items-center gap-1.5 pt-0.5 min-w-0">
-                                <input
-                                  type="color"
-                                  value={comboCustomInkByDraft[col.id]?.hex || '#1D4ED8'}
-                                  onChange={(e) =>
-                                    setComboCustomInkByDraft((prev) => ({
-                                      ...prev,
-                                      [col.id]: {
-                                        name: prev[col.id]?.name || '',
-                                        hex: e.target.value,
-                                      },
-                                    }))
-                                  }
-                                  aria-label={`Custom ink colour picker for ${col.name || `Body ${idx + 1}`}`}
-                                  className="w-8 h-8 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
-                                />
-                                <input
-                                  type="text"
-                                  value={comboCustomInkByDraft[col.id]?.name || ''}
-                                  onChange={(e) =>
-                                    setComboCustomInkByDraft((prev) => ({
-                                      ...prev,
-                                      [col.id]: {
-                                        hex: prev[col.id]?.hex || '#1D4ED8',
-                                        name: e.target.value,
-                                      },
-                                    }))
-                                  }
-                                  onKeyDown={(e) => {
-                                    if (e.key === 'Enter') {
-                                      e.preventDefault();
-                                      handleAddCustomVariantInkColor(col.id);
-                                    }
-                                  }}
-                                  placeholder={`Custom ink for ${col.name || 'this body'}...`}
-                                  className="flex-1 min-w-[130px] px-2.5 py-1.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-[11px] text-[var(--text-main)] focus:outline-none focus:border-accent"
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => handleAddCustomVariantInkColor(col.id)}
-                                  className="min-h-[30px] px-2.5 py-1 rounded-lg border border-accent/55 bg-accent/10 text-[11px] font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 inline-flex items-center gap-1 shrink-0"
-                                >
-                                  <Plus className="w-3 h-3" />
-                                  <span>Add</span>
-                                </button>
-                              </div>
-                            </div>
-
-                            {/* Visual Pen Image Selector Grid */}
-                            {pickerOpen && (
-                              <div className="pt-2.5 border-t border-[var(--border-subtle)]/60 space-y-2">
-                                <p className="text-[11px] font-semibold text-[var(--text-muted)]">
-                                  Tap a pen photo to assign to {col.name || `Variant ${idx + 1}`}:
-                                </p>
-                                <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-6 gap-2 max-h-52 overflow-y-auto overflow-x-hidden pr-1">
-                                  {penImageOptions.map((imgOpt, optIdx) => {
-                                    const isChosen = col.image === imgOpt.src;
-                                    return (
-                                      <div
-                                        key={imgOpt.id}
-                                        className={`group relative rounded-lg overflow-hidden border text-left transition-all ${
-                                          isChosen
-                                            ? 'border-accent ring-2 ring-accent/50'
-                                            : 'border-[var(--border-subtle)] hover:border-accent/70'
-                                        }`}
-                                      >
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            handleUpdateColorDraft(col.id, { image: imgOpt.src });
-                                            setActiveImagePickerId(null);
-                                            showToast(`Selected ${imgOpt.label}`);
-                                          }}
-                                          className="w-full text-left block"
-                                        >
-                                          <div className="aspect-[4/3] w-full bg-[#080506] overflow-hidden">
-                                            <SafeImage
-                                              src={imgOpt.src}
-                                              alt={imgOpt.label}
-                                              className="w-full h-full object-cover group-hover:scale-105 transition-transform"
-                                            />
-                                          </div>
-                                          <p className="px-1.5 py-1 text-[10px] font-medium text-[var(--text-main)] truncate bg-[var(--bg-card)]">
-                                            {imgOpt.label}
-                                          </p>
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={(e) => {
-                                            e.stopPropagation();
-                                            setLightboxState({
-                                              title: 'Pen Gallery Preview',
-                                              slides: penImageOptions.map((opt) => ({
-                                                src: opt.src,
-                                                label: opt.label,
-                                              })),
-                                              initialIndex: optIdx,
-                                            });
-                                          }}
-                                          title={`View ${imgOpt.label} full screen`}
-                                          aria-label={`View ${imgOpt.label} full screen`}
-                                          className="absolute top-1 left-1 w-6 h-6 rounded-md bg-black/75 border border-white/25 text-white hover:border-accent flex items-center justify-center opacity-85 hover:opacity-100 transition-opacity"
-                                        >
-                                          <Maximize2 className="w-3 h-3" />
-                                        </button>
-                                        {isChosen && (
-                                          <span className="pointer-events-none absolute top-1 right-1 w-4 h-4 rounded-full bg-accent text-white flex items-center justify-center">
-                                            <Check className="w-2.5 h-2.5" />
-                                          </span>
-                                        )}
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
-                          </div>
+                            <span
+                              className="w-3 h-3 rounded-full border border-black/20 dark:border-white/25 shrink-0 flex items-center justify-center"
+                              style={{ backgroundColor: ink.hex }}
+                            >
+                              {selected && (
+                                <Check className="w-2 h-2 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.85)]" />
+                              )}
+                            </span>
+                            <span>{ink.name}</span>
+                          </button>
                         );
                       })}
+                    </div>
+
+                    {/* Custom Ink Colour Adder */}
+                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 pt-0.5">
+                      <input
+                        type="color"
+                        value={customInkHex}
+                        onChange={(e) => setCustomInkHex(e.target.value)}
+                        aria-label="Custom ink colour picker"
+                        className="w-10 h-9 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
+                      />
+                      <input
+                        type="text"
+                        value={customInkName}
+                        onChange={(e) => setCustomInkName(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleAddCustomInkColor();
+                          }
+                        }}
+                        placeholder="Add custom ink (e.g. Blue-Black)"
+                        className="flex-1 min-w-[140px] px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] focus:outline-none focus:border-accent"
+                      />
+                      <button
+                        type="button"
+                        onClick={handleAddCustomInkColor}
+                        className="min-h-[36px] px-3 py-2 rounded-lg border border-accent/55 bg-accent/10 text-xs font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 inline-flex items-center gap-1 shrink-0"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>Add Ink</span>
+                      </button>
                     </div>
                   </div>
 
