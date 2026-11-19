@@ -58,7 +58,7 @@ service cloud.firestore {
       data.keys().hasOnly([
         'id', 'slug', 'name', 'brand', 'category', 'categoryLabel',
         'shortDescription', 'description', 'priceBdt', 'originalPriceBdt',
-        'rating', 'reviewCount', 'popularityScore', 'featured', 'isNew',
+        'rating', 'reviewCount', 'popularityScore', 'orderCount', 'featured', 'isNew',
         'inStock', 'stockCount', 'images', 'colors', 'specs', 'sampleReviews',
         'createdAt', 'updatedAt'
       ]) &&
@@ -75,6 +75,7 @@ service cloud.firestore {
       data.rating is number && data.rating >= 0 && data.rating <= 5 &&
       data.reviewCount is int && data.reviewCount >= 0 && data.reviewCount <= 1000000 &&
       data.popularityScore is int && data.popularityScore >= 0 && data.popularityScore <= 1000 &&
+      (!('orderCount' in data) || (data.orderCount is int && data.orderCount >= 0 && data.orderCount <= 10000000)) &&
       (!('featured' in data) || data.featured is bool) &&
       (!('isNew' in data) || data.isNew is bool) &&
       data.inStock is bool &&
@@ -152,7 +153,7 @@ service cloud.firestore {
 
     function isCustomerOrderStockDeduction() {
       return isVerified() &&
-        incoming().diff(existing()).affectedKeys().hasOnly(['inStock', 'stockCount', 'colors', 'updatedAt']) &&
+        incoming().diff(existing()).affectedKeys().hasOnly(['inStock', 'stockCount', 'colors', 'orderCount', 'updatedAt']) &&
         existing().inStock == true &&
         existing().stockCount is number &&
         incoming().stockCount is int &&
@@ -160,6 +161,16 @@ service cloud.firestore {
         incoming().stockCount < existing().stockCount &&
         ((incoming().stockCount > 0 && incoming().inStock == true) || (incoming().stockCount == 0 && incoming().inStock == false)) &&
         incoming().colors.size() == existing().colors.size() &&
+        (
+          !('orderCount' in incoming().diff(existing()).affectedKeys()) ||
+          (
+            incoming().orderCount is int &&
+            (
+              (!('orderCount' in existing()) && incoming().orderCount == (existing().stockCount - incoming().stockCount)) ||
+              ('orderCount' in existing() && existing().orderCount is int && incoming().orderCount == existing().orderCount + (existing().stockCount - incoming().stockCount))
+            )
+          )
+        ) &&
         (
           (
             exists(/databases/$(database)/documents/meta/orderCounter) &&

@@ -166,7 +166,6 @@ export const AdminModal: React.FC = () => {
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [prodCategory, setProdCategory] = useState<Exclude<CategoryId, 'all'>>('gel-pens');
   const [prodName, setProdName] = useState('');
-  const [prodBrand, setProdBrand] = useState("Arefin's Pen");
   const [prodPrice, setProdPrice] = useState<string>('50');
   const [prodOriginalPrice, setProdOriginalPrice] = useState<string>('');
   const [prodTipSize, setProdTipSize] = useState('0.5 mm Needle Tip');
@@ -229,7 +228,7 @@ export const AdminModal: React.FC = () => {
     return products.filter((p) => {
       if (catalogListFilter !== 'all' && p.category !== catalogListFilter) return false;
       if (!q) return true;
-      const hay = `${p.name} ${p.brand} ${p.categoryLabel} ${p.colors.map((c) => c.name).join(' ')}`.toLowerCase();
+      const hay = `${p.name} ${p.categoryLabel} ${p.colors.map((c) => c.name).join(' ')}`.toLowerCase();
       return hay.includes(q);
     });
   }, [products, catalogListFilter, prodSearchTerm]);
@@ -460,7 +459,6 @@ export const AdminModal: React.FC = () => {
     setEditingProductId(null);
     setProdFormError('');
     setProdName('');
-    setProdBrand("Arefin's Pen");
     setProdPrice('50');
     setProdOriginalPrice('');
     setProdTipSize('0.5 mm Needle Tip');
@@ -491,7 +489,6 @@ export const AdminModal: React.FC = () => {
     setProdFormError('');
     setProdCategory(prod.category);
     setProdName(prod.name);
-    setProdBrand(prod.brand);
     setProdPrice(String(prod.priceBdt));
     setProdOriginalPrice(prod.originalPriceBdt ? String(prod.originalPriceBdt) : '');
     setProdTipSize(prod.specs.tipSize);
@@ -583,7 +580,6 @@ export const AdminModal: React.FC = () => {
 
     const payload = {
       name: prodName,
-      brand: prodBrand,
       category: prodCategory,
       priceBdt: parsedPrice,
       originalPriceBdt: parsedOriginal,
@@ -1297,7 +1293,7 @@ export const AdminModal: React.FC = () => {
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div>
+                    <div className="sm:col-span-2">
                       <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright mb-1.5">
                         Product Name *
                       </label>
@@ -1307,19 +1303,6 @@ export const AdminModal: React.FC = () => {
                         value={prodName}
                         onChange={(e) => setProdName(e.target.value)}
                         placeholder="e.g. Matador Hi-School / Neucose B"
-                        className="w-full px-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright mb-1.5">
-                        Brand
-                      </label>
-                      <input
-                        type="text"
-                        value={prodBrand}
-                        onChange={(e) => setProdBrand(e.target.value)}
-                        placeholder="e.g. Arefin's Pen"
                         className="w-full px-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
                       />
                     </div>

@@ -81,6 +81,8 @@ export interface Product {
   rating: number;
   reviewCount: number;
   popularityScore: number;
+  orderCount?: number;
+  createdAtMs?: number;
   isNew?: boolean;
   featured?: boolean;
   inStock: boolean;

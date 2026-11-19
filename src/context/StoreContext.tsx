@@ -61,7 +61,7 @@ export interface NewProductColorInput {
 
 export interface NewProductInput {
   name: string;
-  brand: string;
+  brand?: string;
   category: Exclude<CategoryId, 'all'>;
   priceBdt: number;
   originalPriceBdt?: number;
@@ -228,6 +228,25 @@ function slugifyProductName(name: string): string {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '');
   return base || 'pen';
+}
+
+function extractTimestampMs(value: unknown): number | undefined {
+  if (!value) return undefined;
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    return Number.isFinite(parsed) ? parsed : undefined;
+  }
+  if (typeof value === 'object') {
+    const ts = value as { toMillis?: () => number; seconds?: number; nanoseconds?: number };
+    if (typeof ts.toMillis === 'function') {
+      return ts.toMillis();
+    }
+    if (typeof ts.seconds === 'number') {
+      return ts.seconds * 1000 + Math.floor((ts.nanoseconds || 0) / 1e6);
+    }
+  }
+  return undefined;
 }
 
 function normalizeInkColorsList(
@@ -409,6 +428,13 @@ function sanitizeProductForFirestore(product: Product): Record<string, unknown> 
   };
 
   if (
+    typeof product.orderCount === 'number' &&
+    Number.isFinite(product.orderCount)
+  ) {
+    payload.orderCount = Math.max(0, Math.min(10000000, Math.round(product.orderCount)));
+  }
+
+  if (
     typeof product.originalPriceBdt === 'number' &&
     Number.isFinite(product.originalPriceBdt) &&
     product.originalPriceBdt > product.priceBdt
@@ -474,8 +500,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [cloudAdminOrders, setCloudAdminOrders] = useState<
     (TrackedOrder & { serialNumber?: number })[]
   >([]);
+  const [adminOrdersLoaded, setAdminOrdersLoaded] = useState(false);
   const [cloudLastOrderNumber, setCloudLastOrderNumber] = useState<number>(0);
   const autoSeedingRef = useRef(false);
+  const backfilledOrderCountIdsRef = useRef<Set<string>>(new Set());
 
   const [isLocalAdmin, setIsLocalAdmin] = useState<boolean>(() => {
     const stored = readStorage<{ verified?: boolean } | boolean>(
@@ -566,14 +594,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       collection(db, 'products'),
       (snapshot) => {
         const list: Product[] = snapshot.docs.map((d) => {
-          const data = d.data() as Product;
+          const data = d.data() as Product & { createdAt?: unknown };
           return {
             ...data,
             id: data.id || d.id,
             slug: data.slug || d.id,
+            orderCount:
+              typeof data.orderCount === 'number' && Number.isFinite(data.orderCount)
+                ? Math.max(0, Math.round(data.orderCount))
+                : undefined,
+            createdAtMs: extractTimestampMs(data.createdAt),
           };
         });
-        list.sort((a, b) => (b.popularityScore || 0) - (a.popularityScore || 0));
+        list.sort((a, b) => {
+          const orderDiff = (b.orderCount ?? 0) - (a.orderCount ?? 0);
+          if (orderDiff !== 0) return orderDiff;
+          const popDiff = (b.popularityScore || 0) - (a.popularityScore || 0);
+          if (popDiff !== 0) return popDiff;
+          return (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0);
+        });
         setCloudProducts(list);
       },
       (error) => {
@@ -666,6 +705,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   useEffect(() => {
     if (!isFirebaseAdmin) {
       setCloudAdminOrders([]);
+      setAdminOrdersLoaded(false);
       return;
     }
 
@@ -682,6 +722,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         });
         list.sort((a, b) => (b.serialNumber || 0) - (a.serialNumber || 0));
         setCloudAdminOrders(list);
+        setAdminOrdersLoaded(true);
       },
       (error) => {
         try {
@@ -732,6 +773,66 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     void seedInitialCatalog();
   }, [isFirebaseAdmin, cloudProducts, catalogSeeded, liveCatalog]);
+
+  // Backfill historical orderCount onto products that do not yet have an orderCount field
+  useEffect(() => {
+    if (
+      !isFirebaseAdmin ||
+      !adminOrdersLoaded ||
+      !cloudProducts ||
+      cloudProducts.length === 0
+    ) {
+      return;
+    }
+
+    const pendingProducts = cloudProducts.filter(
+      (p) => typeof p.orderCount !== 'number' && !backfilledOrderCountIdsRef.current.has(p.id)
+    );
+    if (pendingProducts.length === 0) return;
+
+    const orderedCountsByProductId = new Map<string, number>();
+    for (const ord of cloudAdminOrders) {
+      if (Array.isArray(ord.orderItems) && ord.orderItems.length > 0) {
+        for (const item of ord.orderItems) {
+          const qty = Math.max(0, Math.round(Number(item.quantity) || 0));
+          if (item.productId && qty > 0) {
+            orderedCountsByProductId.set(
+              item.productId,
+              (orderedCountsByProductId.get(item.productId) || 0) + qty
+            );
+          }
+        }
+      } else if (ord.itemsSummary) {
+        const parsed = parseOrderSummaryItems(ord.itemsSummary, cloudProducts);
+        for (const item of parsed) {
+          const qty = Math.max(0, Math.round(Number.parseInt(item.quantity, 10) || 0));
+          if (item.productId && qty > 0) {
+            orderedCountsByProductId.set(
+              item.productId,
+              (orderedCountsByProductId.get(item.productId) || 0) + qty
+            );
+          }
+        }
+      }
+    }
+
+    const backfill = async () => {
+      for (const prod of pendingProducts) {
+        backfilledOrderCountIdsRef.current.add(prod.id);
+        const count = orderedCountsByProductId.get(prod.id) || 0;
+        try {
+          await updateDoc(doc(db, 'products', prod.id), {
+            orderCount: count,
+            updatedAt: serverTimestamp(),
+          });
+        } catch (err) {
+          console.warn(`Order count backfill skipped for ${prod.id}:`, err);
+        }
+      }
+    };
+
+    void backfill();
+  }, [isFirebaseAdmin, adminOrdersLoaded, cloudProducts, cloudAdminOrders]);
 
   // Apply theme, accent colour, reduced motion, and text size to <html>
   useEffect(() => {
@@ -1420,6 +1521,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           colors: Record<string, unknown>[];
           stockCount: number;
           inStock: boolean;
+          orderCount: number;
         }[] = [];
 
         productIds.forEach((pid, idx) => {
@@ -1484,12 +1586,22 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           );
           const nextProductInStock =
             updatedColors.some((c) => c.inStock && (c.stockCount || 0) > 0) && nextTotalStock > 0;
+          const prevStockCount =
+            typeof prodData.stockCount === 'number' && Number.isFinite(prodData.stockCount)
+              ? Math.max(0, Math.round(prodData.stockCount))
+              : nextTotalStock;
+          const stockDelta = Math.max(0, prevStockCount - nextTotalStock);
+          const prevOrderCount =
+            typeof prodData.orderCount === 'number' && Number.isFinite(prodData.orderCount)
+              ? Math.max(0, Math.round(prodData.orderCount))
+              : 0;
 
           productUpdates.push({
             ref: productRefs[idx],
             colors: sanitizeColorListForFirestore(updatedColors),
             stockCount: nextTotalStock,
             inStock: nextProductInStock,
+            orderCount: prevOrderCount + stockDelta,
           });
         });
 
@@ -1519,6 +1631,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             colors: upd.colors,
             stockCount: upd.stockCount,
             inStock: upd.inStock,
+            orderCount: upd.orderCount,
             updatedAt: serverTimestamp(),
           });
         }
@@ -1726,11 +1839,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           );
           const nextInStock =
             updatedColors.some((c) => c.inStock && (c.stockCount || 0) > 0) && nextTotalStock > 0;
+          const restoredForProduct = entries.reduce((sum, e) => sum + e.qty, 0);
+          const prevOrderCount =
+            typeof prodData.orderCount === 'number' && Number.isFinite(prodData.orderCount)
+              ? Math.max(0, Math.round(prodData.orderCount))
+              : 0;
+          const nextOrderCount = Math.max(0, prevOrderCount - restoredForProduct);
 
           transaction.update(productRefs[idx], {
             colors: sanitizeColorListForFirestore(updatedColors),
             stockCount: nextTotalStock,
             inStock: nextInStock,
+            orderCount: nextOrderCount,
             updatedAt: serverTimestamp(),
           });
         });
@@ -1783,7 +1903,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { ok: false, error: 'Admin sign-in required.' };
     }
     const trimmedName = input.name.trim();
-    const trimmedBrand = input.brand.trim() || "Arefin's Pen";
+    const trimmedBrand = (input.brand || '').trim() || "Arefin's Pen";
     if (trimmedName.length < 2) {
       return { ok: false, error: 'Please enter a valid product name.' };
     }
@@ -1864,7 +1984,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       description:
         input.description?.trim() ||
         input.shortDescription.trim() ||
-        `${trimmedName} by ${trimmedBrand} in ${categoryLabel}, available in ${validColors
+        `${trimmedName} in ${categoryLabel}, available in ${validColors
           .map((c) => c.name)
           .join(', ')}.`,
       priceBdt: Math.round(input.priceBdt),
@@ -1875,6 +1995,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       rating: 4.9,
       reviewCount: 1,
       popularityScore: 95,
+      orderCount: 0,
+      createdAtMs: Date.now(),
       featured: Boolean(input.featured),
       isNew: true,
       inStock: !input.outOfStock && hasAnyColorInStock,
@@ -1933,7 +2055,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { ok: false, error: 'Product not found.' };
     }
     const trimmedName = input.name.trim();
-    const trimmedBrand = input.brand.trim() || "Arefin's Pen";
+    const trimmedBrand = (input.brand || existing.brand || '').trim() || "Arefin's Pen";
     if (trimmedName.length < 2) {
       return { ok: false, error: 'Please enter a valid product name.' };
     }

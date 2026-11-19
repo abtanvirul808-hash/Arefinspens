@@ -236,10 +236,8 @@ export const ProductDetailsPage: React.FC = () => {
           <div className="space-y-3">
             <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
               <span className="font-semibold text-accent dark:text-accent-bright">
-                {product.brand}
+                {product.categoryLabel}
               </span>
-              <span aria-hidden="true">·</span>
-              <span>{product.categoryLabel}</span>
               <span aria-hidden="true">·</span>
               <span className="inline-flex items-center gap-1 font-mono-num">
                 <Star className="w-3.5 h-3.5 text-accent-bright fill-accent-bright" />

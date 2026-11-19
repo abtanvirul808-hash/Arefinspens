@@ -372,7 +372,7 @@ export const HomePage: React.FC = () => {
               Explore the complete Arefin&apos;s Pen collection
             </h2>
             <p className="text-sm text-[#B8B8B8]">
-              Filter by pen type, ink colour, brand, or budget in BDT—with Cash on Delivery across
+              Filter by pen type, ink colour, or budget in BDT—with Cash on Delivery across
               Bangladesh.
             </p>
           </div>

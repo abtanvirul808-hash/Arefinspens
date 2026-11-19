@@ -28,6 +28,10 @@
         "rating": { "type": "number" },
         "reviewCount": { "type": "integer" },
         "popularityScore": { "type": "integer" },
+        "orderCount": {
+          "type": "integer",
+          "description": "Total units of this product ordered across customer orders."
+        },
         "featured": { "type": "boolean" },
         "isNew": { "type": "boolean" },
         "inStock": { "type": "boolean" },

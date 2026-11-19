@@ -24,18 +24,12 @@ export const CataloguePage: React.FC = () => {
   useEffect(() => {
     setMaxPrice((prev) => (prev < sliderMax ? sliderMax : prev));
   }, [sliderMax]);
-  const [selectedBrands, setSelectedBrands] = useState<string[]>([]);
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [selectedInkColors, setSelectedInkColors] = useState<string[]>([]);
   const [minRating, setMinRating] = useState<number>(0);
   const [inStockOnly, setInStockOnly] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<SortOption>('popularity');
   const [mobileFilterOpen, setMobileFilterOpen] = useState<boolean>(false);
-
-  const allBrands = useMemo(
-    () => Array.from(new Set(products.map((p) => p.brand))),
-    [products]
-  );
 
   const allFilterColors = useMemo(() => {
     const map = new Map<string, { id: string; name: string; hex: string }>();
@@ -63,12 +57,6 @@ export const CataloguePage: React.FC = () => {
     return Array.from(map.values());
   }, [products]);
 
-  const toggleBrand = (brand: string) => {
-    setSelectedBrands((prev) =>
-      prev.includes(brand) ? prev.filter((b) => b !== brand) : [...prev, brand]
-    );
-  };
-
   const toggleColor = (colorId: string) => {
     setSelectedColors((prev) =>
       prev.includes(colorId) ? prev.filter((c) => c !== colorId) : [...prev, colorId]
@@ -85,7 +73,6 @@ export const CataloguePage: React.FC = () => {
     navigate('shop', { category: 'all', scrollToTop: false });
     setSearchQuery('');
     setMaxPrice(sliderMax);
-    setSelectedBrands([]);
     setSelectedColors([]);
     setSelectedInkColors([]);
     setMinRating(0);
@@ -100,7 +87,6 @@ export const CataloguePage: React.FC = () => {
       const productInks = getProductInkColors(p);
       if (selectedCategory !== 'all' && p.category !== selectedCategory) return false;
       if (p.priceBdt > maxPrice) return false;
-      if (selectedBrands.length > 0 && !selectedBrands.includes(p.brand)) return false;
       if (
         selectedColors.length > 0 &&
         !p.colors.some((c) => c.inStock && selectedColors.includes(c.name.trim().toLowerCase()))
@@ -117,7 +103,7 @@ export const CataloguePage: React.FC = () => {
       if (inStockOnly && !p.inStock) return false;
       if (query) {
         const inkNames = productInks.map((i) => i.name).join(' ');
-        const hay = `${p.name} ${p.brand} ${p.categoryLabel} ${p.shortDescription} ${p.specs.tipSize} ${inkNames}`.toLowerCase();
+        const hay = `${p.name} ${p.categoryLabel} ${p.shortDescription} ${p.specs.tipSize} ${inkNames}`.toLowerCase();
         if (!hay.includes(query)) return false;
       }
       return true;
@@ -128,8 +114,21 @@ export const CataloguePage: React.FC = () => {
       if (sortBy === 'price-asc') return a.priceBdt - b.priceBdt;
       if (sortBy === 'price-desc') return b.priceBdt - a.priceBdt;
       if (sortBy === 'rating') return b.rating - a.rating;
-      if (sortBy === 'newest') return Number(Boolean(b.isNew)) - Number(Boolean(a.isNew));
-      return b.popularityScore - a.popularityScore;
+      if (sortBy === 'newest') {
+        const timeDiff = (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0);
+        if (timeDiff !== 0) return timeDiff;
+        const newDiff = Number(Boolean(b.isNew)) - Number(Boolean(a.isNew));
+        if (newDiff !== 0) return newDiff;
+        return (b.orderCount ?? 0) - (a.orderCount ?? 0);
+      }
+      // Popularity: sort by which pen is ordered most, then fallback popularityScore / rating / newest
+      const orderDiff = (b.orderCount ?? 0) - (a.orderCount ?? 0);
+      if (orderDiff !== 0) return orderDiff;
+      const popDiff = (b.popularityScore || 0) - (a.popularityScore || 0);
+      if (popDiff !== 0) return popDiff;
+      const ratingDiff = (b.rating || 0) - (a.rating || 0);
+      if (ratingDiff !== 0) return ratingDiff;
+      return (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0);
     });
 
     return sorted;
@@ -137,7 +136,6 @@ export const CataloguePage: React.FC = () => {
     products,
     selectedCategory,
     maxPrice,
-    selectedBrands,
     selectedColors,
     selectedInkColors,
     minRating,
@@ -265,27 +263,6 @@ export const CataloguePage: React.FC = () => {
               </button>
             );
           })}
-        </div>
-      </div>
-
-      {/* Brand Filter */}
-      <div className="space-y-2.5">
-        <h3 className="text-xs font-semibold text-[var(--text-secondary)]">Brand</h3>
-        <div className="space-y-2">
-          {allBrands.map((brand) => (
-            <label
-              key={brand}
-              className="flex items-center gap-2.5 text-sm text-[var(--text-secondary)] hover:text-[var(--text-main)] cursor-pointer"
-            >
-              <input
-                type="checkbox"
-                checked={selectedBrands.includes(brand)}
-                onChange={() => toggleBrand(brand)}
-                className="w-4 h-4 rounded accent-accent"
-              />
-              <span>{brand}</span>
-            </label>
-          ))}
         </div>
       </div>
 
