@@ -44,6 +44,7 @@ import {
   OperationType,
 } from '../firebase';
 import { parseOrderSummaryItems } from '../utils/orderItems';
+import { applyDynamicFavicon } from '../utils/themeFavicon';
 
 interface ToastState {
   id: number;
@@ -861,6 +862,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     root.setAttribute('data-accent', preferences.accentColor || 'red');
     root.setAttribute('data-reduced-motion', String(preferences.reducedMotion));
     root.setAttribute('data-text-size', preferences.textSize);
+    applyDynamicFavicon(preferences.theme, preferences.accentColor || 'red');
     try {
       localStorage.setItem(STORAGE_KEYS.prefs, JSON.stringify(preferences));
     } catch {
