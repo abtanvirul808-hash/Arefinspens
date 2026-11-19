@@ -31,6 +31,7 @@ import {
   getColorAvailableCount,
   getProductInkColors,
   getVariantInkColors,
+  isOtherProduct,
   PRODUCTS,
 } from '../data/products';
 import {
@@ -62,7 +63,8 @@ export interface NewProductColorInput {
 export interface NewProductInput {
   name: string;
   brand?: string;
-  category: Exclude<CategoryId, 'all'>;
+  category: Exclude<CategoryId, 'all' | 'all-pens'>;
+  categoryLabel?: string;
   priceBdt: number;
   originalPriceBdt?: number;
   stockCount: number;
@@ -363,6 +365,8 @@ function sanitizeOrderItemsForFirestore(
 }
 
 function sanitizeProductForFirestore(product: Product): Record<string, unknown> {
+  const otherItem = isOtherProduct(product);
+
   const cleanColors = product.colors.slice(0, 12).map((c, idx) => {
     const resolvedStock =
       typeof c.stockCount === 'number' && Number.isFinite(c.stockCount)
@@ -380,26 +384,47 @@ function sanitizeProductForFirestore(product: Product): Record<string, unknown> 
     if (c.image && c.image.trim()) {
       entry.image = c.image.trim();
     }
-    if (Array.isArray(c.inkColors) && c.inkColors.length > 0) {
+    if (!otherItem && Array.isArray(c.inkColors) && c.inkColors.length > 0) {
       entry.inkColors = normalizeInkColorsList(c.inkColors);
     }
     return entry;
   });
 
-  const variantInksFlat = product.colors.flatMap((c) =>
-    Array.isArray(c.inkColors) ? c.inkColors : []
-  );
-  const normalizedInks = normalizeInkColorsList(
-    [...(product.specs?.inkColors || []), ...variantInksFlat],
-    product.specs?.inkColor,
-    product.specs?.inkColorHex
-  );
+  const variantInksFlat = otherItem
+    ? []
+    : product.colors.flatMap((c) => (Array.isArray(c.inkColors) ? c.inkColors : []));
+  const normalizedInks = otherItem
+    ? []
+    : normalizeInkColorsList(
+        [...(product.specs?.inkColors || []), ...variantInksFlat],
+        product.specs?.inkColor,
+        product.specs?.inkColorHex
+      );
+
+  const cleanSpecs: Record<string, unknown> = otherItem
+    ? {
+        tipSize: product.specs?.tipSize || 'Standard',
+        inkType: product.specs?.inkType || 'N/A',
+        bodyMaterial: product.specs?.bodyMaterial || 'Standard',
+        weight: product.specs?.weight || 'Standard',
+        origin: product.specs?.origin || product.brand || 'Arefin Mart',
+      }
+    : {
+        tipSize: product.specs?.tipSize || '0.5 mm Fine Point',
+        inkType: product.specs?.inkType || 'Smooth Writing Ink',
+        inkColor: normalizedInks.map((i) => i.name).join(', '),
+        inkColorHex: normalizedInks[0].hex,
+        inkColors: normalizedInks,
+        bodyMaterial: product.specs?.bodyMaterial || 'Ergonomic Studio Barrel',
+        weight: product.specs?.weight || '12 g',
+        origin: product.specs?.origin || product.brand || 'Arefin Mart',
+      };
 
   const payload: Record<string, unknown> = {
     id: product.id,
     slug: product.slug,
     name: product.name.trim().slice(0, 120),
-    brand: product.brand.trim().slice(0, 80) || "Arefin's Pen",
+    brand: product.brand.trim().slice(0, 80) || 'Arefin Mart',
     category: product.category,
     categoryLabel: product.categoryLabel.trim().slice(0, 80),
     shortDescription: product.shortDescription.trim().slice(0, 400),
@@ -414,16 +439,7 @@ function sanitizeProductForFirestore(product: Product): Record<string, unknown> 
     stockCount: Math.max(0, Math.round(product.stockCount || 0)),
     images: product.images.filter(Boolean).slice(0, 12),
     colors: cleanColors,
-    specs: {
-      tipSize: product.specs?.tipSize || '0.5 mm Fine Point',
-      inkType: product.specs?.inkType || 'Smooth Writing Ink',
-      inkColor: normalizedInks.map((i) => i.name).join(', '),
-      inkColorHex: normalizedInks[0].hex,
-      inkColors: normalizedInks,
-      bodyMaterial: product.specs?.bodyMaterial || 'Ergonomic Studio Barrel',
-      weight: product.specs?.weight || '12 g',
-      origin: product.specs?.origin || product.brand || "Arefin's Pen",
-    },
+    specs: cleanSpecs,
     sampleReviews: Array.isArray(product.sampleReviews) ? product.sampleReviews.slice(0, 20) : [],
   };
 
@@ -1082,10 +1098,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const addedQty = Math.min(requestedQty, remainingAddable);
     const wasCapped = addedQty < requestedQty;
 
-    const availableInks = getVariantInkColors(liveProduct, liveChosen);
-    const chosenInk =
-      availableInks.find((i) => i.id === inkColorId) || availableInks[0];
-    const key = `${liveProduct.id}__${liveChosen.id}__${chosenInk.id}`;
+    const otherItem = isOtherProduct(liveProduct);
+    const availableInks = otherItem ? [] : getVariantInkColors(liveProduct, liveChosen);
+    const chosenInk = otherItem
+      ? undefined
+      : availableInks.find((i) => i.id === inkColorId) || availableInks[0];
+    const key = otherItem
+      ? `${liveProduct.id}__${liveChosen.id}__none`
+      : `${liveProduct.id}__${liveChosen.id}__${chosenInk!.id}`;
 
     setCart((prev) => {
       const prevUsed = getCartColorUsedCount(prev, liveProduct.id, liveChosen.id);
@@ -1099,20 +1119,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           item.key === key ? { ...item, quantity: item.quantity + safeAdd } : item
         );
       }
-      return [
-        ...prev,
-        {
-          key,
-          productId: liveProduct.id,
-          colorId: liveChosen.id,
-          colorName: liveChosen.name,
-          colorHex: liveChosen.hex,
-          inkColorId: chosenInk.id,
-          inkColorName: chosenInk.name,
-          inkColorHex: chosenInk.hex,
-          quantity: safeAdd,
-        },
-      ];
+      const nextCartItem: CartItem = {
+        key,
+        productId: liveProduct.id,
+        colorId: liveChosen.id,
+        colorName: liveChosen.name,
+        colorHex: liveChosen.hex,
+        quantity: safeAdd,
+      };
+      if (!otherItem && chosenInk) {
+        nextCartItem.inkColorId = chosenInk.id;
+        nextCartItem.inkColorName = chosenInk.name;
+        nextCartItem.inkColorHex = chosenInk.hex;
+      }
+      return [...prev, nextCartItem];
     });
 
     if (wasCapped) {
@@ -1121,7 +1141,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       );
     } else {
       showToast(
-        `Added ${liveProduct.name} (${liveChosen.name}${availableInks.length > 1 ? ` · ${chosenInk.name} Ink` : ''}) to cart`
+        `Added ${liveProduct.name} (${liveChosen.name}${
+          !otherItem && chosenInk && availableInks.length > 1 ? ` · ${chosenInk.name} Ink` : ''
+        }) to cart`
       );
     }
     if (openDrawer) {
@@ -1188,12 +1210,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       availableColors.find((c) => c.id === nextColorId) || availableColors[0];
     if (!chosen) return;
 
-    const availableInks = getVariantInkColors(product, chosen);
-    const chosenInk =
-      availableInks.find((i) => i.id === nextInkColorId) || availableInks[0];
-    if (!chosenInk) return;
+    const otherItem = isOtherProduct(product);
+    const availableInks = otherItem ? [] : getVariantInkColors(product, chosen);
+    const chosenInk = otherItem
+      ? undefined
+      : availableInks.find((i) => i.id === nextInkColorId) || availableInks[0];
+    if (!otherItem && !chosenInk) return;
 
-    const nextKey = `${product.id}__${chosen.id}__${chosenInk.id}`;
+    const nextKey = otherItem
+      ? `${product.id}__${chosen.id}__none`
+      : `${product.id}__${chosen.id}__${chosenInk!.id}`;
+    const variantLabel =
+      !otherItem && chosenInk ? `${chosen.name} · ${chosenInk.name} Ink` : chosen.name;
     const colorAvailable = getColorAvailableCount(product, chosen);
     const existingMatch = cart.find((item) => item.key === nextKey);
 
@@ -1209,15 +1237,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
                 colorId: chosen.id,
                 colorName: chosen.name,
                 colorHex: chosen.hex,
-                inkColorId: chosenInk.id,
-                inkColorName: chosenInk.name,
-                inkColorHex: chosenInk.hex,
+                inkColorId: otherItem ? undefined : chosenInk?.id,
+                inkColorName: otherItem ? undefined : chosenInk?.name,
+                inkColorHex: otherItem ? undefined : chosenInk?.hex,
                 quantity: safeQty,
               }
             : item
         )
       );
-      showToast(`Updated ${product.name} (${chosen.name} · ${chosenInk.name} Ink)`);
+      showToast(`Updated ${product.name} (${variantLabel})`);
       return;
     }
 
@@ -1241,8 +1269,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       );
       showToast(
         wasCapped
-          ? `Updated ${product.name} (${chosen.name} · ${chosenInk.name} Ink) — capped at ${colorAvailable} available`
-          : `Updated ${product.name} (${chosen.name} · ${chosenInk.name} Ink)`
+          ? `Updated ${product.name} (${variantLabel}) — capped at ${colorAvailable} available`
+          : `Updated ${product.name} (${variantLabel})`
       );
       return;
     }
@@ -1267,9 +1295,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               colorId: chosen.id,
               colorName: chosen.name,
               colorHex: chosen.hex,
-              inkColorId: chosenInk.id,
-              inkColorName: chosenInk.name,
-              inkColorHex: chosenInk.hex,
+              inkColorId: otherItem ? undefined : chosenInk?.id,
+              inkColorName: otherItem ? undefined : chosenInk?.name,
+              inkColorHex: otherItem ? undefined : chosenInk?.hex,
               quantity: cappedQty,
             }
           : item
@@ -1278,8 +1306,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     showToast(
       wasCapped
-        ? `Updated ${product.name} (${chosen.name} · ${chosenInk.name} Ink) — capped at ${cappedQty} available`
-        : `Updated ${product.name} (${chosen.name} · ${chosenInk.name} Ink)`
+        ? `Updated ${product.name} (${variantLabel}) — capped at ${cappedQty} available`
+        : `Updated ${product.name} (${variantLabel})`
     );
   };
 
@@ -1862,7 +1890,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (result.deleted) {
         showToast(
           result.restoredUnits > 0
-            ? `Order ${orderId} deleted · restored ${result.restoredUnits} pen${
+            ? `Order ${orderId} deleted · restored ${result.restoredUnits} item${
                 result.restoredUnits === 1 ? '' : 's'
               } to stock`
             : `Order ${orderId} deleted`
@@ -1903,7 +1931,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { ok: false, error: 'Admin sign-in required.' };
     }
     const trimmedName = input.name.trim();
-    const trimmedBrand = (input.brand || '').trim() || "Arefin's Pen";
+    const trimmedBrand = (input.brand || '').trim() || 'Arefin Mart';
+    const isOther = input.category === 'other-products';
     if (trimmedName.length < 2) {
       return { ok: false, error: 'Please enter a valid product name.' };
     }
@@ -1930,7 +1959,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           stockCount: colorInStock ? Math.max(1, rawCount) : 0,
           image: c.image?.trim() || undefined,
           inkColors:
-            Array.isArray(c.inkColors) && c.inkColors.length > 0
+            !isOther && Array.isArray(c.inkColors) && c.inkColors.length > 0
               ? normalizeInkColorsList(c.inkColors)
               : undefined,
         };
@@ -1950,7 +1979,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     const catMeta = CATALOGUE_CATEGORIES.find((c) => c.id === input.category);
-    const categoryLabel = catMeta?.label || 'Gel Pens';
+    const categoryLabel =
+      input.categoryLabel?.trim() || catMeta?.label || (isOther ? 'Other Products' : 'Gel Pens');
     const baseSlug = slugifyProductName(trimmedName);
     const slugTaken = products.some((p) => p.slug === baseSlug || p.id === baseSlug);
     const uniqueSlug = slugTaken ? `${baseSlug}-${String(Date.now()).slice(-4)}` : baseSlug;
@@ -1958,12 +1988,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const colorImages = validColors.map((c) => c.image).filter((x): x is string => Boolean(x));
     const mergedImages = Array.from(new Set([...input.images.filter(Boolean), ...colorImages]));
 
-    const variantInksFlat = validColors.flatMap((c) => c.inkColors || []);
-    const normalizedInks = normalizeInkColorsList(
-      [...(input.inkColors || []), ...variantInksFlat],
-      input.inkColor,
-      input.inkColorHex
-    );
+    const variantInksFlat = isOther ? [] : validColors.flatMap((c) => c.inkColors || []);
+    const normalizedInks = isOther
+      ? []
+      : normalizeInkColorsList(
+          [...(input.inkColors || []), ...variantInksFlat],
+          input.inkColor,
+          input.inkColorHex
+        );
 
     const totalColorStock = validColors.reduce(
       (sum, c) => sum + (c.inStock ? c.stockCount : 0),
@@ -2002,25 +2034,38 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       inStock: !input.outOfStock && hasAnyColorInStock,
       stockCount: input.outOfStock ? 0 : totalColorStock,
       images: mergedImages,
-      colors: validColors.map((c, idx) => ({
-        id: c.id || `${slugifyProductName(c.name)}-${idx + 1}`,
-        name: c.name,
-        hex: c.hex,
-        inStock: c.inStock,
-        stockCount: c.stockCount,
-        image: c.image || mergedImages[0],
-        inkColors: c.inkColors && c.inkColors.length > 0 ? c.inkColors : normalizedInks,
-      })),
-      specs: {
-        tipSize: input.tipSize?.trim() || '0.5 mm Fine Point',
-        inkType: input.inkType?.trim() || 'Smooth Writing Ink',
-        inkColor: normalizedInks.map((i) => i.name).join(', '),
-        inkColorHex: normalizedInks[0].hex,
-        inkColors: normalizedInks,
-        bodyMaterial: input.bodyMaterial?.trim() || 'Ergonomic Studio Barrel',
-        weight: '12 g',
-        origin: trimmedBrand,
-      },
+      colors: validColors.map((c, idx) => {
+        const entry: Product['colors'][number] = {
+          id: c.id || `${slugifyProductName(c.name)}-${idx + 1}`,
+          name: c.name,
+          hex: c.hex,
+          inStock: c.inStock,
+          stockCount: c.stockCount,
+          image: c.image || mergedImages[0],
+        };
+        if (!isOther) {
+          entry.inkColors = c.inkColors && c.inkColors.length > 0 ? c.inkColors : normalizedInks;
+        }
+        return entry;
+      }),
+      specs: isOther
+        ? {
+            tipSize: input.tipSize?.trim() || 'Standard',
+            inkType: input.inkType?.trim() || 'N/A',
+            bodyMaterial: input.bodyMaterial?.trim() || 'Standard',
+            weight: 'Standard',
+            origin: trimmedBrand,
+          }
+        : {
+            tipSize: input.tipSize?.trim() || '0.5 mm Fine Point',
+            inkType: input.inkType?.trim() || 'Smooth Writing Ink',
+            inkColor: normalizedInks.map((i) => i.name).join(', '),
+            inkColorHex: normalizedInks[0].hex,
+            inkColors: normalizedInks,
+            bodyMaterial: input.bodyMaterial?.trim() || 'Ergonomic Studio Barrel',
+            weight: '12 g',
+            origin: trimmedBrand,
+          },
       sampleReviews: [],
     };
 
@@ -2055,7 +2100,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { ok: false, error: 'Product not found.' };
     }
     const trimmedName = input.name.trim();
-    const trimmedBrand = (input.brand || existing.brand || '').trim() || "Arefin's Pen";
+    const trimmedBrand = (input.brand || existing.brand || '').trim() || 'Arefin Mart';
+    const isOther = input.category === 'other-products';
     if (trimmedName.length < 2) {
       return { ok: false, error: 'Please enter a valid product name.' };
     }
@@ -2082,7 +2128,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           stockCount: colorInStock ? Math.max(1, rawCount) : 0,
           image: c.image?.trim() || undefined,
           inkColors:
-            Array.isArray(c.inkColors) && c.inkColors.length > 0
+            !isOther && Array.isArray(c.inkColors) && c.inkColors.length > 0
               ? normalizeInkColorsList(c.inkColors)
               : undefined,
         };
@@ -2102,7 +2148,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
 
     const catMeta = CATALOGUE_CATEGORIES.find((c) => c.id === input.category);
-    const categoryLabel = catMeta?.label || existing.categoryLabel;
+    const categoryLabel = input.categoryLabel?.trim() || catMeta?.label || existing.categoryLabel;
     const colorImages = validColors.map((c) => c.image).filter((x): x is string => Boolean(x));
     const mergedImages = Array.from(
       new Set([...input.images.filter(Boolean), ...colorImages, ...existing.images].filter(Boolean))
@@ -2115,12 +2161,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     const hasAnyColorInStock = validColors.some((c) => c.inStock) && totalColorStock > 0;
     const nextInStock = !input.outOfStock && hasAnyColorInStock;
 
-    const variantInksFlat = validColors.flatMap((c) => c.inkColors || []);
-    const normalizedInks = normalizeInkColorsList(
-      [...(input.inkColors || []), ...variantInksFlat],
-      input.inkColor || existing.specs.inkColor,
-      input.inkColorHex || existing.specs.inkColorHex
-    );
+    const variantInksFlat = isOther ? [] : validColors.flatMap((c) => c.inkColors || []);
+    const normalizedInks = isOther
+      ? []
+      : normalizeInkColorsList(
+          [...(input.inkColors || []), ...variantInksFlat],
+          input.inkColor || existing.specs.inkColor,
+          input.inkColorHex || existing.specs.inkColorHex
+        );
 
     const updatedProduct: Product = {
       ...existing,
@@ -2144,25 +2192,38 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       inStock: nextInStock,
       stockCount: totalColorStock,
       images: mergedImages.length > 0 ? mergedImages : existing.images,
-      colors: validColors.map((c, idx) => ({
-        id: c.id || `${slugifyProductName(c.name)}-${idx + 1}`,
-        name: c.name,
-        hex: c.hex,
-        inStock: c.inStock,
-        stockCount: c.stockCount,
-        image: c.image || mergedImages[0] || existing.images[0],
-        inkColors: c.inkColors && c.inkColors.length > 0 ? c.inkColors : normalizedInks,
-      })),
-      specs: {
-        ...existing.specs,
-        tipSize: input.tipSize?.trim() || existing.specs.tipSize,
-        inkType: input.inkType?.trim() || existing.specs.inkType,
-        inkColor: normalizedInks.map((i) => i.name).join(', '),
-        inkColorHex: normalizedInks[0].hex,
-        inkColors: normalizedInks,
-        bodyMaterial: input.bodyMaterial?.trim() || existing.specs.bodyMaterial,
-        origin: trimmedBrand,
-      },
+      colors: validColors.map((c, idx) => {
+        const entry: Product['colors'][number] = {
+          id: c.id || `${slugifyProductName(c.name)}-${idx + 1}`,
+          name: c.name,
+          hex: c.hex,
+          inStock: c.inStock,
+          stockCount: c.stockCount,
+          image: c.image || mergedImages[0] || existing.images[0],
+        };
+        if (!isOther) {
+          entry.inkColors = c.inkColors && c.inkColors.length > 0 ? c.inkColors : normalizedInks;
+        }
+        return entry;
+      }),
+      specs: isOther
+        ? {
+            tipSize: input.tipSize?.trim() || 'Standard',
+            inkType: input.inkType?.trim() || 'N/A',
+            bodyMaterial: input.bodyMaterial?.trim() || existing.specs.bodyMaterial || 'Standard',
+            weight: existing.specs.weight || 'Standard',
+            origin: trimmedBrand,
+          }
+        : {
+            ...existing.specs,
+            tipSize: input.tipSize?.trim() || existing.specs.tipSize,
+            inkType: input.inkType?.trim() || existing.specs.inkType,
+            inkColor: normalizedInks.map((i) => i.name).join(', '),
+            inkColorHex: normalizedInks[0].hex,
+            inkColors: normalizedInks,
+            bodyMaterial: input.bodyMaterial?.trim() || existing.specs.bodyMaterial,
+            origin: trimmedBrand,
+          },
     };
 
     try {

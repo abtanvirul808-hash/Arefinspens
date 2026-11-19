@@ -6,6 +6,38 @@ export interface CategoryMeta {
   description: string;
 }
 
+export const PEN_CATEGORY_IDS = [
+  'gel-pens',
+  'ballpoint-pens',
+  'fountain-pens',
+  'marker-pens',
+  'mechanical-pencils',
+  'highlighters',
+] as const;
+
+export const PEN_CATEGORIES: { id: (typeof PEN_CATEGORY_IDS)[number]; label: string }[] = [
+  { id: 'gel-pens', label: 'Gel Pens' },
+  { id: 'ballpoint-pens', label: 'Ballpoint Pens' },
+  { id: 'fountain-pens', label: 'Fountain & Luxury' },
+  { id: 'marker-pens', label: 'Marker Pens' },
+  { id: 'mechanical-pencils', label: 'Mechanical Pencils' },
+  { id: 'highlighters', label: 'Highlighters' },
+];
+
+export const OTHER_PRODUCT_SUBCATEGORIES: string[] = [
+  'Notebooks & Journals',
+  'Desk Accessories',
+  'Art & Craft Supplies',
+  'Geometry & Measurement',
+  'Sticky Notes & Files',
+  'Gift Sets & Combos',
+  'Other Products',
+];
+
+export function isOtherProduct(product?: Pick<Product, 'category'> | null): boolean {
+  return product?.category === 'other-products';
+}
+
 export const HOMEPAGE_CATEGORIES: CategoryMeta[] = [
   {
     id: 'gel-pens',
@@ -32,16 +64,23 @@ export const HOMEPAGE_CATEGORIES: CategoryMeta[] = [
     title: 'Highlighters',
     description: 'Make important details stand out.',
   },
+  {
+    id: 'other-products',
+    title: 'Other Products',
+    description: 'Notebooks, desk tools & everyday essentials — coming soon.',
+  },
 ];
 
 export const CATALOGUE_CATEGORIES: { id: CategoryId; label: string }[] = [
-  { id: 'all', label: 'All Pens' },
+  { id: 'all', label: 'All Products' },
+  { id: 'all-pens', label: 'All Pens' },
   { id: 'gel-pens', label: 'Gel Pens' },
   { id: 'ballpoint-pens', label: 'Ballpoint Pens' },
   { id: 'fountain-pens', label: 'Fountain & Luxury' },
   { id: 'marker-pens', label: 'Marker Pens' },
   { id: 'mechanical-pencils', label: 'Mechanical Pencils' },
   { id: 'highlighters', label: 'Highlighters' },
+  { id: 'other-products', label: 'Other Products' },
 ];
 
 export const PRODUCTS: Product[] = [

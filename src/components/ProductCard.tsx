@@ -6,6 +6,7 @@ import {
   getColorAvailableCount,
   getProductTotalAvailableCount,
   getVariantInkColors,
+  isOtherProduct,
 } from '../data/products';
 import { ImageLightboxModal, LightboxSlide } from './ImageLightboxModal';
 import { SafeImage } from './SafeImage';
@@ -16,12 +17,13 @@ interface ProductCardProps {
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const { navigate, addToCart, toggleWishlist, isWishlisted } = useStore();
+  const otherItem = isOtherProduct(product);
   const [selectedColorId, setSelectedColorId] = useState(
     product.colors.find((c) => c.inStock)?.id || product.colors[0].id
   );
   const activeColor =
     product.colors.find((c) => c.id === selectedColorId) || product.colors[0];
-  const inkColors = getVariantInkColors(product, activeColor);
+  const inkColors = otherItem ? [] : getVariantInkColors(product, activeColor);
   const [selectedInkId, setSelectedInkId] = useState(inkColors[0]?.id || 'black');
   const [justAdded, setJustAdded] = useState(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState(false);
@@ -70,7 +72,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
   const handleQuickAdd = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!canQuickAdd) return;
-    addToCart(product, selectedColorId, 1, true, activeInk?.id);
+    addToCart(product, selectedColorId, 1, true, otherItem ? undefined : activeInk?.id);
     setJustAdded(true);
     window.setTimeout(() => setJustAdded(false), 1200);
   };
@@ -135,7 +137,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               setIsLightboxOpen(true);
             }}
             aria-label={`View ${product.name} full screen`}
-            title="Full screen pen preview"
+            title="Full screen product preview"
             className="absolute bottom-2.5 right-2.5 sm:bottom-3 sm:right-3 w-8 h-8 rounded-lg bg-black/65 backdrop-blur-md border border-white/20 text-white/90 hover:border-accent hover:text-white flex items-center justify-center transition-colors"
           >
             <Maximize2 className="w-3.5 h-3.5" />
@@ -176,7 +178,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
           {/* Body Colour Swatches + Selected Colour Qty & Total Available Beside It */}
           <div className="space-y-1.5">
             <div className="flex items-center justify-between gap-2">
-              <div className="flex flex-wrap items-center gap-2 sm:gap-1.5" role="group" aria-label="Pen body colours">
+              <div className="flex flex-wrap items-center gap-2 sm:gap-1.5" role="group" aria-label={otherItem ? 'Product colours' : 'Pen body colours'}>
                 {product.colors.map((color) => {
                   const selected = color.id === selectedColorId;
                   const colorCount = getColorAvailableCount(product, color);
@@ -253,43 +255,45 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             </div>
           </div>
 
-          {/* Ink Colour Selector / Indicator */}
-          <div className="flex items-center justify-between gap-2 text-xs">
-            <div className="flex items-center gap-1.5" role="group" aria-label="Available ink colours">
-              <span className="text-[11px] text-[var(--text-muted)] shrink-0">Ink:</span>
-              {inkColors.length > 1 ? (
-                <div className="flex items-center gap-1.5">
-                  {inkColors.map((ink) => {
-                    const selected = ink.id === activeInk?.id;
-                    return (
-                      <button
-                        key={ink.id}
-                        type="button"
-                        onClick={() => setSelectedInkId(ink.id)}
-                        title={`${ink.name} Ink`}
-                        aria-label={`Select ${ink.name} ink colour`}
-                        aria-pressed={selected}
-                        className={`w-5 h-5 sm:w-4 sm:h-4 rounded-full transition-transform ${
-                          selected
-                            ? 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--bg-card)] scale-110'
-                            : 'ring-1 ring-black/20 dark:ring-white/25 hover:scale-105 opacity-80 hover:opacity-100'
-                        }`}
-                        style={{ backgroundColor: ink.hex }}
-                      />
-                    );
-                  })}
-                </div>
-              ) : (
-                <span
-                  className="w-3 h-3 rounded-full border border-black/20 dark:border-white/25 inline-block shrink-0"
-                  style={{ backgroundColor: activeInk?.hex || '#111827' }}
-                />
-              )}
+          {/* Ink Colour Selector / Indicator (Pens Only) */}
+          {!otherItem && (
+            <div className="flex items-center justify-between gap-2 text-xs">
+              <div className="flex items-center gap-1.5" role="group" aria-label="Available ink colours">
+                <span className="text-[11px] text-[var(--text-muted)] shrink-0">Ink:</span>
+                {inkColors.length > 1 ? (
+                  <div className="flex items-center gap-1.5">
+                    {inkColors.map((ink) => {
+                      const selected = ink.id === activeInk?.id;
+                      return (
+                        <button
+                          key={ink.id}
+                          type="button"
+                          onClick={() => setSelectedInkId(ink.id)}
+                          title={`${ink.name} Ink`}
+                          aria-label={`Select ${ink.name} ink colour`}
+                          aria-pressed={selected}
+                          className={`w-5 h-5 sm:w-4 sm:h-4 rounded-full transition-transform ${
+                            selected
+                              ? 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--bg-card)] scale-110'
+                              : 'ring-1 ring-black/20 dark:ring-white/25 hover:scale-105 opacity-80 hover:opacity-100'
+                          }`}
+                          style={{ backgroundColor: ink.hex }}
+                        />
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <span
+                    className="w-3 h-3 rounded-full border border-black/20 dark:border-white/25 inline-block shrink-0"
+                    style={{ backgroundColor: activeInk?.hex || '#111827' }}
+                  />
+                )}
+              </div>
+              <span className="text-[11px] font-medium text-[var(--text-secondary)] truncate">
+                {activeInk?.name || 'Black'} Ink
+              </span>
             </div>
-            <span className="text-[11px] font-medium text-[var(--text-secondary)] truncate">
-              {activeInk?.name || 'Black'} Ink
-            </span>
-          </div>
+          )}
 
           {/* Price, View & Add to Cart */}
           <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-[var(--border-subtle)]/60">

@@ -1,11 +1,11 @@
 export const STORE_CONFIG = {
-  brandName: "Arefin's Pen",
-  tagline: 'Writing instruments crafted for clarity, precision, and inspiration.',
+  brandName: 'Arefin Mart',
+  tagline: 'Writing instruments and everyday essentials crafted for clarity, precision, and value.',
   currencySymbol: '৳',
   currencyCode: 'BDT',
   // Editable business contact configuration (replace with live store details before launch)
   contact: {
-    email: 'support@arefinspen.example',
+    email: 'a.b.tanvirul808@gmail.com',
     phone: '+8801886338818',
     address: 'House 24, Road 7, Dhanmondi, Dhaka 1205, Bangladesh (Configurable Address)',
     hours: 'Saturday – Thursday, 10:00 AM – 8:00 PM BST',

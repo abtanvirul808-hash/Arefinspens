@@ -12,8 +12,8 @@ import {
   X,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { CATALOGUE_CATEGORIES } from '../data/products';
-import { BrandNibLogo } from './BrandIcons';
+import { isOtherProduct, PEN_CATEGORIES } from '../data/products';
+import { BrandMartLogo, CategoryVectorIcon } from './BrandIcons';
 
 export const Header: React.FC = () => {
   const {
@@ -31,7 +31,10 @@ export const Header: React.FC = () => {
     setIsAdminModalOpen,
     demoUser,
     setIsAuthModalOpen,
+    products,
   } = useStore();
+
+  const otherCount = products.filter((p) => isOtherProduct(p)).length;
 
   const [scrolled, setScrolled] = useState(false);
   const [catOpen, setCatOpen] = useState(false);
@@ -89,10 +92,13 @@ export const Header: React.FC = () => {
             }}
             className="flex items-center gap-2 sm:gap-2.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-lg py-1 min-w-0"
           >
-            <BrandNibLogo className="w-7 h-7 sm:w-8 sm:h-8 shrink-0 transition-transform duration-200 group-hover:scale-105" />
+            <BrandMartLogo
+              iconClassName="w-10 h-9 sm:w-11 sm:h-10"
+              className="transition-transform duration-200 group-hover:scale-105"
+            />
             <span className="font-display text-base sm:text-xl font-bold tracking-tight whitespace-nowrap">
-              <span className="text-[var(--text-main)]">Arefin&apos;s </span>
-              <span className="text-accent">Pen</span>
+              <span className="text-[var(--text-main)]">Arefin </span>
+              <span className="text-accent">Mart</span>
             </span>
           </button>
         </div>
@@ -131,31 +137,130 @@ export const Header: React.FC = () => {
 
             {catOpen && (
               <div
-                className="liquid-glass-menu absolute left-0 mt-3 w-60 p-2 z-50"
+                className="liquid-glass-menu absolute left-0 mt-3 w-72 p-2.5 z-50 space-y-2"
                 role="menu"
               >
-                {CATALOGUE_CATEGORIES.map((cat) => {
-                  const active = route === 'shop' && selectedCategory === cat.id;
-                  return (
-                    <button
-                      key={cat.id}
-                      type="button"
-                      role="menuitem"
-                      onClick={() => {
-                        setCatOpen(false);
-                        navigate('shop', { category: cat.id });
-                      }}
-                      className={`w-full text-left px-3.5 py-2.5 rounded-xl text-sm flex items-center justify-between transition-colors ${
-                        active
-                          ? 'bg-accent/20 text-accent font-semibold border border-accent/35'
-                          : 'text-[var(--text-secondary)] hover:bg-accent/10 hover:text-[var(--text-main)]'
-                      }`}
-                    >
-                      <span>{cat.label}</span>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2 px-3 py-1.5 mb-1.5 rounded-xl bg-accent/15 border border-accent/55 shadow-[0_0_14px_rgba(var(--accent-rgb),0.24)]">
+                    <span className="inline-flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-wider text-accent dark:text-accent-bright">
+                      <CategoryVectorIcon category="all-pens" className="w-3.5 h-3.5 shrink-0" />
+                      <span>Pens</span>
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-accent dark:text-accent-bright opacity-90">
+                      Collection
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setCatOpen(false);
+                      navigate('shop', { category: 'all-pens' });
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-sm flex items-center justify-between gap-2 transition-colors ${
+                      route === 'shop' && selectedCategory === 'all-pens'
+                        ? 'bg-accent/20 text-accent font-semibold border border-accent/35'
+                        : 'text-[var(--text-secondary)] hover:bg-accent/10 hover:text-[var(--text-main)]'
+                    }`}
+                  >
+                    <span className="inline-flex items-center gap-2.5 min-w-0">
+                      <CategoryVectorIcon category="all-pens" className="w-4 h-4 text-accent dark:text-accent-bright shrink-0" />
+                      <span className="truncate">All Pens</span>
+                    </span>
+                    <ArrowRight className="w-3.5 h-3.5 opacity-60 shrink-0" />
+                  </button>
+                  {PEN_CATEGORIES.map((cat) => {
+                    const active = route === 'shop' && selectedCategory === cat.id;
+                    return (
+                      <button
+                        key={cat.id}
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setCatOpen(false);
+                          navigate('shop', { category: cat.id });
+                        }}
+                        className={`w-full text-left px-3 py-2 rounded-xl text-sm flex items-center justify-between gap-2 transition-colors ${
+                          active
+                            ? 'bg-accent/20 text-accent font-semibold border border-accent/35'
+                            : 'text-[var(--text-secondary)] hover:bg-accent/10 hover:text-[var(--text-main)]'
+                        }`}
+                      >
+                        <span className="inline-flex items-center gap-2.5 min-w-0">
+                          <CategoryVectorIcon category={cat.id} className="w-4 h-4 text-accent dark:text-accent-bright shrink-0" />
+                          <span className="truncate">{cat.label}</span>
+                        </span>
+                        <ArrowRight className="w-3.5 h-3.5 opacity-60 shrink-0" />
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="pt-2 border-t border-[var(--border-subtle)]/70 space-y-1">
+                  <div className="flex items-center justify-between gap-2 px-3 py-1.5 mb-1.5 rounded-xl bg-accent/15 border border-accent/55 shadow-[0_0_14px_rgba(var(--accent-rgb),0.24)]">
+                    <span className="inline-flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-wider text-accent dark:text-accent-bright">
+                      <CategoryVectorIcon category="other-products" className="w-3.5 h-3.5 shrink-0" />
+                      <span>Other</span>
+                    </span>
+                    <span className="text-[10px] font-bold uppercase tracking-wide text-accent dark:text-accent-bright opacity-90">
+                      {otherCount > 0 ? `${otherCount} Items` : 'Soon'}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setCatOpen(false);
+                      navigate('shop', { category: 'other-products' });
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-sm flex items-center justify-between gap-2 transition-colors ${
+                      route === 'shop' && selectedCategory === 'other-products'
+                        ? 'bg-accent/20 text-accent font-semibold border border-accent/35'
+                        : 'text-[var(--text-secondary)] hover:bg-accent/10 hover:text-[var(--text-main)]'
+                    }`}
+                  >
+                    <span className="inline-flex items-center gap-2.5 min-w-0">
+                      <CategoryVectorIcon category="other-products" className="w-4 h-4 text-accent dark:text-accent-bright shrink-0" />
+                      <span className="truncate">
+                        {otherCount > 0 ? 'Other Products' : 'Coming Soon'}
+                      </span>
+                    </span>
+                    <span className="inline-flex items-center gap-1.5 shrink-0">
+                      {otherCount === 0 ? (
+                        <span className="px-1.5 py-0.5 rounded bg-accent/15 border border-accent/40 text-[10px] font-bold text-accent dark:text-accent-bright">
+                          Soon
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-mono-num text-[var(--text-muted)]">
+                          {otherCount}
+                        </span>
+                      )}
                       <ArrowRight className="w-3.5 h-3.5 opacity-60" />
-                    </button>
-                  );
-                })}
+                    </span>
+                  </button>
+                </div>
+
+                <div className="pt-1.5 border-t border-[var(--border-subtle)]/70">
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setCatOpen(false);
+                      navigate('shop', { category: 'all' });
+                    }}
+                    className={`w-full text-left px-3 py-2 rounded-xl text-xs font-semibold flex items-center justify-between transition-colors ${
+                      route === 'shop' && selectedCategory === 'all'
+                        ? 'bg-accent/20 text-accent border border-accent/35'
+                        : 'text-[var(--text-main)] hover:bg-accent/10'
+                    }`}
+                  >
+                    <span className="inline-flex items-center gap-2.5 min-w-0">
+                      <CategoryVectorIcon category="all" className="w-4 h-4 text-accent dark:text-accent-bright shrink-0" />
+                      <span>Browse All Products</span>
+                    </span>
+                    <ArrowRight className="w-3.5 h-3.5 opacity-60 shrink-0" />
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -365,24 +470,90 @@ export const Header: React.FC = () => {
             </button>
           </div>
 
-          <div className="pt-2 border-t border-[var(--border-subtle)]">
-            <p className="text-xs font-medium text-[var(--text-muted)] mb-2 px-1">
-              Browse Categories
-            </p>
-            <div className="flex flex-wrap gap-1.5">
-              {CATALOGUE_CATEGORIES.map((cat) => (
+          <div className="pt-2 border-t border-[var(--border-subtle)] space-y-2.5">
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-accent/15 border border-accent/55 shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)]">
+                <CategoryVectorIcon category="all-pens" className="w-3.5 h-3.5 text-accent dark:text-accent-bright shrink-0" />
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-accent dark:text-accent-bright">
+                  Pens
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
                 <button
-                  key={cat.id}
                   type="button"
                   onClick={() => {
-                    navigate('shop', { category: cat.id });
+                    navigate('shop', { category: 'all-pens' });
                     setMobileOpen(false);
                   }}
-                  className="liquid-glass-drawer-tile min-h-[38px] px-3 py-1.5 text-xs font-medium text-[var(--text-secondary)] hover:text-[var(--text-main)]"
+                  className={`liquid-glass-drawer-tile min-h-[38px] px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 ${
+                    route === 'shop' && selectedCategory === 'all-pens'
+                      ? 'liquid-glass-drawer-tile-active'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-main)]'
+                  }`}
                 >
-                  <span>{cat.label}</span>
+                  <CategoryVectorIcon category="all-pens" className="w-3.5 h-3.5 shrink-0" />
+                  <span>All Pens</span>
                 </button>
-              ))}
+                {PEN_CATEGORIES.map((cat) => (
+                  <button
+                    key={cat.id}
+                    type="button"
+                    onClick={() => {
+                      navigate('shop', { category: cat.id });
+                      setMobileOpen(false);
+                    }}
+                    className={`liquid-glass-drawer-tile min-h-[38px] px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 ${
+                      route === 'shop' && selectedCategory === cat.id
+                        ? 'liquid-glass-drawer-tile-active'
+                        : 'text-[var(--text-secondary)] hover:text-[var(--text-main)]'
+                    }`}
+                  >
+                    <CategoryVectorIcon category={cat.id} className="w-3.5 h-3.5 shrink-0" />
+                    <span>{cat.label}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-accent/15 border border-accent/55 shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)]">
+                <CategoryVectorIcon category="other-products" className="w-3.5 h-3.5 text-accent dark:text-accent-bright shrink-0" />
+                <span className="text-[11px] font-extrabold uppercase tracking-wider text-accent dark:text-accent-bright">
+                  Other
+                </span>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigate('shop', { category: 'other-products' });
+                    setMobileOpen(false);
+                  }}
+                  className={`liquid-glass-drawer-tile min-h-[38px] px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 ${
+                    route === 'shop' && selectedCategory === 'other-products'
+                      ? 'liquid-glass-drawer-tile-active'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-main)]'
+                  }`}
+                >
+                  <CategoryVectorIcon category="other-products" className="w-3.5 h-3.5 shrink-0" />
+                  <span>{otherCount > 0 ? `Other Products (${otherCount})` : 'Coming Soon'}</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigate('shop', { category: 'all' });
+                    setMobileOpen(false);
+                  }}
+                  className={`liquid-glass-drawer-tile min-h-[38px] px-3 py-1.5 text-xs font-medium inline-flex items-center gap-1.5 ${
+                    route === 'shop' && selectedCategory === 'all'
+                      ? 'liquid-glass-drawer-tile-active'
+                      : 'text-[var(--text-secondary)] hover:text-[var(--text-main)]'
+                  }`}
+                >
+                  <CategoryVectorIcon category="all" className="w-3.5 h-3.5 shrink-0" />
+                  <span>All Products</span>
+                </button>
+              </div>
             </div>
           </div>
 

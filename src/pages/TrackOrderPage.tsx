@@ -11,6 +11,7 @@ import {
   XCircle,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
+import { isOtherProduct } from '../data/products';
 import { ImageLightboxModal, LightboxSlide } from '../components/ImageLightboxModal';
 import { SafeImage } from '../components/SafeImage';
 import { TrackedOrder } from '../types';
@@ -19,7 +20,7 @@ import { parseOrderSummaryItems } from '../utils/orderItems';
 const STAGES = [
   { title: 'Order Placed', desc: 'Order details submitted.' },
   { title: 'Order Confirmed', desc: 'Verified by store desk.' },
-  { title: 'Preparing Your Order', desc: 'Pens inspected and securely packed.' },
+  { title: 'Preparing Your Order', desc: 'Items inspected and securely packed.' },
   { title: 'Shipped', desc: 'Handed over to courier partner.' },
   { title: 'Delivered', desc: 'Delivered to customer address.' },
 ];
@@ -256,10 +257,15 @@ export const TrackOrderPage: React.FC = () => {
                 return (
                   <div className="space-y-3 rounded-2xl border border-accent/35 bg-accent/[0.04] p-3.5 sm:p-4">
                     <p className="text-xs font-bold uppercase tracking-wider text-accent dark:text-accent-bright">
-                      Ordered Pens ({parsedItems.length})
+                      Ordered Items ({parsedItems.length})
                     </p>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      {parsedItems.map((item) => (
+                      {parsedItems.map((item) => {
+                        const matchedProd = item.productId
+                          ? products.find((p) => p.id === item.productId)
+                          : undefined;
+                        const otherItem = isOtherProduct(matchedProd);
+                        return (
                         <div
                           key={item.key}
                           className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] p-3 flex items-center gap-3.5 shadow-sm"
@@ -275,9 +281,11 @@ export const TrackOrderPage: React.FC = () => {
                                       src: item.image!,
                                       label: item.bodyColorName
                                         ? `${item.bodyColorName}${
-                                            item.inkColorName ? ` · ${item.inkColorName} Ink` : ''
+                                            !otherItem && item.inkColorName
+                                              ? ` · ${item.inkColorName} Ink`
+                                              : ''
                                           }`
-                                        : item.inkColorName
+                                        : !otherItem && item.inkColorName
                                         ? `${item.inkColorName} Ink`
                                         : undefined,
                                       colorHex: item.bodyColorHex,
@@ -285,7 +293,7 @@ export const TrackOrderPage: React.FC = () => {
                                   ],
                                 })
                               }
-                              title="View full-screen pen photo"
+                              title="View full-screen product photo"
                               aria-label={`View ${item.name} full screen`}
                               className="group relative w-16 h-16 sm:w-20 sm:h-20 rounded-xl overflow-hidden border border-accent/45 hover:border-accent bg-[#080506] shrink-0 flex items-center justify-center transition-colors"
                             >
@@ -321,11 +329,13 @@ export const TrackOrderPage: React.FC = () => {
                                     className="w-3 h-3 rounded-full border border-white/80 dark:border-white/35 shrink-0"
                                     style={{ backgroundColor: item.bodyColorHex || '#64748B' }}
                                   />
-                                  <span>Body: {item.bodyColorName}</span>
+                                  <span>
+                                    {otherItem ? 'Colour' : 'Body'}: {item.bodyColorName}
+                                  </span>
                                 </span>
                               )}
 
-                              {item.inkColorName && (
+                              {!otherItem && item.inkColorName && (
                                 <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-violet-500/45 bg-violet-500/12 text-violet-900 dark:text-violet-200 text-xs font-semibold">
                                   <Droplets className="w-3 h-3 shrink-0" />
                                   <span
@@ -338,7 +348,8 @@ export const TrackOrderPage: React.FC = () => {
                             </div>
                           </div>
                         </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </div>
                 );
@@ -438,7 +449,7 @@ export const TrackOrderPage: React.FC = () => {
                   onClick={() => navigate('shop', { category: 'all' })}
                   className="px-5 py-2.5 rounded-xl text-sm font-semibold text-[var(--accent-cta-text)] cta-glow-red"
                 >
-                  Browse Pens
+                  Browse Products
                 </button>
               </div>
             )

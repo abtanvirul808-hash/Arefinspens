@@ -9,8 +9,8 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { getColorAvailableCount } from '../data/products';
-import { BrandNibLogo } from '../components/BrandIcons';
+import { getColorAvailableCount, isOtherProduct } from '../data/products';
+import { BrandMartLogo } from '../components/BrandIcons';
 import { CartItemVariantEditor } from '../components/CartItemVariantEditor';
 import { SafeImage } from '../components/SafeImage';
 
@@ -36,7 +36,7 @@ export const CartPage: React.FC = () => {
             Shopping <span className="text-accent">Cart</span>
           </h1>
           <p className="text-sm text-[var(--text-secondary)]">
-            Review your selected writing instruments before checkout.
+            Review your selected items before checkout.
           </p>
         </div>
         <button
@@ -51,16 +51,16 @@ export const CartPage: React.FC = () => {
 
       {cart.length === 0 ? (
         <div className="rounded-3xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-12 sm:p-16 text-center space-y-5">
-          <div className="w-20 h-20 rounded-full border border-accent/45 bg-accent/10 mx-auto flex items-center justify-center">
-            <BrandNibLogo className="w-10 h-10" />
+          <div className="flex justify-center">
+            <BrandMartLogo iconClassName="w-24 h-20 rounded-2xl" />
           </div>
           <div className="space-y-2 max-w-md mx-auto">
             <h2 className="font-display text-2xl font-bold text-[var(--text-main)]">
               Your cart is currently empty
             </h2>
             <p className="text-sm text-[var(--text-secondary)]">
-              Browse our curated gel pens, ballpoint pens, fountain pens, markers, and drafting
-              pencils to start building your desk kit.
+              Browse our curated pens, stationery, and everyday products to start building your
+              order.
             </p>
           </div>
           <div className="flex flex-wrap items-center justify-center gap-3">
@@ -88,6 +88,7 @@ export const CartPage: React.FC = () => {
             {cart.map((item) => {
               const product = products.find((p) => p.id === item.productId);
               if (!product) return null;
+              const otherItem = isOtherProduct(product);
               const isEditing = editingKey === item.key;
               const activePreviewColorId =
                 (isEditing ? previewColorByKey[item.key] : undefined) || item.colorId;
@@ -139,7 +140,7 @@ export const CartPage: React.FC = () => {
                           />
                           <span>Colour: {item.colorName}</span>
                         </span>
-                        {item.inkColorName && (
+                        {!otherItem && item.inkColorName && (
                           <>
                             <span aria-hidden="true">·</span>
                             <span className="inline-flex items-center gap-1">
@@ -219,7 +220,7 @@ export const CartPage: React.FC = () => {
                             }
                           }}
                           aria-expanded={isEditing}
-                          aria-label={`Edit ${product.name} colour or ink`}
+                          aria-label={otherItem ? `Edit ${product.name} colour` : `Edit ${product.name} colour or ink`}
                           className={`min-h-[38px] px-3 py-1.5 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
                             isEditing
                               ? 'border-accent bg-accent/15 text-accent dark:text-accent-bright'

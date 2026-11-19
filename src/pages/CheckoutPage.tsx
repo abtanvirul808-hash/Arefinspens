@@ -10,7 +10,7 @@ import {
   Truck,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { getColorAvailableCount } from '../data/products';
+import { getColorAvailableCount, isOtherProduct } from '../data/products';
 import { OrderLineItem, TrackedOrder } from '../types';
 
 type DeliveryLocationOption = 'Al Amanah Academy' | 'Home Delivery';
@@ -167,7 +167,8 @@ export const CheckoutPage: React.FC = () => {
       ? [`${customItemNote.trim()} (৳${effectiveSubtotal.toLocaleString('en-US')})`]
       : validCartItems.map((item) => {
           const prod = products.find((p) => p.id === item.productId);
-          const inkPart = item.inkColorName ? ` · ${item.inkColorName} Ink` : '';
+          const inkPart =
+            !isOtherProduct(prod) && item.inkColorName ? ` · ${item.inkColorName} Ink` : '';
           return `${prod?.name || item.productId} (${item.colorName}${inkPart}) × ${item.quantity}`;
         });
 
@@ -175,13 +176,14 @@ export const CheckoutPage: React.FC = () => {
       ? undefined
       : validCartItems.map((item) => {
           const prod = products.find((p) => p.id === item.productId);
+          const otherItem = isOtherProduct(prod);
           return {
             productId: item.productId,
             productName: prod?.name || item.productId,
             colorId: item.colorId,
             colorName: item.colorName,
-            inkColorId: item.inkColorId,
-            inkColorName: item.inkColorName,
+            inkColorId: otherItem ? undefined : item.inkColorId,
+            inkColorName: otherItem ? undefined : item.inkColorName,
             quantity: item.quantity,
           };
         });
@@ -610,7 +612,10 @@ export const CheckoutPage: React.FC = () => {
                       </p>
                       <p className="text-xs text-[var(--text-muted)]">
                         {item.colorName}
-                        {item.inkColorName ? ` · ${item.inkColorName} Ink` : ''} · Qty {item.quantity}
+                        {!isOtherProduct(product) && item.inkColorName
+                          ? ` · ${item.inkColorName} Ink`
+                          : ''}{' '}
+                        · Qty {item.quantity}
                       </p>
                     </div>
                     <span className="font-mono-num font-semibold text-[var(--text-main)] shrink-0">

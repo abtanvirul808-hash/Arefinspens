@@ -7,8 +7,15 @@ import {
   X,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { CATALOGUE_CATEGORIES, getProductInkColors } from '../data/products';
+import {
+  CATALOGUE_CATEGORIES,
+  getProductInkColors,
+  isOtherProduct,
+  PEN_CATEGORIES,
+  PEN_CATEGORY_IDS,
+} from '../data/products';
 import { CategoryId, SortOption } from '../types';
+import { BrandPackageLogo, CategoryVectorIcon } from '../components/BrandIcons';
 import { ProductCard } from '../components/ProductCard';
 
 export const CataloguePage: React.FC = () => {
@@ -31,6 +38,12 @@ export const CataloguePage: React.FC = () => {
   const [sortBy, setSortBy] = useState<SortOption>('popularity');
   const [mobileFilterOpen, setMobileFilterOpen] = useState<boolean>(false);
 
+  const otherProductsCount = useMemo(
+    () => products.filter((p) => isOtherProduct(p)).length,
+    [products]
+  );
+  const isViewingOtherOnly = selectedCategory === 'other-products';
+
   const allFilterColors = useMemo(() => {
     const map = new Map<string, { id: string; name: string; hex: string }>();
     products.forEach((p) => {
@@ -47,6 +60,7 @@ export const CataloguePage: React.FC = () => {
   const allFilterInkColors = useMemo(() => {
     const map = new Map<string, { id: string; name: string; hex: string }>();
     products.forEach((p) => {
+      if (isOtherProduct(p)) return;
       getProductInkColors(p).forEach((ink) => {
         const key = ink.name.trim().toLowerCase();
         if (key && !map.has(key)) {
@@ -84,8 +98,15 @@ export const CataloguePage: React.FC = () => {
     const query = searchQuery.trim().toLowerCase();
 
     const list = products.filter((p) => {
-      const productInks = getProductInkColors(p);
-      if (selectedCategory !== 'all' && p.category !== selectedCategory) return false;
+      const otherItem = isOtherProduct(p);
+      const productInks = otherItem ? [] : getProductInkColors(p);
+      if (selectedCategory === 'all-pens') {
+        if (!PEN_CATEGORY_IDS.includes(p.category as (typeof PEN_CATEGORY_IDS)[number])) {
+          return false;
+        }
+      } else if (selectedCategory !== 'all' && p.category !== selectedCategory) {
+        return false;
+      }
       if (p.priceBdt > maxPrice) return false;
       if (
         selectedColors.length > 0 &&
@@ -95,15 +116,16 @@ export const CataloguePage: React.FC = () => {
       }
       if (
         selectedInkColors.length > 0 &&
-        !productInks.some((ink) => selectedInkColors.includes(ink.name.trim().toLowerCase()))
+        (otherItem || !productInks.some((ink) => selectedInkColors.includes(ink.name.trim().toLowerCase())))
       ) {
         return false;
       }
       if (p.rating < minRating) return false;
       if (inStockOnly && !p.inStock) return false;
       if (query) {
-        const inkNames = productInks.map((i) => i.name).join(' ');
-        const hay = `${p.name} ${p.categoryLabel} ${p.shortDescription} ${p.specs.tipSize} ${inkNames}`.toLowerCase();
+        const inkNames = otherItem ? '' : productInks.map((i) => i.name).join(' ');
+        const specText = otherItem ? '' : p.specs.tipSize;
+        const hay = `${p.name} ${p.categoryLabel} ${p.shortDescription} ${specText} ${inkNames}`.toLowerCase();
         if (!hay.includes(query)) return false;
       }
       return true;
@@ -145,7 +167,9 @@ export const CataloguePage: React.FC = () => {
   ]);
 
   const activeCategoryLabel =
-    CATALOGUE_CATEGORIES.find((c) => c.id === selectedCategory)?.label || 'All Pens';
+    isViewingOtherOnly && otherProductsCount === 0
+      ? 'Other Products — Coming Soon'
+      : CATALOGUE_CATEGORIES.find((c) => c.id === selectedCategory)?.label || 'All Products';
 
   const FilterPanelContent = (
     <div className="space-y-6">
@@ -162,26 +186,104 @@ export const CataloguePage: React.FC = () => {
       </div>
 
       {/* Category Filter */}
-      <div className="space-y-2.5">
+      <div className="space-y-3">
         <h3 className="text-xs font-semibold text-[var(--text-secondary)]">Category</h3>
-        <div className="space-y-1">
-          {CATALOGUE_CATEGORIES.map((cat) => {
-            const active = selectedCategory === cat.id;
-            return (
-              <button
-                key={cat.id}
-                type="button"
-                onClick={() => navigate('shop', { category: cat.id as CategoryId, scrollToTop: false })}
-                className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-colors flex items-center justify-between ${
-                  active
-                    ? 'bg-accent/15 border border-accent/50 text-accent dark:text-accent-bright font-semibold'
-                    : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card-elevated)] hover:text-[var(--text-main)]'
-                }`}
-              >
-                <span>{cat.label}</span>
-              </button>
-            );
-          })}
+        <div className="space-y-2.5">
+          <button
+            type="button"
+            onClick={() => navigate('shop', { category: 'all', scrollToTop: false })}
+            className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-colors flex items-center justify-between gap-2 ${
+              selectedCategory === 'all'
+                ? 'bg-accent/15 border border-accent/50 text-accent dark:text-accent-bright font-semibold'
+                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card-elevated)] hover:text-[var(--text-main)]'
+            }`}
+          >
+            <span className="inline-flex items-center gap-2 min-w-0">
+              <CategoryVectorIcon category="all" className="w-4 h-4 shrink-0" />
+              <span className="truncate">All Products</span>
+            </span>
+          </button>
+
+          {/* Highlighted Pens Group */}
+          <div className="space-y-1">
+            <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-accent/15 border border-accent/55 shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)]">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-accent dark:text-accent-bright">
+                <CategoryVectorIcon category="all-pens" className="w-3.5 h-3.5 shrink-0" />
+                <span>Pens</span>
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-wide text-accent dark:text-accent-bright opacity-90">
+                Collection
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('shop', { category: 'all-pens', scrollToTop: false })}
+              className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-colors flex items-center justify-between gap-2 ${
+                selectedCategory === 'all-pens'
+                  ? 'bg-accent/15 border border-accent/50 text-accent dark:text-accent-bright font-semibold'
+                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card-elevated)] hover:text-[var(--text-main)]'
+              }`}
+            >
+              <span className="inline-flex items-center gap-2 min-w-0">
+                <CategoryVectorIcon category="all-pens" className="w-4 h-4 shrink-0" />
+                <span className="truncate">All Pens</span>
+              </span>
+            </button>
+            {PEN_CATEGORIES.map((cat) => {
+              const active = selectedCategory === cat.id;
+              return (
+                <button
+                  key={cat.id}
+                  type="button"
+                  onClick={() => navigate('shop', { category: cat.id as CategoryId, scrollToTop: false })}
+                  className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-colors flex items-center justify-between gap-2 ${
+                    active
+                      ? 'bg-accent/15 border border-accent/50 text-accent dark:text-accent-bright font-semibold'
+                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card-elevated)] hover:text-[var(--text-main)]'
+                  }`}
+                >
+                  <span className="inline-flex items-center gap-2 min-w-0">
+                    <CategoryVectorIcon category={cat.id} className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{cat.label}</span>
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Highlighted Other Group */}
+          <div className="space-y-1 pt-1">
+            <div className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-xl bg-accent/15 border border-accent/55 shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)]">
+              <span className="inline-flex items-center gap-1.5 text-[11px] font-extrabold uppercase tracking-wider text-accent dark:text-accent-bright">
+                <CategoryVectorIcon category="other-products" className="w-3.5 h-3.5 shrink-0" />
+                <span>Other</span>
+              </span>
+              <span className="text-[10px] font-bold uppercase tracking-wide text-accent dark:text-accent-bright opacity-90">
+                {otherProductsCount > 0 ? `${otherProductsCount} Items` : 'Soon'}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => navigate('shop', { category: 'other-products', scrollToTop: false })}
+              className={`w-full text-left px-3 py-2 rounded-xl text-sm transition-colors flex items-center justify-between gap-2 ${
+                selectedCategory === 'other-products'
+                  ? 'bg-accent/15 border border-accent/50 text-accent dark:text-accent-bright font-semibold'
+                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-card-elevated)] hover:text-[var(--text-main)]'
+              }`}
+            >
+              <span className="inline-flex items-center gap-2 min-w-0">
+                <CategoryVectorIcon category="other-products" className="w-4 h-4 shrink-0" />
+                <span className="truncate">
+                  {otherProductsCount > 0 ? 'Other Products' : 'Coming Soon'}
+                </span>
+              </span>
+              {otherProductsCount === 0 && (
+                <span className="px-1.5 py-0.5 rounded bg-accent/15 border border-accent/40 text-[10px] font-bold text-accent dark:text-accent-bright shrink-0">
+                  Soon
+                </span>
+              )}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -210,9 +312,11 @@ export const CataloguePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Body Colour Filter */}
+      {/* Colour Filter */}
       <div className="space-y-2.5">
-        <h3 className="text-xs font-semibold text-[var(--text-secondary)]">Body Colour</h3>
+        <h3 className="text-xs font-semibold text-[var(--text-secondary)]">
+          {isViewingOtherOnly ? 'Colour' : 'Body / Product Colour'}
+        </h3>
         <div className="flex flex-wrap gap-2">
           {allFilterColors.map((c) => {
             const active = selectedColors.includes(c.id);
@@ -238,33 +342,35 @@ export const CataloguePage: React.FC = () => {
         </div>
       </div>
 
-      {/* Ink Colour Multi-Filter */}
-      <div className="space-y-2.5">
-        <h3 className="text-xs font-semibold text-[var(--text-secondary)]">Ink Colour</h3>
-        <div className="flex flex-wrap gap-2">
-          {allFilterInkColors.map((ink) => {
-            const active = selectedInkColors.includes(ink.id);
-            return (
-              <button
-                key={ink.id}
-                type="button"
-                onClick={() => toggleInkColor(ink.id)}
-                className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
-                  active
-                    ? 'border-accent bg-accent/15 text-[var(--text-main)] font-semibold'
-                    : 'border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-accent/50'
-                }`}
-              >
-                <span
-                  className="w-3 h-3 rounded-full border border-black/20 dark:border-white/25"
-                  style={{ backgroundColor: ink.hex }}
-                />
-                <span>{ink.name}</span>
-              </button>
-            );
-          })}
+      {/* Ink Colour Multi-Filter (Pens Only) */}
+      {!isViewingOtherOnly && allFilterInkColors.length > 0 && (
+        <div className="space-y-2.5">
+          <h3 className="text-xs font-semibold text-[var(--text-secondary)]">Ink Colour</h3>
+          <div className="flex flex-wrap gap-2">
+            {allFilterInkColors.map((ink) => {
+              const active = selectedInkColors.includes(ink.id);
+              return (
+                <button
+                  key={ink.id}
+                  type="button"
+                  onClick={() => toggleInkColor(ink.id)}
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition-colors ${
+                    active
+                      ? 'border-accent bg-accent/15 text-[var(--text-main)] font-semibold'
+                      : 'border-[var(--border-subtle)] text-[var(--text-secondary)] hover:border-accent/50'
+                  }`}
+                >
+                  <span
+                    className="w-3 h-3 rounded-full border border-black/20 dark:border-white/25"
+                    style={{ backgroundColor: ink.hex }}
+                  />
+                  <span>{ink.name}</span>
+                </button>
+              );
+            })}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Rating Filter */}
       <div className="space-y-2.5">
@@ -322,7 +428,7 @@ export const CataloguePage: React.FC = () => {
           <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-2 sm:gap-4">
             <div className="space-y-1">
               <p className="text-xs font-semibold text-accent dark:text-accent-bright">
-                Stationery Catalogue
+                Arefin Mart Catalogue
               </p>
               <h1 className="font-display text-2xl sm:text-3xl font-bold text-[var(--text-main)]">
                 {activeCategoryLabel}
@@ -337,6 +443,10 @@ export const CataloguePage: React.FC = () => {
           <div className="lg:hidden flex items-center gap-2 overflow-x-auto pb-1 -mx-1 px-1">
             {CATALOGUE_CATEGORIES.map((cat) => {
               const active = selectedCategory === cat.id;
+              const isOtherCat = cat.id === 'other-products';
+              const isAllPensCat = cat.id === 'all-pens';
+              const isHighlightedGroup = isAllPensCat || isOtherCat;
+              const isOtherEmpty = isOtherCat && otherProductsCount === 0;
               return (
                 <button
                   key={cat.id}
@@ -344,13 +454,16 @@ export const CataloguePage: React.FC = () => {
                   onClick={() =>
                     navigate('shop', { category: cat.id as CategoryId, scrollToTop: false })
                   }
-                  className={`shrink-0 min-h-[40px] px-3.5 py-2 rounded-xl border text-xs font-semibold whitespace-nowrap transition-colors ${
+                  className={`shrink-0 min-h-[40px] px-3.5 py-2 rounded-xl border text-xs font-semibold whitespace-nowrap inline-flex items-center gap-1.5 transition-colors ${
                     active
                       ? 'border-accent bg-accent text-[var(--accent-cta-text)] shadow-[0_4px_14px_-4px_rgba(var(--accent-rgb),0.55)]'
+                      : isHighlightedGroup
+                      ? 'border-accent/55 bg-accent/15 text-accent dark:text-accent-bright font-bold shadow-[0_0_12px_rgba(var(--accent-rgb),0.2)] hover:border-accent'
                       : 'border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
                   }`}
                 >
-                  {cat.label}
+                  <CategoryVectorIcon category={cat.id} className="w-3.5 h-3.5 shrink-0" />
+                  <span>{isOtherEmpty ? 'Other · Coming Soon' : cat.label}</span>
                 </button>
               );
             })}
@@ -364,8 +477,8 @@ export const CataloguePage: React.FC = () => {
                 type="search"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search gel pens, fountain nibs, black ink..."
-                aria-label="Search pens and stationery"
+                placeholder="Search pens, stationery, and other products..."
+                aria-label="Search pens and products"
                 className="w-full min-h-[44px] pl-10 pr-4 py-2.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-accent"
               />
             </div>
@@ -402,25 +515,52 @@ export const CataloguePage: React.FC = () => {
 
           {/* Product Grid */}
           {filteredProducts.length === 0 ? (
-            <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-12 text-center space-y-4">
-              <p className="font-display text-lg font-semibold text-[var(--text-main)]">
-                {products.length === 0
-                  ? 'No products listed in this category yet'
-                  : 'No products matched those filters'}
-              </p>
-              <p className="text-sm text-[var(--text-secondary)] max-w-md mx-auto">
-                {products.length === 0
-                  ? 'This category is currently empty. Add items from the Admin panel when ready.'
-                  : 'Try clearing your search term, raising the maximum price, or exploring other categories.'}
-              </p>
-              <button
-                type="button"
-                onClick={products.length === 0 ? () => navigate('home') : resetFilters}
-                className="px-5 py-2.5 rounded-xl text-sm font-semibold cta-glow-red"
-              >
-                {products.length === 0 ? 'Return to Homepage' : 'Reset All Filters'}
-              </button>
-            </div>
+            isViewingOtherOnly && otherProductsCount === 0 ? (
+              <div className="rounded-2xl border border-accent/45 bg-[var(--bg-card)] p-10 sm:p-14 text-center space-y-4">
+                <div className="w-16 h-16 rounded-2xl border border-accent/45 bg-accent/10 mx-auto flex items-center justify-center">
+                  <BrandPackageLogo className="w-10 h-10" />
+                </div>
+                <div className="space-y-1.5 max-w-md mx-auto">
+                  <span className="inline-block px-2.5 py-1 rounded-md bg-accent/15 border border-accent/45 text-[11px] font-bold uppercase tracking-wider text-accent dark:text-accent-bright">
+                    Coming Soon
+                  </span>
+                  <h2 className="font-display text-xl sm:text-2xl font-bold text-[var(--text-main)]">
+                    Other Products Arriving Soon
+                  </h2>
+                  <p className="text-sm text-[var(--text-secondary)]">
+                    We&apos;re preparing notebooks, desk accessories, and everyday essentials for Arefin
+                    Mart. In the meantime, explore our full pen collection.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => navigate('shop', { category: 'all-pens' })}
+                  className="px-6 py-2.5 rounded-xl text-sm font-semibold cta-glow-red"
+                >
+                  Browse All Pens
+                </button>
+              </div>
+            ) : (
+              <div className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-12 text-center space-y-4">
+                <p className="font-display text-lg font-semibold text-[var(--text-main)]">
+                  {products.length === 0
+                    ? 'No products listed in this category yet'
+                    : 'No products matched those filters'}
+                </p>
+                <p className="text-sm text-[var(--text-secondary)] max-w-md mx-auto">
+                  {products.length === 0
+                    ? 'This category is currently empty. Add items from the Admin panel when ready.'
+                    : 'Try clearing your search term, raising the maximum price, or exploring other categories.'}
+                </p>
+                <button
+                  type="button"
+                  onClick={products.length === 0 ? () => navigate('home') : resetFilters}
+                  className="px-5 py-2.5 rounded-xl text-sm font-semibold cta-glow-red"
+                >
+                  {products.length === 0 ? 'Return to Homepage' : 'Reset All Filters'}
+                </button>
+              </div>
+            )
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-5 sm:gap-6">
               {filteredProducts.map((product) => (

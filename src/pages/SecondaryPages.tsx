@@ -28,17 +28,17 @@ export const AboutPage: React.FC = () => {
             Our Story &amp; Standards
           </p>
           <h1 className="font-display text-3xl sm:text-4xl font-bold text-[var(--text-main)]">
-            About <span className="text-accent">Arefin&apos;s Pen</span>
+            About <span className="text-accent">Arefin Mart</span>
           </h1>
           <p className="text-sm sm:text-base text-[var(--text-secondary)] leading-relaxed">
-            Arefin&apos;s Pen is dedicated to bringing reliable, inspiring writing instruments to
-            students, educators, office professionals, artists, and collectors throughout
-            Bangladesh.
+            Arefin Mart is dedicated to bringing reliable writing instruments and curated everyday
+            products to students, educators, office professionals, artists, and collectors
+            throughout Bangladesh.
           </p>
           <p className="text-sm sm:text-base text-[var(--text-secondary)] leading-relaxed">
             Whether you need a smear-free 0.5mm gel pen for university exams, a knurled mechanical
-            pencil for architectural drafting, or a lacquered fountain pen for gifting, every item
-            is chosen for dependable ink flow and lasting hand comfort.
+            pencil for architectural drafting, or practical study and desk essentials, every item is
+            chosen for dependable quality and everyday value.
           </p>
           <div className="pt-2">
             <button

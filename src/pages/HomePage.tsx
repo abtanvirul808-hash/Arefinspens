@@ -10,7 +10,7 @@ import {
   Star,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { HOMEPAGE_CATEGORIES } from '../data/products';
+import { HOMEPAGE_CATEGORIES, isOtherProduct } from '../data/products';
 import { PRODUCT_IMAGES } from '../data/productImages';
 import { SAMPLE_TESTIMONIALS } from '../data/storeConfig';
 import { CategoryVectorIcon, SparkleAccentIcon } from '../components/BrandIcons';
@@ -21,6 +21,7 @@ import { FadeUp } from '../components/FadeUp';
 export const HomePage: React.FC = () => {
   const { navigate, products } = useStore();
   const featuredProducts = products.filter((p) => p.featured).slice(0, 8);
+  const otherProductsCount = products.filter((p) => isOtherProduct(p)).length;
 
   const scrollToCategories = () => {
     const el = document.getElementById('home-categories');
@@ -131,9 +132,16 @@ export const HomePage: React.FC = () => {
                     </div>
 
                     <div className="min-w-0 space-y-1">
-                      <h3 className="font-display text-base sm:text-lg font-bold text-[var(--text-main)] truncate">
-                        {cat.title}
-                      </h3>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="font-display text-base sm:text-lg font-bold text-[var(--text-main)] truncate">
+                          {cat.title}
+                        </h3>
+                        {cat.id === 'other-products' && (
+                          <span className="px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-[10px] font-bold uppercase tracking-wide text-accent dark:text-accent-bright shrink-0">
+                            {otherProductsCount > 0 ? `${otherProductsCount} items` : 'Coming Soon'}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs sm:text-sm text-[var(--text-secondary)] line-clamp-2">
                         {cat.description}
                       </p>
@@ -200,7 +208,7 @@ export const HomePage: React.FC = () => {
         </>
       )}
 
-      {/* 4. ABOUT AREFIN'S PEN SECTION */}
+      {/* 4. ABOUT AREFIN MART SECTION */}
       <section className="py-12 sm:py-16 lg:py-20 px-4 sm:px-6 lg:px-8">
         <div className="max-w-7xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-stretch">
           <FadeUp className="lg:col-span-6 flex flex-col justify-center space-y-4 sm:space-y-5">
@@ -211,15 +219,15 @@ export const HomePage: React.FC = () => {
               className="font-display text-2xl sm:text-4xl font-bold tracking-tight text-[var(--text-main)]"
               style={{ textWrap: 'balance' }}
             >
-              About <span className="text-accent">Arefin&apos;s Pen</span>
+              About <span className="text-accent">Arefin Mart</span>
             </h2>
             <p className="text-sm sm:text-base text-[var(--text-secondary)] leading-relaxed">
-              Arefin&apos;s Pen was created for people across Bangladesh who care about how an idea
-              feels on paper—from university students preparing for exams and teachers annotating
-              essays to architects, journal keepers, and pen collectors.
+              Arefin Mart was created for people across Bangladesh who care about reliable
+              pens and thoughtful everyday essentials—from university students preparing for exams
+              and teachers annotating essays to artists, journal keepers, and collectors.
             </p>
             <p className="text-sm sm:text-base text-[var(--text-secondary)] leading-relaxed">
-              Every instrument in our collection is evaluated for nib precision, ink consistency,
+              Every item in our collection is evaluated for writing precision, ink consistency,
               grip comfort, and durable construction—paired with transparent pricing in Bangladeshi
               Taka and straightforward nationwide delivery.
             </p>
@@ -234,10 +242,10 @@ export const HomePage: React.FC = () => {
               </button>
               <button
                 type="button"
-                onClick={() => navigate('shop', { category: 'fountain-pens' })}
+                onClick={() => navigate('shop', { category: 'all-pens' })}
                 className="px-5 py-2.5 rounded-full text-sm font-semibold text-accent dark:text-accent-bright hover:underline"
               >
-                Explore Fountain &amp; Luxury
+                Explore All Pens
               </button>
             </div>
           </FadeUp>
@@ -246,7 +254,7 @@ export const HomePage: React.FC = () => {
             <div className="h-full min-h-[220px] sm:min-h-[320px] lg:min-h-[360px] rounded-2xl overflow-hidden border border-accent/40 shadow-[0_20px_50px_-20px_rgba(var(--accent-rgb),0.28)] bg-[#0B0809]">
               <SafeImage
                 src={PRODUCT_IMAGES.aboutStationeryDesk}
-                alt="Arefin's Pen luxury fountain pen, matte gel pen, drafting pencil, and notebook on a studio desk"
+                alt="Arefin Mart luxury fountain pen, matte gel pen, drafting pencil, and notebook on a studio desk"
                 className="w-full h-full object-cover"
               />
             </div>
@@ -259,7 +267,7 @@ export const HomePage: React.FC = () => {
         <div className="max-w-7xl mx-auto space-y-10">
           <FadeUp className="text-center max-w-xl mx-auto space-y-2">
             <h2 className="font-display text-2xl sm:text-3xl font-bold text-[var(--text-main)]">
-              Why Shop With <span className="text-accent">Arefin&apos;s Pen</span>
+              Why Shop With <span className="text-accent">Arefin Mart</span>
             </h2>
             <p className="text-sm text-[var(--text-secondary)]">
               Thoughtful curation and dependable service from cart to doorstep.
@@ -369,11 +377,11 @@ export const HomePage: React.FC = () => {
               <span>Ready to upgrade your desk?</span>
             </div>
             <h2 className="font-display text-xl sm:text-3xl font-bold">
-              Explore the complete Arefin&apos;s Pen collection
+              Explore the complete Arefin Mart collection
             </h2>
             <p className="text-sm text-[#B8B8B8]">
-              Filter by pen type, ink colour, or budget in BDT—with Cash on Delivery across
-              Bangladesh.
+              Filter by pen category, other essentials, colour, or budget in BDT—with Cash on Delivery
+              across Bangladesh.
             </p>
           </div>
           <button

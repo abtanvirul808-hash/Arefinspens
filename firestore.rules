@@ -44,7 +44,8 @@ service cloud.firestore {
         'fountain-pens',
         'marker-pens',
         'mechanical-pencils',
-        'highlighters'
+        'highlighters',
+        'other-products'
       ];
     }
 

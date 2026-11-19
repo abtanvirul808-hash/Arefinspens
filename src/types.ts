@@ -1,11 +1,13 @@
 export type CategoryId =
   | 'all'
+  | 'all-pens'
   | 'gel-pens'
   | 'ballpoint-pens'
   | 'fountain-pens'
   | 'marker-pens'
   | 'mechanical-pencils'
-  | 'highlighters';
+  | 'highlighters'
+  | 'other-products';
 
 export type SortOption =
   | 'popularity'
@@ -72,7 +74,7 @@ export interface Product {
   slug: string;
   name: string;
   brand: string;
-  category: Exclude<CategoryId, 'all'>;
+  category: Exclude<CategoryId, 'all' | 'all-pens'>;
   categoryLabel: string;
   shortDescription: string;
   description: string;

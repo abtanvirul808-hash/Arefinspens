@@ -39,6 +39,66 @@ export const BrandNibLogo: React.FC<{ className?: string }> = ({ className = 'w-
   </svg>
 );
 
+export const BrandPackageLogo: React.FC<{ className?: string }> = ({
+  className = 'w-7 h-7',
+}) => (
+  <svg
+    viewBox="0 0 40 40"
+    fill="none"
+    xmlns="http://www.w3.org/2000/svg"
+    className={className}
+    aria-hidden="true"
+  >
+    <path
+      d="M20 5L33 12.2V27.8L20 35L7 27.8V12.2L20 5Z"
+      fill="url(#pkgGrad)"
+      style={{ stroke: 'var(--accent-bright)' }}
+      strokeWidth="1.4"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M7 12.2L20 19.4L33 12.2"
+      style={{ stroke: 'var(--accent-bright)' }}
+      strokeWidth="1.5"
+      strokeLinejoin="round"
+    />
+    <path
+      d="M20 19.4V35"
+      stroke="#050505"
+      strokeWidth="1.7"
+      strokeLinecap="round"
+    />
+    <path
+      d="M13.6 8.6L26.6 15.8"
+      stroke="#050505"
+      strokeWidth="1.5"
+      strokeLinecap="round"
+    />
+    <defs>
+      <linearGradient id="pkgGrad" x1="20" y1="5" x2="20" y2="35" gradientUnits="userSpaceOnUse">
+        <stop style={{ stopColor: 'var(--accent-bright)' }} />
+        <stop offset="1" style={{ stopColor: 'var(--accent-deep)' }} />
+      </linearGradient>
+    </defs>
+  </svg>
+);
+
+export const BrandMartLogo: React.FC<{
+  className?: string;
+  iconClassName?: string;
+}> = ({ className = '', iconClassName = 'w-10 h-9 sm:w-11 sm:h-10' }) => (
+  <span
+    className={`relative inline-flex items-center justify-center rounded-xl overflow-hidden bg-[#050505] border border-amber-400/50 shadow-[0_0_16px_rgba(245,158,11,0.28)] shrink-0 ${iconClassName} ${className}`}
+    aria-hidden="true"
+  >
+    <img
+      src="/assets/aistudio/Golden_Pen_Nib_and_Cube_Emblem_9335b381.png"
+      alt=""
+      className="w-full h-full object-cover object-[50%_46%] scale-[1.22] pointer-events-none select-none"
+    />
+  </span>
+);
+
 export const SparkleAccentIcon: React.FC<{ className?: string }> = ({ className = 'w-4 h-4' }) => (
   <svg viewBox="0 0 24 24" fill="none" className={className} aria-hidden="true">
     <path
@@ -54,6 +114,47 @@ export const CategoryVectorIcon: React.FC<{ category: CategoryId; className?: st
 }) => {
   switch (category) {
     case 'all':
+      return (
+        <svg viewBox="0 0 28 28" fill="none" className={className} aria-hidden="true">
+          <rect
+            x="4.5"
+            y="4.5"
+            width="8"
+            height="8"
+            rx="2"
+            stroke="currentColor"
+            strokeWidth="1.9"
+          />
+          <rect
+            x="15.5"
+            y="4.5"
+            width="8"
+            height="8"
+            rx="2"
+            stroke="currentColor"
+            strokeWidth="1.9"
+          />
+          <rect
+            x="4.5"
+            y="15.5"
+            width="8"
+            height="8"
+            rx="2"
+            stroke="currentColor"
+            strokeWidth="1.9"
+          />
+          <rect
+            x="15.5"
+            y="15.5"
+            width="8"
+            height="8"
+            rx="2"
+            stroke="currentColor"
+            strokeWidth="1.9"
+          />
+        </svg>
+      );
+    case 'all-pens':
       return (
         <svg viewBox="0 0 28 28" fill="none" className={className} aria-hidden="true">
           <path
@@ -133,6 +234,25 @@ export const CategoryVectorIcon: React.FC<{ category: CategoryId; className?: st
           />
         </svg>
       );
+    case 'other-products':
+      return (
+        <svg viewBox="0 0 28 28" fill="none" className={className} aria-hidden="true">
+          <path
+            d="M14 4.2L23.2 9.3V18.7L14 23.8L4.8 18.7V9.3L14 4.2Z"
+            stroke="currentColor"
+            strokeWidth="1.9"
+            strokeLinejoin="round"
+          />
+          <path
+            d="M4.8 9.3L14 14.3L23.2 9.3"
+            stroke="currentColor"
+            strokeWidth="1.8"
+            strokeLinejoin="round"
+          />
+          <path d="M14 14.3V23.8" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+        </svg>
+      );
+    case 'fountain-pens':
     default:
       return (
         <svg viewBox="0 0 28 28" fill="none" className={className} aria-hidden="true">

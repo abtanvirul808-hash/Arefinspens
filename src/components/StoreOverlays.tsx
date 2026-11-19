@@ -12,7 +12,7 @@ import {
   X,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { getColorAvailableCount } from '../data/products';
+import { getColorAvailableCount, isOtherProduct } from '../data/products';
 import { AccentThemeColor } from '../types';
 import { CartItemVariantEditor } from './CartItemVariantEditor';
 import { SafeImage } from './SafeImage';
@@ -71,7 +71,7 @@ export const CartDrawer: React.FC = () => {
                   Your cart is empty
                 </h3>
                 <p className="text-sm text-[var(--text-secondary)] max-w-xs">
-                  Explore our gel pens, fountain pens, and drafting instruments to get started.
+                  Explore our curated pens and everyday essentials to get started.
                 </p>
               </div>
               <div className="flex flex-col gap-2 w-full max-w-[210px]">
@@ -105,11 +105,11 @@ export const CartDrawer: React.FC = () => {
               <ol className="space-y-1.5 text-xs text-[var(--text-secondary)] leading-relaxed">
                 <li className="flex items-start gap-2">
                   <span className="font-mono-num font-bold text-accent shrink-0">01.</span>
-                  <span>Choose a pen, select your colour &amp; quantity, and click Add to Cart.</span>
+                  <span>Choose a product, select your colour &amp; quantity, and click Add to Cart.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="font-mono-num font-bold text-accent shrink-0">02.</span>
-                  <span>Open your cart and click Checkout (or Order More to keep adding pens).</span>
+                  <span>Open your cart and click Checkout (or Order More to keep adding items).</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="font-mono-num font-bold text-accent shrink-0">03.</span>
@@ -128,6 +128,7 @@ export const CartDrawer: React.FC = () => {
               {cart.map((item) => {
                 const product = products.find((p) => p.id === item.productId);
                 if (!product) return null;
+                const otherItem = isOtherProduct(product);
                 const isEditing = editingKey === item.key;
                 const activePreviewColorId =
                   (isEditing ? previewColorByKey[item.key] : undefined) || item.colorId;
@@ -189,7 +190,7 @@ export const CartDrawer: React.FC = () => {
                                 }
                               }}
                               aria-expanded={isEditing}
-                              aria-label={`Edit ${product.name} colour or ink`}
+                              aria-label={otherItem ? `Edit ${product.name} colour` : `Edit ${product.name} colour or ink`}
                               className={`px-2 py-1 rounded-lg border text-[11px] font-semibold inline-flex items-center gap-1 transition-colors ${
                                 isEditing
                                   ? 'border-accent bg-accent/15 text-accent dark:text-accent-bright'
@@ -220,7 +221,7 @@ export const CartDrawer: React.FC = () => {
                             />
                             <span>{item.colorName}</span>
                           </span>
-                          {item.inkColorName && (
+                          {!otherItem && item.inkColorName && (
                             <>
                               <span aria-hidden="true">·</span>
                               <span className="inline-flex items-center gap-1">
@@ -361,7 +362,7 @@ export const CartDrawer: React.FC = () => {
                 <ol className="space-y-1.5 text-xs text-[var(--text-secondary)] leading-relaxed">
                   <li className="flex items-start gap-2">
                     <span className="font-mono-num font-bold text-accent shrink-0">01.</span>
-                    <span>Review your pens, tap Edit to fix body or ink colour, or tap Order More to add more.</span>
+                    <span>Review your items, tap Edit to change your variant, or tap Order More to add more.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="font-mono-num font-bold text-accent shrink-0">02.</span>
@@ -585,7 +586,7 @@ export const AuthModal: React.FC = () => {
               {isCustomerSignedIn && demoUser
                 ? 'Customer Account'
                 : mode === 'login'
-                ? 'Sign In to Arefin’s Pen'
+                ? 'Sign In to Arefin Mart'
                 : 'Create Your Account'}
             </h2>
           </div>

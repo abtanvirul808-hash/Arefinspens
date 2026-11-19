@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { ArrowRight, CheckCircle2, Facebook, Instagram, Youtube } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { STORE_CONFIG } from '../data/storeConfig';
-import { BrandNibLogo } from './BrandIcons';
+import { BrandMartLogo } from './BrandIcons';
 import { FadeUp } from './FadeUp';
 
 export const Footer: React.FC = () => {
@@ -37,15 +37,15 @@ export const Footer: React.FC = () => {
               onClick={() => navigate('home')}
               className="flex items-center gap-2.5 text-left"
             >
-              <BrandNibLogo className="w-8 h-8" />
+              <BrandMartLogo iconClassName="w-10 h-9" />
               <span className="font-display text-xl font-bold tracking-tight">
-                <span className="text-white">Arefin&apos;s </span>
-                <span className="text-accent">Pen</span>
+                <span className="text-white">Arefin </span>
+                <span className="text-accent">Mart</span>
               </span>
             </button>
             <p className="text-sm text-[#B8B8B8] leading-relaxed max-w-xs">
-              Curated writing instruments for students, educators, artists, and collectors across
-              Bangladesh.
+              Curated writing instruments and everyday essentials for students, educators, artists,
+              and shoppers across Bangladesh.
             </p>
             <div className="flex items-center gap-2.5 pt-1">
               <button
@@ -100,10 +100,10 @@ export const Footer: React.FC = () => {
               <li>
                 <button
                   type="button"
-                  onClick={() => navigate('shop', { category: 'gel-pens' })}
+                  onClick={() => navigate('shop', { category: 'all-pens' })}
                   className="hover:text-accent-bright transition-colors"
                 >
-                  Categories
+                  All Pens
                 </button>
               </li>
               <li>
@@ -226,7 +226,7 @@ export const Footer: React.FC = () => {
         </div>
 
         <div className="mt-12 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#858585]">
-          <p>&copy; 2026 Arefin&apos;s Pen. All rights reserved.</p>
+          <p>&copy; 2026 Arefin Mart. All rights reserved.</p>
           <p>Currency: Bangladeshi Taka (৳ BDT) · Bangladesh</p>
         </div>
         </FadeUp>

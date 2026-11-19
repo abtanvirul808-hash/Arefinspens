@@ -2,7 +2,7 @@
   "entities": {
     "Product": {
       "title": "Product",
-      "description": "A writing instrument product listed in Arefin's Pen storefront.",
+      "description": "A writing instrument or general product listed in Arefin Mart storefront.",
       "type": "object",
       "properties": {
         "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
@@ -17,7 +17,8 @@
             "fountain-pens",
             "marker-pens",
             "mechanical-pencils",
-            "highlighters"
+            "highlighters",
+            "other-products"
           ]
         },
         "categoryLabel": { "type": "string", "minLength": 1, "maxLength": 80 },

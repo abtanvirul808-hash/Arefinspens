@@ -1,4 +1,9 @@
-import { getProductInkColors, INK_COLOR_HEX_FALLBACK, PRODUCTS } from '../data/products';
+import {
+  getProductInkColors,
+  INK_COLOR_HEX_FALLBACK,
+  isOtherProduct,
+  PRODUCTS,
+} from '../data/products';
 import { Product } from '../types';
 
 export interface ParsedOrderItem {
@@ -118,18 +123,22 @@ export function parseOrderSummaryItems(
         matchedVariant?.hex || (bodyColorName ? resolveColorHex(bodyColorName) : undefined);
       image = matchedVariant?.image || matchedProduct.colors[0]?.image || matchedProduct.images[0];
 
-      const productInks = matchedVariant?.inkColors?.length
-        ? matchedVariant.inkColors
-        : getProductInkColors(matchedProduct);
-      if (!inkColorName && productInks.length > 0) {
-        inkColorName = productInks[0].name;
+      if (isOtherProduct(matchedProduct)) {
+        inkColorName = undefined;
+      } else {
+        const productInks = matchedVariant?.inkColors?.length
+          ? matchedVariant.inkColors
+          : getProductInkColors(matchedProduct);
+        if (!inkColorName && productInks.length > 0) {
+          inkColorName = productInks[0].name;
+        }
       }
     } else if (bodyColorName) {
       bodyColorHex = resolveColorHex(bodyColorName);
     }
 
     let inkColorHex: string | undefined;
-    if (inkColorName) {
+    if (inkColorName && !(matchedProduct && isOtherProduct(matchedProduct))) {
       const productInkMatch = matchedProduct
         ? getProductInkColors(matchedProduct).find(
             (i) => i.name.trim().toLowerCase() === inkColorName!.toLowerCase()

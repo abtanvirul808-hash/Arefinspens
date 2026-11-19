@@ -19,6 +19,7 @@ import {
   getProductInkColors,
   getProductTotalAvailableCount,
   getVariantInkColors,
+  isOtherProduct,
 } from '../data/products';
 import { ImageLightboxModal, LightboxSlide } from '../components/ImageLightboxModal';
 import { ProductCard } from '../components/ProductCard';
@@ -100,8 +101,9 @@ export const ProductDetailsPage: React.FC = () => {
     product.inStock && totalAvailable > 0 && availableColorCount > 0;
   const isSelectedColorInStock = selectedColorAvailable > 0;
   const canPurchase = effectiveProductInStock && isSelectedColorInStock;
-  const variantInkColors = getVariantInkColors(product, activeColor);
-  const allProductInkColors = getProductInkColors(product);
+  const otherItem = isOtherProduct(product);
+  const variantInkColors = otherItem ? [] : getVariantInkColors(product, activeColor);
+  const allProductInkColors = otherItem ? [] : getProductInkColors(product);
   const activeInk =
     variantInkColors.find((i) => i.id === selectedInkId) ||
     variantInkColors[0] || { id: 'black', name: 'Black', hex: '#111827' };
@@ -203,7 +205,7 @@ export const ProductDetailsPage: React.FC = () => {
               type="button"
               onClick={() => setIsLightboxOpen(true)}
               className="absolute bottom-3 right-3 px-3 py-1.5 rounded-xl bg-black/75 backdrop-blur-md border border-white/20 text-xs font-semibold text-white hover:border-accent inline-flex items-center gap-1.5 shadow-lg transition-colors"
-              aria-label="Open full-screen pen photo"
+              aria-label={`Open full-screen ${otherItem ? 'product' : 'pen'} photo`}
             >
               <Maximize2 className="w-3.5 h-3.5 text-accent-bright" />
               <span>Full Screen</span>
@@ -314,7 +316,9 @@ export const ProductDetailsPage: React.FC = () => {
             <div className="space-y-2.5">
               <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
                 <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold text-[var(--text-main)]">Body Colour:</span>
+                  <span className="font-semibold text-[var(--text-main)]">
+                    {otherItem ? 'Colour:' : 'Body Colour:'}
+                  </span>
                   <span
                     className={`font-semibold ${
                       isSelectedColorInStock
@@ -395,48 +399,50 @@ export const ProductDetailsPage: React.FC = () => {
               </p>
             </div>
 
-            <div className="pt-3 border-t border-[var(--border-subtle)]/60 space-y-2.5">
-              <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
-                <span className="font-semibold text-[var(--text-main)]">
-                  Ink Colour <span className="text-xs font-normal text-[var(--text-muted)]">({activeColor.name} body)</span>:
-                </span>
-                <span className="inline-flex items-center gap-1.5 font-semibold text-accent dark:text-accent-bright">
-                  <span
-                    className="w-3 h-3 rounded-full border border-black/20 dark:border-white/30 inline-block shrink-0"
-                    style={{ backgroundColor: activeInk.hex }}
-                  />
-                  <span>{activeInk.name}</span>
-                </span>
-              </div>
-              <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Select ink colour">
-                {variantInkColors.map((ink) => {
-                  const selected = ink.id === activeInk.id;
-                  return (
-                    <button
-                      key={ink.id}
-                      type="button"
-                      onClick={() => setSelectedInkId(ink.id)}
-                      aria-pressed={selected}
-                      className={`min-h-[40px] px-3 py-1.5 rounded-xl border text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-all ${
-                        selected
-                          ? 'border-accent bg-accent/15 text-[var(--text-main)] font-semibold shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)]'
-                          : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
-                      }`}
-                    >
-                      <span
-                        className="w-3.5 h-3.5 rounded-full border border-black/20 dark:border-white/30 shrink-0 flex items-center justify-center"
-                        style={{ backgroundColor: ink.hex }}
+            {!otherItem && (
+              <div className="pt-3 border-t border-[var(--border-subtle)]/60 space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2 text-sm">
+                  <span className="font-semibold text-[var(--text-main)]">
+                    Ink Colour <span className="text-xs font-normal text-[var(--text-muted)]">({activeColor.name} body)</span>:
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 font-semibold text-accent dark:text-accent-bright">
+                    <span
+                      className="w-3 h-3 rounded-full border border-black/20 dark:border-white/30 inline-block shrink-0"
+                      style={{ backgroundColor: activeInk.hex }}
+                    />
+                    <span>{activeInk.name}</span>
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-2" role="group" aria-label="Select ink colour">
+                  {variantInkColors.map((ink) => {
+                    const selected = ink.id === activeInk.id;
+                    return (
+                      <button
+                        key={ink.id}
+                        type="button"
+                        onClick={() => setSelectedInkId(ink.id)}
+                        aria-pressed={selected}
+                        className={`min-h-[40px] px-3 py-1.5 rounded-xl border text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-all ${
+                          selected
+                            ? 'border-accent bg-accent/15 text-[var(--text-main)] font-semibold shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)]'
+                            : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
+                        }`}
                       >
-                        {selected && (
-                          <Check className="w-2.5 h-2.5 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.85)]" />
-                        )}
-                      </span>
-                      <span>{ink.name}</span>
-                    </button>
-                  );
-                })}
+                        <span
+                          className="w-3.5 h-3.5 rounded-full border border-black/20 dark:border-white/30 shrink-0 flex items-center justify-center"
+                          style={{ backgroundColor: ink.hex }}
+                        >
+                          {selected && (
+                            <Check className="w-2.5 h-2.5 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.85)]" />
+                          )}
+                        </span>
+                        <span>{ink.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
               </div>
-            </div>
+            )}
           </div>
 
           {/* Quantity + Action Buttons */}
@@ -475,7 +481,9 @@ export const ProductDetailsPage: React.FC = () => {
               <button
                 type="button"
                 disabled={!canPurchase}
-                onClick={() => addToCart(product, selectedColorId, quantity, true, activeInk.id)}
+                onClick={() =>
+                  addToCart(product, selectedColorId, quantity, true, otherItem ? undefined : activeInk.id)
+                }
                 className={`flex-1 min-w-[140px] h-12 px-5 sm:px-6 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2 ${
                   canPurchase
                     ? 'cta-glow-red'
@@ -519,7 +527,7 @@ export const ProductDetailsPage: React.FC = () => {
               disabled={!canPurchase}
               onClick={() => {
                 if (!canPurchase) return;
-                addToCart(product, selectedColorId, quantity, false, activeInk.id);
+                addToCart(product, selectedColorId, quantity, false, otherItem ? undefined : activeInk.id);
                 navigate('checkout');
               }}
               className={`w-full h-12 rounded-xl border text-sm font-semibold transition-colors ${
@@ -562,18 +570,31 @@ export const ProductDetailsPage: React.FC = () => {
             Product Specifications
           </h2>
           <dl className="divide-y divide-[var(--border-subtle)]/60 text-sm">
-            {[
-              { label: 'Tip / Nib Size', value: product.specs.tipSize },
-              { label: 'Ink / Lead Type', value: product.specs.inkType },
-              {
-                label: allProductInkColors.length > 1 ? 'Ink Colours' : 'Ink Colour',
-                value: allProductInkColors.map((i) => i.name).join(', '),
-                inks: allProductInkColors,
-              },
-              { label: 'Body Material', value: product.specs.bodyMaterial },
-              { label: 'Weight', value: product.specs.weight },
-              { label: 'Series / Origin', value: product.specs.origin },
-            ].map((row) => (
+            {(otherItem
+              ? [
+                  { label: 'Category', value: product.categoryLabel },
+                  {
+                    label: 'Available Colours',
+                    value: product.colors.map((c) => c.name).join(', '),
+                  },
+                  {
+                    label: 'Total Stock',
+                    value: `${totalAvailable} available`,
+                  },
+                ]
+              : [
+                  { label: 'Tip / Nib Size', value: product.specs.tipSize },
+                  { label: 'Ink / Lead Type', value: product.specs.inkType },
+                  {
+                    label: allProductInkColors.length > 1 ? 'Ink Colours' : 'Ink Colour',
+                    value: allProductInkColors.map((i) => i.name).join(', '),
+                    inks: allProductInkColors,
+                  },
+                  { label: 'Body Material', value: product.specs.bodyMaterial },
+                  { label: 'Weight', value: product.specs.weight },
+                  { label: 'Series / Origin', value: product.specs.origin },
+                ]
+            ).map((row) => (
               <div key={row.label} className="py-3 flex justify-between items-center gap-4">
                 <dt className="text-[var(--text-muted)]">{row.label}</dt>
                 <dd className="text-[var(--text-main)] font-medium text-right inline-flex flex-wrap justify-end items-center gap-2">
@@ -630,7 +651,10 @@ export const ProductDetailsPage: React.FC = () => {
       {relatedProducts.length > 0 && (
         <div className="space-y-6">
           <h2 className="font-display text-2xl font-bold text-[var(--text-main)]">
-            Related <span className="text-accent">Writing Instruments</span>
+            Related{' '}
+            <span className="text-accent">
+              {otherItem ? 'Products' : 'Writing Instruments'}
+            </span>
           </h2>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
             {relatedProducts.map((item) => (
