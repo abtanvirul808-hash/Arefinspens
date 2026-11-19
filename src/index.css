@@ -518,3 +518,21 @@
     0 0 32px -12px rgba(var(--accent-rgb), 0.35),
     inset 0 1px 0 rgba(255, 255, 255, 0.2);
 }
+
+.mart-logo-img {
+  filter: grayscale(1) contrast(1.25) brightness(1.35);
+}
+
+html[data-accent="yellow"] .mart-logo-img {
+  filter: saturate(1.1) contrast(1.04);
+}
+
+.mart-logo-tint {
+  background: linear-gradient(135deg, var(--accent-bright) 0%, var(--accent-primary) 100%);
+  opacity: 0.96;
+}
+
+html[data-accent="yellow"] .mart-logo-tint {
+  opacity: 0;
+}
+

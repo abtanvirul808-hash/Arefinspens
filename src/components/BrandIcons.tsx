@@ -88,13 +88,17 @@ export const BrandMartLogo: React.FC<{
   iconClassName?: string;
 }> = ({ className = '', iconClassName = 'w-10 h-9 sm:w-11 sm:h-10' }) => (
   <span
-    className={`relative inline-flex items-center justify-center rounded-xl overflow-hidden bg-[#050505] border border-amber-400/50 shadow-[0_0_16px_rgba(245,158,11,0.28)] shrink-0 ${iconClassName} ${className}`}
+    className={`isolate relative inline-flex items-center justify-center rounded-xl overflow-hidden bg-[#050505] border border-accent/55 shadow-[0_0_16px_rgba(var(--accent-rgb),0.3)] shrink-0 ${iconClassName} ${className}`}
     aria-hidden="true"
   >
     <img
       src="/assets/aistudio/Golden_Pen_Nib_and_Cube_Emblem_9335b381.png"
       alt=""
-      className="w-full h-full object-cover object-[50%_46%] scale-[1.22] pointer-events-none select-none"
+      className="mart-logo-img w-full h-full object-cover object-[50%_46%] scale-[1.22] pointer-events-none select-none"
+    />
+    <span
+      className="mart-logo-tint absolute inset-0 pointer-events-none mix-blend-multiply transition-opacity duration-200"
+      aria-hidden="true"
     />
   </span>
 );
