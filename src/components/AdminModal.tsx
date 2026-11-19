@@ -82,6 +82,37 @@ function getStageLabel(stageIndex: number): string {
   return ADMIN_STAGE_OPTIONS.find((s) => s.index === stageIndex)?.label || 'Order Confirmed';
 }
 
+function computeOrderFinancials(
+  order: { itemsSummary: string; totalBdt: number },
+  products: Product[]
+) {
+  const parsedItems = parseOrderSummaryItems(order.itemsSummary, products);
+  const itemBreakdowns = parsedItems.map((item) => {
+    const matchedProd =
+      (item.productId
+        ? products.find((p) => p.id === item.productId)
+        : undefined) ||
+      products.find(
+        (p) => p.name.trim().toLowerCase() === item.name.trim().toLowerCase()
+      );
+    const qtyNum = Math.max(1, Number.parseInt(item.quantity, 10) || 1);
+    const unitPrice = matchedProd ? matchedProd.priceBdt : undefined;
+    const lineTotal =
+      typeof unitPrice === 'number' ? unitPrice * qtyNum : undefined;
+    return { item, matchedProd, qtyNum, unitPrice, lineTotal };
+  });
+  const allPricesResolved =
+    itemBreakdowns.length > 0 &&
+    itemBreakdowns.every((b) => typeof b.lineTotal === 'number');
+  const summedSubtotal = allPricesResolved
+    ? itemBreakdowns.reduce((sum, b) => sum + (b.lineTotal ?? 0), 0)
+    : 0;
+  const calculatedSubtotal =
+    allPricesResolved && summedSubtotal > 0 ? summedSubtotal : order.totalBdt;
+  const totalUnitsCount = itemBreakdowns.reduce((sum, b) => sum + b.qtyNum, 0);
+  return { parsedItems, itemBreakdowns, calculatedSubtotal, totalUnitsCount };
+}
+
 function compressImageToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -225,6 +256,24 @@ export const AdminModal: React.FC = () => {
       delivered: adminOrders.filter((o) => o.currentStageIndex === 4).length,
     };
   }, [adminOrders]);
+
+  const allOrdersSubtotal = useMemo(
+    () =>
+      adminOrders.reduce(
+        (sum, ord) => sum + computeOrderFinancials(ord, products).calculatedSubtotal,
+        0
+      ),
+    [adminOrders, products]
+  );
+
+  const filteredOrdersSubtotal = useMemo(
+    () =>
+      filteredOrders.reduce(
+        (sum, ord) => sum + computeOrderFinancials(ord, products).calculatedSubtotal,
+        0
+      ),
+    [filteredOrders, products]
+  );
 
   const filteredProducts = useMemo(() => {
     const q = prodSearchTerm.trim().toLowerCase();
@@ -900,8 +949,8 @@ export const AdminModal: React.FC = () => {
 
             {activeTab === 'orders' ? (
               <>
-                {/* Quick Summary Stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 shrink-0">
+                {/* Quick Summary Stats (Top of Search Order) */}
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 shrink-0">
                   <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3.5 py-2.5">
                     <p className="text-[11px] text-[var(--text-muted)]">Total Orders</p>
                     <p className="font-display text-lg font-bold font-mono-num text-[var(--text-main)]">
@@ -924,6 +973,14 @@ export const AdminModal: React.FC = () => {
                     <p className="text-[11px] text-[var(--text-muted)]">Delivered</p>
                     <p className="font-display text-lg font-bold font-mono-num text-emerald-500">
                       {counts.delivered}
+                    </p>
+                  </div>
+                  <div className="col-span-2 sm:col-span-1 rounded-xl border border-accent/55 bg-accent/15 px-3.5 py-2.5 shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)]">
+                    <p className="text-[11px] font-semibold text-accent dark:text-accent-bright">
+                      All Orders Subtotal
+                    </p>
+                    <p className="font-display text-lg font-extrabold font-mono-num text-[var(--text-main)]">
+                      ৳{allOrdersSubtotal.toLocaleString('en-US')}
                     </p>
                   </div>
                 </div>
@@ -970,6 +1027,25 @@ export const AdminModal: React.FC = () => {
                   </div>
                 </div>
 
+                {/* Subtotal Price Summary Bar (Down of Search Order) */}
+                <div className="rounded-xl border border-accent/50 bg-accent/10 px-3.5 py-2 flex flex-wrap items-center justify-between gap-2 shrink-0">
+                  <span className="text-xs font-semibold text-[var(--text-main)]">
+                    {filteredOrders.length === adminOrders.length
+                      ? `All Orders Subtotal (${filteredOrders.length} ${filteredOrders.length === 1 ? 'order' : 'orders'})`
+                      : `Matching Orders Subtotal (${filteredOrders.length} of ${adminOrders.length} orders)`}
+                  </span>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {filteredOrders.length !== adminOrders.length && (
+                      <span className="text-[11px] text-[var(--text-secondary)] font-mono-num">
+                        All Orders: ৳{allOrdersSubtotal.toLocaleString('en-US')}
+                      </span>
+                    )}
+                    <span className="px-2.5 py-0.5 rounded-lg bg-accent/20 border border-accent/55 text-xs sm:text-sm font-extrabold font-mono-num text-accent dark:text-accent-bright">
+                      ৳{filteredOrdersSubtotal.toLocaleString('en-US')}
+                    </span>
+                  </div>
+                </div>
+
                 {/* Order List */}
                 <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-3 pr-1">
                   {filteredOrders.length === 0 ? (
@@ -983,35 +1059,12 @@ export const AdminModal: React.FC = () => {
                       const stageLabel = getStageLabel(order.currentStageIndex);
                       const isDelivered = order.currentStageIndex === 4;
                       const confirmingDelete = confirmDeleteOrderId === order.orderId;
-                      const parsedItems = parseOrderSummaryItems(order.itemsSummary, products);
-                      const itemBreakdowns = parsedItems.map((item) => {
-                        const matchedProd =
-                          (item.productId
-                            ? products.find((p) => p.id === item.productId)
-                            : undefined) ||
-                          products.find(
-                            (p) => p.name.trim().toLowerCase() === item.name.trim().toLowerCase()
-                          );
-                        const qtyNum = Math.max(1, Number.parseInt(item.quantity, 10) || 1);
-                        const unitPrice = matchedProd ? matchedProd.priceBdt : undefined;
-                        const lineTotal =
-                          typeof unitPrice === 'number' ? unitPrice * qtyNum : undefined;
-                        return { item, matchedProd, qtyNum, unitPrice, lineTotal };
-                      });
-                      const allPricesResolved =
-                        itemBreakdowns.length > 0 &&
-                        itemBreakdowns.every((b) => typeof b.lineTotal === 'number');
-                      const summedSubtotal = allPricesResolved
-                        ? itemBreakdowns.reduce((sum, b) => sum + (b.lineTotal ?? 0), 0)
-                        : 0;
-                      const calculatedSubtotal =
-                        allPricesResolved && summedSubtotal > 0
-                          ? summedSubtotal
-                          : order.totalBdt;
-                      const totalUnitsCount = itemBreakdowns.reduce(
-                        (sum, b) => sum + b.qtyNum,
-                        0
-                      );
+                      const {
+                        parsedItems,
+                        itemBreakdowns,
+                        calculatedSubtotal,
+                        totalUnitsCount,
+                      } = computeOrderFinancials(order, products);
 
                       return (
                         <div
