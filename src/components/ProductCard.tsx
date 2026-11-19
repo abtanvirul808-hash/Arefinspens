@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, Heart, Maximize2, ShoppingBag, Star } from 'lucide-react';
+import { Check, Eye, Heart, Maximize2, ShoppingBag, Star } from 'lucide-react';
 import { Product } from '../types';
 import { useStore } from '../context/StoreContext';
 import {
@@ -144,7 +144,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
       </div>
 
       {/* Content Zone */}
-      <div className="p-3.5 sm:p-5 flex-1 flex flex-col justify-between gap-3">
+      <div className="p-3.5 sm:p-4 flex-1 flex flex-col justify-between gap-3">
         <div className="space-y-1.5 sm:space-y-2">
           {/* Clean Unboxed Metadata */}
           <div className="flex items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
@@ -291,47 +291,70 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             </span>
           </div>
 
-          {/* Price & Add to Cart */}
-          <div className="flex items-center justify-between gap-2 pt-2 border-t border-[var(--border-subtle)]/60">
-            <div className="flex items-baseline gap-2 min-w-0">
-              <span className="text-lg font-bold text-[var(--text-main)] font-mono-num">
+          {/* Price, View & Add to Cart */}
+          <div className="flex items-center justify-between gap-1.5 pt-2 border-t border-[var(--border-subtle)]/60">
+            <div className="flex flex-col items-start min-w-0 shrink-0">
+              <span className="px-2.5 py-1.5 rounded-lg bg-accent/15 border border-accent/50 text-lg sm:text-xl font-extrabold text-accent dark:text-accent-bright font-mono-num shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)] whitespace-nowrap leading-none">
                 ৳{product.priceBdt.toLocaleString('en-US')}
               </span>
               {product.originalPriceBdt && (
-                <span className="text-xs text-[var(--text-muted)] line-through font-mono-num">
+                <span className="text-[11px] text-[var(--text-muted)] line-through font-mono-num pl-0.5 leading-tight mt-0.5">
                   ৳{product.originalPriceBdt.toLocaleString('en-US')}
                 </span>
               )}
             </div>
 
-            <button
-              type="button"
-              onClick={handleQuickAdd}
-              disabled={!canQuickAdd}
-              className={`min-h-[40px] px-3 sm:px-3.5 py-2 rounded-xl text-xs font-semibold inline-flex items-center gap-1.5 transition-all whitespace-nowrap shrink-0 ${
-                !canQuickAdd
-                  ? 'bg-black/10 dark:bg-white/10 text-[var(--text-muted)] border border-[var(--border-subtle)] cursor-not-allowed'
-                  : justAdded
-                  ? 'bg-emerald-600 text-white'
-                  : 'text-white cta-glow-red'
-              }`}
-            >
-              {!effectiveInStock ? (
-                <span>Out of Stock</span>
-              ) : !isSelectedColorInStock ? (
-                <span>Out of Stock</span>
-              ) : justAdded ? (
-                <>
-                  <Check className="w-3.5 h-3.5" />
-                  <span>Added</span>
-                </>
-              ) : (
-                <>
-                  <ShoppingBag className="w-3.5 h-3.5" />
-                  <span>Add to Cart</span>
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  navigate('product', { productSlug: product.slug });
+                }}
+                aria-label={`View ${product.name} information and specifications`}
+                className="min-h-[40px] px-2.5 py-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-main)] hover:border-accent hover:text-accent dark:hover:text-accent-bright hover:bg-accent/10 inline-flex items-center gap-1 transition-colors whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+              >
+                <Eye className="w-3.5 h-3.5 shrink-0" />
+                <span>View</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleQuickAdd}
+                disabled={!canQuickAdd}
+                aria-label={
+                  !canQuickAdd
+                    ? `${product.name} is out of stock`
+                    : justAdded
+                    ? `Added ${product.name} to cart`
+                    : `Add ${product.name} to cart`
+                }
+                title={!canQuickAdd ? 'Out of Stock' : 'Add to Cart'}
+                className={`min-h-[40px] min-w-[80px] sm:min-w-[84px] px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                  !canQuickAdd
+                    ? 'bg-black/10 dark:bg-white/10 text-[var(--text-muted)] border border-[var(--border-subtle)] cursor-not-allowed'
+                    : justAdded
+                    ? 'bg-emerald-600 text-white'
+                    : 'text-white cta-glow-red'
+                }`}
+              >
+                {!effectiveInStock ? (
+                  <span>Sold Out</span>
+                ) : !isSelectedColorInStock ? (
+                  <span>Sold Out</span>
+                ) : justAdded ? (
+                  <>
+                    <Check className="w-3.5 h-3.5 shrink-0" />
+                    <span>Added</span>
+                  </>
+                ) : (
+                  <>
+                    <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
+                    <span>Add</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       </div>

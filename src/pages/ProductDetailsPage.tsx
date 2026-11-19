@@ -252,8 +252,8 @@ export const ProductDetailsPage: React.FC = () => {
               {product.name}
             </h1>
 
-            <div className="flex items-baseline gap-3 pt-1">
-              <span className="text-3xl font-extrabold font-mono-num text-[var(--text-main)]">
+            <div className="flex flex-wrap items-baseline gap-3 pt-1">
+              <span className="px-4 py-2 rounded-xl bg-accent/15 border border-accent/55 text-3xl sm:text-4xl font-extrabold font-mono-num text-accent dark:text-accent-bright shadow-[0_0_18px_rgba(var(--accent-rgb),0.24)] leading-none">
                 ৳{product.priceBdt.toLocaleString('en-US')}
               </span>
               {product.originalPriceBdt && (
@@ -261,7 +261,7 @@ export const ProductDetailsPage: React.FC = () => {
                   <span className="text-base text-[var(--text-muted)] line-through font-mono-num">
                     ৳{product.originalPriceBdt.toLocaleString('en-US')}
                   </span>
-                  <span className="text-xs font-semibold text-accent dark:text-accent-bright">
+                  <span className="text-xs font-bold text-accent dark:text-accent-bright">
                     Save ৳{(product.originalPriceBdt - product.priceBdt).toLocaleString('en-US')}
                   </span>
                 </>
