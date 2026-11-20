@@ -411,7 +411,7 @@ export const Header: React.FC = () => {
             <button
               type="button"
               onClick={() => {
-                navigate('shop', { category: 'all' });
+                navigate('shop', { category: 'all-pens' });
                 setMobileOpen(false);
               }}
               className={`liquid-glass-drawer-tile min-h-[44px] px-3.5 py-2.5 text-left text-sm font-medium flex items-center ${

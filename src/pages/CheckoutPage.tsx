@@ -23,10 +23,10 @@ export const CheckoutPage: React.FC = () => {
     clearCart,
     createOrder,
     nextOrderId,
-    navigate,
     demoUser,
     isCustomerSignedIn,
     setIsAuthModalOpen,
+    navigate,
     showToast,
     products,
   } = useStore();
@@ -34,9 +34,9 @@ export const CheckoutPage: React.FC = () => {
   const orderNumber = nextOrderId;
   const [copiedOrderNum, setCopiedOrderNum] = useState(false);
 
-  const [fullName, setFullName] = useState(demoUser?.name || '');
-  const [phone, setPhone] = useState(demoUser?.phone || '');
-  const [email, setEmail] = useState(demoUser?.email || '');
+  const [fullName, setFullName] = useState('');
+  const [phone, setPhone] = useState('');
+  const [email, setEmail] = useState('');
   const [locationOption, setLocationOption] = useState<DeliveryLocationOption>('Al Amanah Academy');
   const [academyClass, setAcademyClass] = useState<AcademyClassOption>('');
   const [customLocation, setCustomLocation] = useState('');
@@ -50,19 +50,6 @@ export const CheckoutPage: React.FC = () => {
   const [submittingOrder, setSubmittingOrder] = useState(false);
   const [confirmedOrder, setConfirmedOrder] = useState<TrackedOrder | null>(null);
 
-  useEffect(() => {
-    if (!demoUser) {
-      setEmail('');
-      return;
-    }
-    setFullName((prev) => prev || demoUser.name || '');
-    setEmail(demoUser.email || '');
-    setPhone((prev) => prev || demoUser.phone || '');
-    setFormError((prev) =>
-      prev.toLowerCase().includes('sign in') ? '' : prev
-    );
-  }, [demoUser]);
-
   const validCartItems = cart.filter((item) =>
     products.some((p) => p.id === item.productId)
   );
@@ -70,6 +57,19 @@ export const CheckoutPage: React.FC = () => {
   const effectiveSubtotal = isDirectOrder ? Math.max(0, customAmountBdt || 0) : cartSubtotal;
 
   const finalTotal = effectiveSubtotal;
+
+  useEffect(() => {
+    if (isCustomerSignedIn && demoUser) {
+      setFullName((prev) => prev || demoUser.name);
+      setEmail(demoUser.email);
+      if (demoUser.phone) {
+        setPhone((prev) => prev || demoUser.phone);
+      }
+      setFormError((prev) => (prev.toLowerCase().includes('sign in') ? '' : prev));
+    } else {
+      setEmail('');
+    }
+  }, [demoUser, isCustomerSignedIn]);
 
   const handleCopyOrderNumber = async () => {
     try {
@@ -99,8 +99,8 @@ export const CheckoutPage: React.FC = () => {
     e.preventDefault();
     if (submittingOrder) return;
 
-    if (!isCustomerSignedIn) {
-      failValidation('Please sign in or create your account first before placing an order.');
+    if (!isCustomerSignedIn || !demoUser) {
+      failValidation('Please sign in with your Google account before placing an order.');
       setIsAuthModalOpen(true);
       return;
     }
@@ -196,6 +196,7 @@ export const CheckoutPage: React.FC = () => {
     const draftOrder: TrackedOrder = {
       orderId: orderNumber,
       phone: normalizedPhone,
+      userEmail: email.trim() || undefined,
       customerName: fullName.trim(),
       city: locationOption,
       academyClass:
@@ -222,7 +223,7 @@ export const CheckoutPage: React.FC = () => {
       const msg =
         err instanceof Error && !err.message.startsWith('{')
           ? err.message
-          : 'Could not place your order right now. Please make sure you are signed in and try again.';
+          : 'Could not place your order right now. Please try again.';
       failValidation(msg);
     } finally {
       setSubmittingOrder(false);
@@ -244,7 +245,7 @@ export const CheckoutPage: React.FC = () => {
               Thank you, {confirmedOrder.customerName}
             </h1>
             <p className="text-sm text-[var(--text-secondary)]">
-              Your Cash on Delivery order has been saved securely to your account. Only you and the
+              Your Cash on Delivery order has been saved to your private account. Only you and the
               store admin can view this order.
             </p>
           </div>
@@ -319,25 +320,24 @@ export const CheckoutPage: React.FC = () => {
       </div>
 
       {!isCustomerSignedIn && (
-        <div className="rounded-2xl border border-rose-500/50 bg-rose-500/10 p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="rounded-2xl border border-amber-500/45 bg-amber-500/10 px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div className="flex items-start gap-3">
-            <Lock className="w-5 h-5 text-rose-500 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <h2 className="font-display text-sm sm:text-base font-bold text-[var(--text-main)]">
-                First Sign In or Create Your Account
-              </h2>
-              <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
-                You must sign in or create an account before placing an order. Only you can view
-                your orders — other customers cannot see your order details.
+            <Lock className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+            <div className="space-y-0.5">
+              <p className="text-sm font-semibold text-[var(--text-main)]">
+                Sign in with Google required to place an order
+              </p>
+              <p className="text-xs text-[var(--text-secondary)]">
+                Your order stays private to your account and receives a sequential Order ID ({orderNumber}).
               </p>
             </div>
           </div>
           <button
             type="button"
             onClick={() => setIsAuthModalOpen(true)}
-            className="px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-[var(--accent-cta-text)] cta-glow-red whitespace-nowrap shrink-0"
+            className="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-[var(--accent-cta-text)] cta-glow-red shrink-0"
           >
-            Sign In / Create Account
+            Sign In with Google
           </button>
         </div>
       )}
@@ -419,16 +419,24 @@ export const CheckoutPage: React.FC = () => {
                 <label className="block text-xs font-medium text-[var(--text-secondary)] mb-1">
                   Sign-In Email (Linked to Order)
                 </label>
-                <input
-                  type="email"
-                  readOnly
-                  value={isCustomerSignedIn ? email : ''}
-                  placeholder="Sign in to link your account email"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] opacity-90 cursor-not-allowed focus:outline-none"
-                />
-                <p className="text-[11px] text-[var(--text-muted)] mt-1">
-                  Only an account signed in with this same email can view this order.
-                </p>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="email"
+                    readOnly
+                    value={isCustomerSignedIn ? email : ''}
+                    placeholder="Sign in with Google to link your email"
+                    className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] focus:outline-none cursor-default"
+                  />
+                  {!isCustomerSignedIn && (
+                    <button
+                      type="button"
+                      onClick={() => setIsAuthModalOpen(true)}
+                      className="px-3 py-2.5 rounded-xl border border-accent/55 bg-accent/15 text-xs font-semibold text-accent dark:text-accent-bright whitespace-nowrap shrink-0 hover:bg-accent/25"
+                    >
+                      Sign In
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div>

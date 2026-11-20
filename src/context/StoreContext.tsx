@@ -29,7 +29,6 @@ import {
 import {
   CATALOGUE_CATEGORIES,
   getColorAvailableCount,
-  getProductInkColors,
   getVariantInkColors,
   isOtherProduct,
   PRODUCTS,
@@ -131,15 +130,6 @@ interface StoreContextValue {
   isSettingsOpen: boolean;
   setIsSettingsOpen: (open: boolean) => void;
 
-  demoUser: DemoUser | null;
-  isCustomerSignedIn: boolean;
-  authLoading: boolean;
-  isAuthModalOpen: boolean;
-  setIsAuthModalOpen: (open: boolean) => void;
-  loginDemoUser: (user: DemoUser) => void;
-  loginCustomerWithGoogle: (phone?: string) => Promise<{ ok: boolean; error?: string }>;
-  logoutDemoUser: () => Promise<void>;
-
   products: Product[];
   isCloudSynced: boolean;
   hasUnpublishedProductChanges: boolean;
@@ -163,6 +153,19 @@ interface StoreContextValue {
   findOrder: (orderId: string, phone: string) => Promise<TrackedOrder | undefined>;
   updateOrderStage: (orderId: string, stageIndex: number) => Promise<void>;
   deleteOrder: (orderId: string) => Promise<void>;
+
+  demoUser: DemoUser | null;
+  isCustomerSignedIn: boolean;
+  authLoading: boolean;
+  isAuthModalOpen: boolean;
+  setIsAuthModalOpen: (open: boolean) => void;
+  loginDemoUser: (
+    name: string,
+    email: string,
+    phone: string
+  ) => Promise<{ ok: boolean; error?: string }>;
+  loginCustomerWithGoogle: (phone?: string) => Promise<{ ok: boolean; error?: string }>;
+  logoutDemoUser: () => Promise<void>;
 
   isAdmin: boolean;
   isFirebaseAdmin: boolean;
@@ -217,11 +220,6 @@ const DEFAULT_PREFS: StorePreferences = {
 function parseSerialNumber(orderId: string): number {
   const match = orderId.trim().match(/^#?(\d+)$/);
   return match ? Number.parseInt(match[1], 10) : 0;
-}
-
-function getPhoneSuffix(phone: string): string {
-  const digits = phone.replace(/\D/g, '');
-  return digits.slice(-8) || '00000000';
 }
 
 function slugifyProductName(name: string): string {
@@ -288,6 +286,138 @@ function normalizeInkColorsList(
   return list;
 }
 
+function sanitizeColorsForFirestore(
+  product: Product,
+  colors: Product['colors']
+): Record<string, unknown>[] {
+  const otherItem = isOtherProduct(product);
+  return colors.slice(0, 12).map((c, idx) => {
+    const rawCount =
+      typeof c.stockCount === 'number' && Number.isFinite(c.stockCount)
+        ? Math.max(0, Math.round(c.stockCount))
+        : c.inStock
+        ? getColorAvailableCount(product, c)
+        : 0;
+    const cleaned: Record<string, unknown> = {
+      id: c.id?.trim() || `${slugifyProductName(c.name)}-${idx + 1}`,
+      name: c.name.trim().slice(0, 80),
+      hex: c.hex?.trim() || '#111827',
+      inStock: Boolean(c.inStock),
+      stockCount: rawCount,
+    };
+    if (c.image && c.image.trim()) {
+      cleaned.image = c.image.trim();
+    }
+    if (!otherItem && Array.isArray(c.inkColors) && c.inkColors.length > 0) {
+      cleaned.inkColors = c.inkColors.slice(0, 12).map((ink) => ({
+        id: ink.id?.trim() || slugifyProductName(ink.name),
+        name: ink.name.trim().slice(0, 40),
+        hex: ink.hex?.trim() || '#111827',
+      }));
+    }
+    return cleaned;
+  });
+}
+
+function serializeProductForFirestore(
+  product: Product,
+  isNewDoc: boolean,
+  existingCreatedAt?: unknown
+): Record<string, unknown> {
+  const cleanSpecs: Record<string, unknown> = {
+    tipSize: product.specs.tipSize || 'Standard',
+    inkType: product.specs.inkType || 'N/A',
+    bodyMaterial: product.specs.bodyMaterial || 'Standard',
+    weight: product.specs.weight || 'Standard',
+    origin: product.specs.origin || product.brand || 'Arefin Mart',
+  };
+  if (product.specs.inkColor) cleanSpecs.inkColor = product.specs.inkColor;
+  if (product.specs.inkColorHex) cleanSpecs.inkColorHex = product.specs.inkColorHex;
+  if (Array.isArray(product.specs.inkColors) && product.specs.inkColors.length > 0) {
+    cleanSpecs.inkColors = product.specs.inkColors.slice(0, 12).map((ink) => ({
+      id: ink.id,
+      name: ink.name,
+      hex: ink.hex,
+    }));
+  }
+
+  const payload: Record<string, unknown> = {
+    id: product.id,
+    slug: product.slug || product.id,
+    name: product.name.trim().slice(0, 120),
+    brand: (product.brand || 'Arefin Mart').trim().slice(0, 80),
+    category: product.category,
+    categoryLabel: (product.categoryLabel || 'Pens').trim().slice(0, 80),
+    shortDescription: product.shortDescription.trim().slice(0, 400),
+    description: (product.description || product.shortDescription).trim().slice(0, 2000),
+    priceBdt: Math.max(1, Number(product.priceBdt) || 1),
+    rating: Math.min(5, Math.max(0, Number(product.rating) || 4.9)),
+    reviewCount: Math.max(0, Math.round(Number(product.reviewCount) || 0)),
+    popularityScore: Math.min(1000, Math.max(0, Math.round(Number(product.popularityScore) || 50))),
+    orderCount: Math.max(0, Math.round(Number(product.orderCount) || 0)),
+    featured: Boolean(product.featured),
+    isNew: Boolean(product.isNew),
+    inStock: Boolean(product.inStock),
+    stockCount: Math.max(0, Math.round(Number(product.stockCount) || 0)),
+    images: (Array.isArray(product.images) ? product.images : []).filter(Boolean).slice(0, 12),
+    colors: sanitizeColorsForFirestore(product, product.colors || []),
+    specs: cleanSpecs,
+    sampleReviews: Array.isArray(product.sampleReviews)
+      ? product.sampleReviews.slice(0, 20)
+      : [],
+    createdAt: isNewDoc ? serverTimestamp() : existingCreatedAt || serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+
+  if (
+    typeof product.originalPriceBdt === 'number' &&
+    Number.isFinite(product.originalPriceBdt) &&
+    product.originalPriceBdt > product.priceBdt
+  ) {
+    payload.originalPriceBdt = Math.round(product.originalPriceBdt);
+  }
+
+  return payload;
+}
+
+function normalizeTrackedOrderFromFirestore(
+  data: Record<string, unknown>,
+  fallbackDocId: string
+): TrackedOrder {
+  const serialNum =
+    typeof data.serialNumber === 'number' && Number.isFinite(data.serialNumber)
+      ? Math.round(data.serialNumber)
+      : parseSerialNumber(String(data.orderId || fallbackDocId));
+  const orderId =
+    typeof data.orderId === 'string' && data.orderId.trim()
+      ? data.orderId.trim()
+      : serialNum > 0
+      ? `#${serialNum}`
+      : fallbackDocId;
+  return {
+    orderId,
+    serialNumber: serialNum > 0 ? serialNum : undefined,
+    userId: typeof data.userId === 'string' ? data.userId : undefined,
+    userEmail: typeof data.userEmail === 'string' ? data.userEmail : undefined,
+    phone: String(data.phone || ''),
+    customerName: String(data.customerName || ''),
+    city: String(data.city || ''),
+    academyClass:
+      data.academyClass === '5' || data.academyClass === '6' || data.academyClass === '7'
+        ? data.academyClass
+        : undefined,
+    address: String(data.address || ''),
+    paymentMethod: 'cod',
+    totalBdt: Number(data.totalBdt) || 0,
+    itemsSummary: String(data.itemsSummary || ''),
+    orderItems: Array.isArray(data.orderItems) ? (data.orderItems as OrderLineItem[]) : undefined,
+    placedAt: String(data.placedAt || 'Just now'),
+    currentStageIndex:
+      typeof data.currentStageIndex === 'number' ? Math.max(0, Math.min(4, data.currentStageIndex)) : 1,
+    isDemoRecord: false,
+  };
+}
+
 class StockValidationError extends Error {
   constructor(message: string) {
     super(message);
@@ -308,160 +438,6 @@ function getCartColorUsedCount(
   }, 0);
 }
 
-function sanitizeColorListForFirestore(
-  colors: Product['colors']
-): Record<string, unknown>[] {
-  return colors.slice(0, 12).map((c, idx) => {
-    const stock =
-      typeof c.stockCount === 'number' && Number.isFinite(c.stockCount)
-        ? Math.max(0, Math.round(c.stockCount))
-        : c.inStock
-        ? 1
-        : 0;
-    const entry: Record<string, unknown> = {
-      id: c.id || `color-${idx + 1}`,
-      name: (c.name || '').trim().slice(0, 60) || `Colour ${idx + 1}`,
-      hex: c.hex || '#FF1428',
-      inStock: Boolean(c.inStock) && stock > 0,
-      stockCount: stock,
-    };
-    if (c.image && c.image.trim()) {
-      entry.image = c.image.trim();
-    }
-    if (Array.isArray(c.inkColors) && c.inkColors.length > 0) {
-      entry.inkColors = normalizeInkColorsList(c.inkColors);
-    }
-    return entry;
-  });
-}
-
-function sanitizeOrderItemsForFirestore(
-  items?: OrderLineItem[]
-): Record<string, unknown>[] | undefined {
-  if (!Array.isArray(items) || items.length === 0) return undefined;
-  const cleaned: Record<string, unknown>[] = [];
-  for (const item of items.slice(0, 30)) {
-    const productId = (item.productId || '').trim().slice(0, 128);
-    const colorId = (item.colorId || '').trim().slice(0, 128);
-    const quantity = Math.max(0, Math.round(Number(item.quantity) || 0));
-    if (!productId || !colorId || quantity <= 0) continue;
-    const entry: Record<string, unknown> = {
-      productId,
-      productName: (item.productName || productId).trim().slice(0, 120),
-      colorId,
-      colorName: (item.colorName || colorId).trim().slice(0, 80),
-      quantity: Math.min(10000, quantity),
-    };
-    const inkId = item.inkColorId?.trim().slice(0, 128);
-    const inkName = item.inkColorName?.trim().slice(0, 60);
-    if (inkId && /^[a-zA-Z0-9_\-]+$/.test(inkId)) {
-      entry.inkColorId = inkId;
-    }
-    if (inkName) {
-      entry.inkColorName = inkName;
-    }
-    cleaned.push(entry);
-  }
-  return cleaned.length > 0 ? cleaned : undefined;
-}
-
-function sanitizeProductForFirestore(product: Product): Record<string, unknown> {
-  const otherItem = isOtherProduct(product);
-
-  const cleanColors = product.colors.slice(0, 12).map((c, idx) => {
-    const resolvedStock =
-      typeof c.stockCount === 'number' && Number.isFinite(c.stockCount)
-        ? Math.max(0, Math.round(c.stockCount))
-        : c.inStock
-        ? Math.max(1, getColorAvailableCount(product, c) || 25)
-        : 0;
-    const entry: Record<string, unknown> = {
-      id: c.id || `color-${idx + 1}`,
-      name: c.name.trim().slice(0, 60) || `Colour ${idx + 1}`,
-      hex: c.hex || '#FF1428',
-      inStock: Boolean(c.inStock),
-      stockCount: resolvedStock,
-    };
-    if (c.image && c.image.trim()) {
-      entry.image = c.image.trim();
-    }
-    if (!otherItem && Array.isArray(c.inkColors) && c.inkColors.length > 0) {
-      entry.inkColors = normalizeInkColorsList(c.inkColors);
-    }
-    return entry;
-  });
-
-  const variantInksFlat = otherItem
-    ? []
-    : product.colors.flatMap((c) => (Array.isArray(c.inkColors) ? c.inkColors : []));
-  const normalizedInks = otherItem
-    ? []
-    : normalizeInkColorsList(
-        [...(product.specs?.inkColors || []), ...variantInksFlat],
-        product.specs?.inkColor,
-        product.specs?.inkColorHex
-      );
-
-  const cleanSpecs: Record<string, unknown> = otherItem
-    ? {
-        tipSize: product.specs?.tipSize || 'Standard',
-        inkType: product.specs?.inkType || 'N/A',
-        bodyMaterial: product.specs?.bodyMaterial || 'Standard',
-        weight: product.specs?.weight || 'Standard',
-        origin: product.specs?.origin || product.brand || 'Arefin Mart',
-      }
-    : {
-        tipSize: product.specs?.tipSize || '0.5 mm Fine Point',
-        inkType: product.specs?.inkType || 'Smooth Writing Ink',
-        inkColor: normalizedInks.map((i) => i.name).join(', '),
-        inkColorHex: normalizedInks[0].hex,
-        inkColors: normalizedInks,
-        bodyMaterial: product.specs?.bodyMaterial || 'Ergonomic Studio Barrel',
-        weight: product.specs?.weight || '12 g',
-        origin: product.specs?.origin || product.brand || 'Arefin Mart',
-      };
-
-  const payload: Record<string, unknown> = {
-    id: product.id,
-    slug: product.slug,
-    name: product.name.trim().slice(0, 120),
-    brand: product.brand.trim().slice(0, 80) || 'Arefin Mart',
-    category: product.category,
-    categoryLabel: product.categoryLabel.trim().slice(0, 80),
-    shortDescription: product.shortDescription.trim().slice(0, 400),
-    description: product.description.trim().slice(0, 2000),
-    priceBdt: Math.max(1, Math.round(product.priceBdt)),
-    rating: Number(product.rating || 4.9),
-    reviewCount: Math.max(0, Math.round(product.reviewCount || 0)),
-    popularityScore: Math.max(0, Math.min(1000, Math.round(product.popularityScore || 95))),
-    featured: Boolean(product.featured),
-    isNew: Boolean(product.isNew),
-    inStock: Boolean(product.inStock),
-    stockCount: Math.max(0, Math.round(product.stockCount || 0)),
-    images: product.images.filter(Boolean).slice(0, 12),
-    colors: cleanColors,
-    specs: cleanSpecs,
-    sampleReviews: Array.isArray(product.sampleReviews) ? product.sampleReviews.slice(0, 20) : [],
-  };
-
-  if (
-    typeof product.orderCount === 'number' &&
-    Number.isFinite(product.orderCount)
-  ) {
-    payload.orderCount = Math.max(0, Math.min(10000000, Math.round(product.orderCount)));
-  }
-
-  if (
-    typeof product.originalPriceBdt === 'number' &&
-    Number.isFinite(product.originalPriceBdt) &&
-    product.originalPriceBdt > product.priceBdt
-  ) {
-    payload.originalPriceBdt = Math.round(product.originalPriceBdt);
-  }
-
-  return payload;
-}
-
 function readStorage<T>(key: string, fallback: T): T {
   try {
     const raw = localStorage.getItem(key);
@@ -477,7 +453,7 @@ function readStorage<T>(key: string, fallback: T): T {
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [route, setRoute] = useState<PageRoute>('home');
-  const [selectedCategory, setSelectedCategory] = useState<CategoryId>('all');
+  const [selectedCategory, setSelectedCategory] = useState<CategoryId>('all-pens');
   const [selectedProductSlug, setSelectedProductSlug] = useState<string>(PRODUCTS[0]?.slug ?? '');
   const [infoTopic, setInfoTopic] = useState<InfoTopic>('shipping');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -488,9 +464,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     ...DEFAULT_PREFS,
     ...readStorage<Partial<StorePreferences>>(STORAGE_KEYS.prefs, DEFAULT_PREFS),
   }));
-  const [savedPhonesByUid, setSavedPhonesByUid] = useState<Record<string, string>>(() =>
-    readStorage('arefin_pen_user_phones_v1', {})
-  );
   const [liveCatalog, setLiveCatalog] = useState<{ updatedAt: string; products: Product[] } | null>(
     null
   );
@@ -506,20 +479,26 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [deletedProductIds, setDeletedProductIds] = useState<string[]>(() =>
     readStorage(STORAGE_KEYS.deletedProducts, [])
   );
+  const [localOrders, setLocalOrders] = useState<(TrackedOrder & { serialNumber?: number })[]>(() =>
+    readStorage(STORAGE_KEYS.orders, [])
+  );
+  const [savedPhonesByUid, setSavedPhonesByUid] = useState<Record<string, string>>(() =>
+    readStorage(STORAGE_KEYS.userPhones, {})
+  );
 
-  // Firebase Auth & Real-Time Firestore State
+  // Firebase Auth & Firestore state
   const [firebaseUser, setFirebaseUser] = useState<User | null>(null);
-  const [authLoading, setAuthLoading] = useState(true);
-  const [cloudAdminAllowed, setCloudAdminAllowed] = useState(false);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [cloudAdminAllowed, setCloudAdminAllowed] = useState<boolean>(false);
+
   const [cloudProducts, setCloudProducts] = useState<Product[] | null>(null);
-  const [catalogSeeded, setCatalogSeeded] = useState(false);
-  const [cloudOrders, setCloudOrders] = useState<(TrackedOrder & { serialNumber?: number })[]>([]);
-  const [cloudAdminOrders, setCloudAdminOrders] = useState<
-    (TrackedOrder & { serialNumber?: number })[]
-  >([]);
-  const [adminOrdersLoaded, setAdminOrdersLoaded] = useState(false);
+  const [catalogSeeded, setCatalogSeeded] = useState<boolean>(false);
   const [cloudLastOrderNumber, setCloudLastOrderNumber] = useState<number>(0);
-  const autoSeedingRef = useRef(false);
+  const [cloudOrders, setCloudOrders] = useState<TrackedOrder[]>([]);
+  const [cloudAdminOrders, setCloudAdminOrders] = useState<TrackedOrder[]>([]);
+  const [adminOrdersLoaded, setAdminOrdersLoaded] = useState<boolean>(false);
+
+  const autoSeedingRef = useRef<boolean>(false);
   const backfilledOrderCountIdsRef = useRef<Set<string>>(new Set());
 
   const [isLocalAdmin, setIsLocalAdmin] = useState<boolean>(() => {
@@ -531,24 +510,23 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     return typeof stored === 'object' && stored !== null ? Boolean(stored.verified) : false;
   });
 
-  const isCustomerSignedIn = Boolean(firebaseUser && firebaseUser.emailVerified);
   const isFirebaseAdmin = Boolean(
     firebaseUser &&
       firebaseUser.emailVerified &&
       (isAuthorizedAdminEmail(firebaseUser.email) || cloudAdminAllowed)
   );
   const isAdmin = isLocalAdmin || isFirebaseAdmin;
+  const isCustomerSignedIn = Boolean(firebaseUser && firebaseUser.emailVerified);
 
   const demoUser: DemoUser | null = useMemo(() => {
-    if (!firebaseUser || !firebaseUser.emailVerified) return null;
-    const email = firebaseUser.email || '';
+    if (!isCustomerSignedIn || !firebaseUser) return null;
     return {
       uid: firebaseUser.uid,
-      name: firebaseUser.displayName || email.split('@')[0] || 'Customer',
-      email,
+      name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Customer',
+      email: firebaseUser.email || '',
       phone: savedPhonesByUid[firebaseUser.uid] || '',
     };
-  }, [firebaseUser, savedPhonesByUid]);
+  }, [isCustomerSignedIn, firebaseUser, savedPhonesByUid]);
 
   const [isCartDrawerOpen, setIsCartDrawerOpen] = useState(false);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -556,41 +534,38 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
 
-  // Listen to Firebase Auth state
+  // Firebase Auth listener + /admins/{uid} role verification
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, async (user) => {
       setFirebaseUser(user);
       if (user && user.emailVerified) {
         if (isAuthorizedAdminEmail(user.email)) {
           setCloudAdminAllowed(true);
-          setAuthLoading(false);
-          return;
-        }
-        try {
-          const adminDoc = await getDoc(doc(db, 'admins', user.uid));
-          setCloudAdminAllowed(adminDoc.exists());
-        } catch {
-          setCloudAdminAllowed(false);
-        } finally {
-          setAuthLoading(false);
+        } else {
+          try {
+            const adminSnap = await getDoc(doc(db, 'admins', user.uid));
+            setCloudAdminAllowed(adminSnap.exists());
+          } catch {
+            setCloudAdminAllowed(false);
+          }
         }
       } else {
         setCloudAdminAllowed(false);
-        setAuthLoading(false);
       }
+      setAuthLoading(false);
     });
     return () => unsub();
   }, []);
 
-  // Subscribe to live Firestore products & store metadata for ALL devices
+  // Subscribe to public Firestore meta & products catalog
   useEffect(() => {
     const unsubMeta = onSnapshot(
       doc(db, 'meta', 'catalogMeta'),
       (snap) => {
         setCatalogSeeded(Boolean(snap.data()?.seeded));
       },
-      (error) => {
-        console.warn('Catalog meta listener warning:', error.message);
+      () => {
+        // Ignore meta listener errors cleanly
       }
     );
 
@@ -602,8 +577,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           setCloudLastOrderNumber(val);
         }
       },
-      (error) => {
-        console.warn('Order counter listener warning:', error.message);
+      () => {
+        // Ignore offline/counter read issues cleanly
       }
     );
 
@@ -636,7 +611,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         try {
           handleFirestoreError(error, OperationType.GET, 'products');
         } catch {
-          // Handled safely without leaking credentials
+          // Handled safely; falls back to bundled catalog
         }
       }
     );
@@ -648,77 +623,79 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     };
   }, []);
 
-  // Subscribe to live Firestore orders for the signed-in user ONLY (matched by uid or sign-in email)
+  // Subscribe to signed-in customer's own private orders (by uid and email)
   useEffect(() => {
     if (!firebaseUser || !firebaseUser.emailVerified) {
       setCloudOrders([]);
       return;
     }
 
-    let uidOrders: (TrackedOrder & { serialNumber?: number })[] = [];
-    let emailOrders: (TrackedOrder & { serialNumber?: number })[] = [];
+    const uidMap = new Map<string, TrackedOrder>();
+    const emailMap = new Map<string, TrackedOrder>();
 
-    const syncMergedOrders = () => {
-      const mergedMap = new Map<string, TrackedOrder & { serialNumber?: number }>();
-      for (const ord of [...uidOrders, ...emailOrders]) {
-        if (ord.orderId) {
-          mergedMap.set(ord.orderId, ord);
-        }
-      }
-      const merged = Array.from(mergedMap.values());
-      merged.sort((a, b) => (b.serialNumber || 0) - (a.serialNumber || 0));
-      setCloudOrders(merged);
+    const syncCombinedOrders = () => {
+      const merged = new Map<string, TrackedOrder>();
+      for (const ord of uidMap.values()) merged.set(ord.orderId, ord);
+      for (const ord of emailMap.values()) merged.set(ord.orderId, ord);
+      const list = Array.from(merged.values());
+      list.sort(
+        (a, b) =>
+          (b.serialNumber || parseSerialNumber(b.orderId)) -
+          (a.serialNumber || parseSerialNumber(a.orderId))
+      );
+      setCloudOrders(list);
     };
 
-    const uidQuery = query(collection(db, 'orders'), where('userId', '==', firebaseUser.uid));
-    const unsubUidOrders = onSnapshot(
-      uidQuery,
-      (snapshot) => {
-        uidOrders = snapshot.docs.map((d) => {
-          const data = d.data() as TrackedOrder & { serialNumber?: number };
-          return {
-            ...data,
-            orderId: data.orderId,
-          };
+    const unsubByUid = onSnapshot(
+      query(collection(db, 'orders'), where('userId', '==', firebaseUser.uid)),
+      (snap) => {
+        uidMap.clear();
+        snap.docs.forEach((d) => {
+          const ord = normalizeTrackedOrderFromFirestore(
+            d.data() as Record<string, unknown>,
+            d.id
+          );
+          uidMap.set(ord.orderId, ord);
         });
-        syncMergedOrders();
+        syncCombinedOrders();
       },
       (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'orders');
+        try {
+          handleFirestoreError(error, OperationType.LIST, 'orders');
+        } catch {
+          // Handled safely
+        }
       }
     );
 
-    let unsubEmailOrders: (() => void) | null = null;
+    let unsubByEmail: (() => void) | undefined;
     if (firebaseUser.email) {
-      const emailQuery = query(
-        collection(db, 'orders'),
-        where('userEmail', '==', firebaseUser.email)
-      );
-      unsubEmailOrders = onSnapshot(
-        emailQuery,
-        (snapshot) => {
-          emailOrders = snapshot.docs.map((d) => {
-            const data = d.data() as TrackedOrder & { serialNumber?: number };
-            return {
-              ...data,
-              orderId: data.orderId,
-            };
+      unsubByEmail = onSnapshot(
+        query(collection(db, 'orders'), where('userEmail', '==', firebaseUser.email)),
+        (snap) => {
+          emailMap.clear();
+          snap.docs.forEach((d) => {
+            const ord = normalizeTrackedOrderFromFirestore(
+              d.data() as Record<string, unknown>,
+              d.id
+            );
+            emailMap.set(ord.orderId, ord);
           });
-          syncMergedOrders();
+          syncCombinedOrders();
         },
-        (error) => {
-          handleFirestoreError(error, OperationType.LIST, 'orders');
+        () => {
+          // Email fallback listener error ignored silently if uid listener works
         }
       );
     }
 
     return () => {
-      unsubUidOrders();
-      if (unsubEmailOrders) unsubEmailOrders();
+      unsubByUid();
+      if (unsubByEmail) unsubByEmail();
     };
-  }, [firebaseUser]);
+  }, [firebaseUser?.uid, firebaseUser?.email, firebaseUser?.emailVerified]);
 
-  // Subscribe to ALL customer orders exclusively for verified Admins inside the Admin Panel
+  // Subscribe to all orders when signed in as verified Firebase Admin
   useEffect(() => {
     if (!isFirebaseAdmin) {
       setCloudAdminOrders([]);
@@ -726,18 +703,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return;
     }
 
-    const adminQuery = query(collection(db, 'orders'), orderBy('serialNumber', 'desc'));
-    const unsubAdminOrders = onSnapshot(
-      adminQuery,
-      (snapshot) => {
-        const list = snapshot.docs.map((d) => {
-          const data = d.data() as TrackedOrder & { serialNumber?: number };
-          return {
-            ...data,
-            orderId: data.orderId,
-          };
-        });
-        list.sort((a, b) => (b.serialNumber || 0) - (a.serialNumber || 0));
+    const q = query(collection(db, 'orders'), orderBy('serialNumber', 'desc'));
+    const unsub = onSnapshot(
+      q,
+      (snap) => {
+        const list = snap.docs.map((d) =>
+          normalizeTrackedOrderFromFirestore(d.data() as Record<string, unknown>, d.id)
+        );
+        list.sort(
+          (a, b) =>
+            (b.serialNumber || parseSerialNumber(b.orderId)) -
+            (a.serialNumber || parseSerialNumber(a.orderId))
+        );
         setCloudAdminOrders(list);
         setAdminOrdersLoaded(true);
       },
@@ -745,111 +722,13 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         try {
           handleFirestoreError(error, OperationType.LIST, 'orders');
         } catch {
-          // Handled safely without leaking credentials
+          // Handled cleanly
         }
       }
     );
 
-    return () => unsubAdminOrders();
+    return () => unsub();
   }, [isFirebaseAdmin]);
-
-  // Auto-seed initial catalogue (Neucose B) to Firestore the first time Firebase Admin connects
-  useEffect(() => {
-    if (
-      !isFirebaseAdmin ||
-      cloudProducts === null ||
-      catalogSeeded ||
-      cloudProducts.length > 0 ||
-      autoSeedingRef.current
-    ) {
-      return;
-    }
-    autoSeedingRef.current = true;
-
-    const seedInitialCatalog = async () => {
-      try {
-        const seedSource = liveCatalog?.products?.length ? liveCatalog.products : PRODUCTS;
-        for (const item of seedSource) {
-          const payload = {
-            ...sanitizeProductForFirestore(item),
-            createdAt: serverTimestamp(),
-            updatedAt: serverTimestamp(),
-          };
-          await setDoc(doc(db, 'products', item.id), payload);
-        }
-        await setDoc(doc(db, 'meta', 'catalogMeta'), {
-          seeded: true,
-          updatedAt: serverTimestamp(),
-        });
-      } catch (err) {
-        console.error('Initial catalog seed error:', err);
-      } finally {
-        autoSeedingRef.current = false;
-      }
-    };
-
-    void seedInitialCatalog();
-  }, [isFirebaseAdmin, cloudProducts, catalogSeeded, liveCatalog]);
-
-  // Backfill historical orderCount onto products that do not yet have an orderCount field
-  useEffect(() => {
-    if (
-      !isFirebaseAdmin ||
-      !adminOrdersLoaded ||
-      !cloudProducts ||
-      cloudProducts.length === 0
-    ) {
-      return;
-    }
-
-    const pendingProducts = cloudProducts.filter(
-      (p) => typeof p.orderCount !== 'number' && !backfilledOrderCountIdsRef.current.has(p.id)
-    );
-    if (pendingProducts.length === 0) return;
-
-    const orderedCountsByProductId = new Map<string, number>();
-    for (const ord of cloudAdminOrders) {
-      if (Array.isArray(ord.orderItems) && ord.orderItems.length > 0) {
-        for (const item of ord.orderItems) {
-          const qty = Math.max(0, Math.round(Number(item.quantity) || 0));
-          if (item.productId && qty > 0) {
-            orderedCountsByProductId.set(
-              item.productId,
-              (orderedCountsByProductId.get(item.productId) || 0) + qty
-            );
-          }
-        }
-      } else if (ord.itemsSummary) {
-        const parsed = parseOrderSummaryItems(ord.itemsSummary, cloudProducts);
-        for (const item of parsed) {
-          const qty = Math.max(0, Math.round(Number.parseInt(item.quantity, 10) || 0));
-          if (item.productId && qty > 0) {
-            orderedCountsByProductId.set(
-              item.productId,
-              (orderedCountsByProductId.get(item.productId) || 0) + qty
-            );
-          }
-        }
-      }
-    }
-
-    const backfill = async () => {
-      for (const prod of pendingProducts) {
-        backfilledOrderCountIdsRef.current.add(prod.id);
-        const count = orderedCountsByProductId.get(prod.id) || 0;
-        try {
-          await updateDoc(doc(db, 'products', prod.id), {
-            orderCount: count,
-            updatedAt: serverTimestamp(),
-          });
-        } catch (err) {
-          console.warn(`Order count backfill skipped for ${prod.id}:`, err);
-        }
-      }
-    };
-
-    void backfill();
-  }, [isFirebaseAdmin, adminOrdersLoaded, cloudProducts, cloudAdminOrders]);
 
   // Apply theme, accent colour, reduced motion, and text size to <html>
   useEffect(() => {
@@ -888,7 +767,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
   useEffect(() => {
     try {
-      localStorage.setItem('arefin_pen_user_phones_v1', JSON.stringify(savedPhonesByUid));
+      localStorage.setItem(STORAGE_KEYS.orders, JSON.stringify(localOrders));
+    } catch {
+      // ignore
+    }
+  }, [localOrders]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.userPhones, JSON.stringify(savedPhonesByUid));
     } catch {
       // ignore
     }
@@ -930,7 +817,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   }, [catalogDraftAt]);
 
-  // Fetch fallback /data/products.json (only used if Firestore catalog has not been seeded yet)
+  // Fetch fallback /data/products.json (used when cloud catalog is not yet populated)
   useEffect(() => {
     let active = true;
     const loadLiveCatalog = async () => {
@@ -978,7 +865,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       if (base === 'shop') {
         const params = new URLSearchParams(queryPart || '');
         const cat = params.get('category') as CategoryId | null;
-        if (cat) setSelectedCategory(cat);
+        setSelectedCategory(cat || 'all-pens');
         setRoute('shop');
       } else if (base === 'product' && segments[1]) {
         setSelectedProductSlug(segments[1]);
@@ -1326,16 +1213,16 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     [cart]
   );
 
-  // Use live Firestore products across all devices once seeded or populated
-  const isCloudCatalogActive = Boolean(
-    cloudProducts !== null && (cloudProducts.length > 0 || catalogSeeded)
-  );
+  // Guard against an empty Firestore collection when catalogMeta.seeded is true
+  // so storefront products never disappear.
+  const isCloudCatalogActive = Boolean(cloudProducts !== null && cloudProducts.length > 0);
 
   const products = useMemo(() => {
     if (isCloudCatalogActive && cloudProducts !== null) {
       return cloudProducts;
     }
-    const baseProducts = liveCatalog?.products ?? PRODUCTS;
+
+    const baseProducts = liveCatalog?.products?.length ? liveCatalog.products : PRODUCTS;
     const deletedSet = new Set(deletedProductIds);
     const seen = new Set<string>();
     const merged: Product[] = [];
@@ -1361,6 +1248,112 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       catalogDraftAt &&
       (!liveCatalog?.updatedAt || catalogDraftAt > liveCatalog.updatedAt)
   );
+
+  const ensureCatalogSeeded = async (): Promise<boolean> => {
+    if (!isFirebaseAdmin) return false;
+    if (catalogSeeded && cloudProducts !== null && cloudProducts.length > 0) {
+      return true;
+    }
+
+    const existingIds = new Set((cloudProducts || []).map((p) => p.id));
+    const seedSource = liveCatalog?.products?.length ? liveCatalog.products : PRODUCTS;
+    const deletedSet = new Set(deletedProductIds);
+
+    for (const item of [...customProducts, ...seedSource]) {
+      if (deletedSet.has(item.id) || existingIds.has(item.id)) continue;
+      const mergedItem = productOverrides[item.id] || item;
+      try {
+        await setDoc(
+          doc(db, 'products', mergedItem.id),
+          serializeProductForFirestore(mergedItem, true)
+        );
+        existingIds.add(mergedItem.id);
+      } catch (err) {
+        handleFirestoreError(err, OperationType.WRITE, `products/${mergedItem.id}`);
+      }
+    }
+
+    try {
+      await setDoc(
+        doc(db, 'meta', 'catalogMeta'),
+        { seeded: true, updatedAt: serverTimestamp() },
+        { merge: true }
+      );
+      setCatalogSeeded(true);
+      setCatalogDraftAt(null);
+      return true;
+    } catch (err) {
+      handleFirestoreError(err, OperationType.WRITE, 'meta/catalogMeta');
+    }
+  };
+
+  // Auto-seed starter catalog into Firestore when Firebase Admin connects to an empty products collection
+  useEffect(() => {
+    if (!isFirebaseAdmin) return;
+    if (autoSeedingRef.current) return;
+    if (cloudProducts === null || cloudProducts.length > 0) return;
+
+    autoSeedingRef.current = true;
+    void (async () => {
+      try {
+        await ensureCatalogSeeded();
+      } catch {
+        // Admin UI displays sync banner if permissions fail
+      } finally {
+        autoSeedingRef.current = false;
+      }
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFirebaseAdmin, cloudProducts]);
+
+  // One-time historical orderCount backfill for cloud products missing orderCount
+  useEffect(() => {
+    if (!isFirebaseAdmin || !adminOrdersLoaded || !cloudProducts || cloudProducts.length === 0) {
+      return;
+    }
+
+    const missingOrderCountProducts = cloudProducts.filter(
+      (p) => p.orderCount === undefined && !backfilledOrderCountIdsRef.current.has(p.id)
+    );
+    if (missingOrderCountProducts.length === 0) return;
+
+    const unitTotalsByProduct = new Map<string, number>();
+    for (const ord of cloudAdminOrders) {
+      if (Array.isArray(ord.orderItems) && ord.orderItems.length > 0) {
+        for (const item of ord.orderItems) {
+          const qty = Math.max(0, Math.round(Number(item.quantity) || 0));
+          if (item.productId && qty > 0) {
+            unitTotalsByProduct.set(
+              item.productId,
+              (unitTotalsByProduct.get(item.productId) || 0) + qty
+            );
+          }
+        }
+      } else if (ord.itemsSummary) {
+        const parsed = parseOrderSummaryItems(ord.itemsSummary, cloudProducts);
+        for (const item of parsed) {
+          const qty = Math.max(0, Math.round(Number.parseInt(item.quantity, 10) || 0));
+          if (item.productId && qty > 0) {
+            unitTotalsByProduct.set(
+              item.productId,
+              (unitTotalsByProduct.get(item.productId) || 0) + qty
+            );
+          }
+        }
+      }
+    }
+
+    for (const prod of missingOrderCountProducts) {
+      backfilledOrderCountIdsRef.current.add(prod.id);
+      const count = unitTotalsByProduct.get(prod.id) || 0;
+      void updateDoc(doc(db, 'products', prod.id), {
+        orderCount: count,
+        updatedAt: serverTimestamp(),
+      }).catch(() => {
+        // Ignore transient write failures cleanly
+      });
+    }
+  }, [isFirebaseAdmin, adminOrdersLoaded, cloudProducts, cloudAdminOrders]);
 
   const exportLiveProductsJson = () => {
     return JSON.stringify(
@@ -1397,7 +1390,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       setProductOverrides({});
       setDeletedProductIds([]);
       setCatalogDraftAt(null);
-      showToast('Synced with live Netlify catalogue');
+      showToast('Synced with live catalogue');
     } catch {
       showToast('Could not connect to live catalogue');
     }
@@ -1434,139 +1427,117 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     setPreferences((prev) => ({ ...prev, ...patch }));
   };
 
-  const loginDemoUser = (user: DemoUser) => {
-    if (firebaseUser?.uid && user.phone.trim()) {
-      setSavedPhonesByUid((prev) => ({ ...prev, [firebaseUser.uid]: user.phone.trim() }));
-    }
-    setIsAuthModalOpen(false);
-    showToast(`Signed in as ${user.name}`);
-  };
-
-  const loginCustomerWithGoogle = async (phone?: string) => {
-    try {
-      const cred = await signInWithPopup(auth, googleProvider);
-      if (!cred.user.emailVerified) {
-        await signOut(auth);
-        return {
-          ok: false,
-          error: 'Please use a verified Google account to place and track orders.',
-        };
-      }
-      if (phone && phone.trim()) {
-        setSavedPhonesByUid((prev) => ({ ...prev, [cred.user.uid]: phone.trim() }));
-      }
-      setIsAuthModalOpen(false);
-      showToast(`Signed in as ${cred.user.displayName || cred.user.email || 'Customer'}`);
-      return { ok: true };
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (msg.includes('auth/unauthorized-domain')) {
-        return {
-          ok: false,
-          error:
-            'Add this site domain in Firebase Console → Authentication → Settings → Authorized domains.',
-        };
-      }
-      if (msg.includes('auth/popup-closed-by-user')) {
-        return { ok: false, error: 'Google sign-in window was closed.' };
-      }
-      return { ok: false, error: 'Could not sign in with Google. Please try again.' };
-    }
-  };
-
-  const logoutDemoUser = async () => {
-    if (auth.currentUser) {
-      await signOut(auth).catch(() => {});
-    }
-    setCloudOrders([]);
-    setCloudAdminOrders([]);
-    showToast('Signed out');
-  };
-
+  // Customer orders are strictly isolated to the signed-in Google account
   const orders = useMemo(() => {
     if (!isCustomerSignedIn) return [];
     return cloudOrders;
   }, [isCustomerSignedIn, cloudOrders]);
 
+  // Admin orders come from live Firestore when Google Admin Sync is connected
   const adminOrders = useMemo(() => {
     if (!isFirebaseAdmin) return [];
     return cloudAdminOrders;
   }, [isFirebaseAdmin, cloudAdminOrders]);
 
   const nextOrderId = useMemo(() => {
-    return `#${Math.max(0, cloudLastOrderNumber) + 1}`;
-  }, [cloudLastOrderNumber]);
+    const maxCloudOrderSerial = Math.max(
+      cloudLastOrderNumber,
+      cloudOrders.reduce((m, o) => Math.max(m, o.serialNumber || parseSerialNumber(o.orderId)), 0),
+      cloudAdminOrders.reduce(
+        (m, o) => Math.max(m, o.serialNumber || parseSerialNumber(o.orderId)),
+        0
+      )
+    );
+    return `#${Math.max(0, maxCloudOrderSerial) + 1}`;
+  }, [cloudLastOrderNumber, cloudOrders, cloudAdminOrders]);
+
+  const persistLocalProductFallback = (updatedProduct: Product) => {
+    const isCustom = customProducts.some((p) => p.id === updatedProduct.id);
+    if (isCustom) {
+      setCustomProducts((prev) =>
+        prev.map((p) => (p.id === updatedProduct.id ? updatedProduct : p))
+      );
+    }
+    setProductOverrides((prev) => ({
+      ...prev,
+      [updatedProduct.id]: updatedProduct,
+    }));
+  };
 
   const createOrder = async (order: TrackedOrder): Promise<TrackedOrder> => {
     if (!firebaseUser || !firebaseUser.emailVerified || !firebaseUser.email) {
-      throw new Error('Please sign in or create your account first before placing an order.');
+      throw new Error('Please sign in with a verified Google account to place your order.');
     }
 
-    const verifiedUid = firebaseUser.uid;
-    const verifiedEmail = firebaseUser.email;
+    const cleanPhone = order.phone.trim();
+    const phoneDigits = cleanPhone.replace(/\D/g, '');
+    const phoneSuffix = (phoneDigits.slice(-8) || cleanPhone.slice(-8)).slice(0, 10);
 
-    if (order.phone.trim()) {
-      setSavedPhonesByUid((prev) => ({ ...prev, [verifiedUid]: order.phone.trim() }));
+    const groupedDeductions = new Map<
+      string,
+      Map<string, { colorName: string; productName: string; qty: number }>
+    >();
+    if (Array.isArray(order.orderItems)) {
+      for (const item of order.orderItems) {
+        const qty = Math.max(0, Math.round(Number(item.quantity) || 0));
+        if (!item.productId || !item.colorId || qty <= 0) continue;
+        let colorMap = groupedDeductions.get(item.productId);
+        if (!colorMap) {
+          colorMap = new Map();
+          groupedDeductions.set(item.productId, colorMap);
+        }
+        const existingEntry = colorMap.get(item.colorId);
+        colorMap.set(item.colorId, {
+          colorName: item.colorName || existingEntry?.colorName || item.colorId,
+          productName: item.productName || existingEntry?.productName || item.productId,
+          qty: (existingEntry?.qty || 0) + qty,
+        });
+      }
     }
+
+    const placedAt = new Date().toLocaleString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+    });
 
     try {
-      const counterRef = doc(db, 'meta', 'orderCounter');
-      const sanitizedOrderItems = sanitizeOrderItemsForFirestore(order.orderItems);
+      const savedOrder = await runTransaction(db, async (tx) => {
+        const counterRef = doc(db, 'meta', 'orderCounter');
+        const counterSnap = await tx.get(counterRef);
 
-      // Group requested quantities per (productId, colorId) across ink combos
-      const groupedDeductions = new Map<
-        string,
-        Map<string, { colorName: string; productName: string; qty: number }>
-      >();
-      if (Array.isArray(order.orderItems)) {
-        for (const item of order.orderItems) {
-          const qty = Math.max(0, Math.round(Number(item.quantity) || 0));
-          if (!item.productId || !item.colorId || qty <= 0) continue;
-          let colorMap = groupedDeductions.get(item.productId);
-          if (!colorMap) {
-            colorMap = new Map();
-            groupedDeductions.set(item.productId, colorMap);
-          }
-          const existingEntry = colorMap.get(item.colorId);
-          colorMap.set(item.colorId, {
-            colorName: item.colorName || existingEntry?.colorName || item.colorId,
-            productName: item.productName || existingEntry?.productName || item.productId,
-            qty: (existingEntry?.qty || 0) + qty,
-          });
-        }
-      }
-
-      const assigned = await runTransaction(db, async (transaction) => {
-        // 1. ALL READS FIRST: order counter + every ordered product document
-        const counterSnap = await transaction.get(counterRef);
-        const productIds = Array.from(groupedDeductions.keys());
-        const productRefs = productIds.map((pid) => doc(db, 'products', pid));
-        const productSnaps = await Promise.all(
-          productRefs.map((ref) => transaction.get(ref))
-        );
-
-        // 2. VALIDATE STOCK & PREPARE PRODUCT UPDATES
-        const productUpdates: {
-          ref: ReturnType<typeof doc>;
-          colors: Record<string, unknown>[];
-          stockCount: number;
-          inStock: boolean;
-          orderCount: number;
+        const productReads: {
+          pid: string;
+          prodRef: ReturnType<typeof doc>;
+          prodData: Product | null;
+          colorMap: Map<string, { colorName: string; productName: string; qty: number }>;
         }[] = [];
 
-        productIds.forEach((pid, idx) => {
-          const prodSnap = productSnaps[idx];
-          const colorMap = groupedDeductions.get(pid);
-          if (!colorMap || !prodSnap.exists()) return;
+        for (const [pid, colorMap] of groupedDeductions.entries()) {
+          const prodRef = doc(db, 'products', pid);
+          const prodSnap = await tx.get(prodRef);
+          productReads.push({
+            pid,
+            prodRef,
+            prodData: prodSnap.exists() ? (prodSnap.data() as Product) : null,
+            colorMap,
+          });
+        }
 
-          const prodData = prodSnap.data() as Product;
-          const colors = Array.isArray(prodData.colors) ? prodData.colors : [];
+        const productUpdates: {
+          prodRef: ReturnType<typeof doc>;
+          patch: Record<string, unknown>;
+        }[] = [];
+
+        for (const { prodRef, prodData, colorMap } of productReads) {
+          if (!prodData) continue;
 
           if (!prodData.inStock) {
             throw new StockValidationError(`${prodData.name} is currently out of stock.`);
           }
 
-          // Track remaining count per colour index so multiple requested colours update cleanly
+          const colors = Array.isArray(prodData.colors) ? prodData.colors : [];
           const normalizedCounts = colors.map((c) => getColorAvailableCount(prodData, c));
           const updatedColors = colors.map((c, cIdx) => ({
             ...c,
@@ -1577,6 +1548,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               : 0,
           }));
 
+          let totalUnitsDeducted = 0;
           for (const [colorId, req] of colorMap.entries()) {
             let targetIdx = updatedColors.findIndex((c) => c.id === colorId);
             if (targetIdx === -1) {
@@ -1608,167 +1580,175 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               stockCount: nextCount,
               inStock: nextCount > 0,
             };
+            totalUnitsDeducted += req.qty;
           }
 
-          const nextTotalStock = updatedColors.reduce(
+          if (totalUnitsDeducted <= 0) continue;
+
+          const existingStockCount =
+            typeof prodData.stockCount === 'number' && Number.isFinite(prodData.stockCount)
+              ? Math.max(0, Math.round(prodData.stockCount))
+              : normalizedCounts.reduce((s, n) => s + n, 0);
+          const colorSumAfter = updatedColors.reduce(
             (sum, c) => sum + (c.inStock && (c.stockCount || 0) > 0 ? c.stockCount || 0 : 0),
             0
           );
+          const nextTotalStock = Math.min(
+            colorSumAfter,
+            Math.max(0, existingStockCount - totalUnitsDeducted)
+          );
           const nextProductInStock =
-            updatedColors.some((c) => c.inStock && (c.stockCount || 0) > 0) && nextTotalStock > 0;
-          const prevStockCount =
-            typeof prodData.stockCount === 'number' && Number.isFinite(prodData.stockCount)
-              ? Math.max(0, Math.round(prodData.stockCount))
-              : nextTotalStock;
-          const stockDelta = Math.max(0, prevStockCount - nextTotalStock);
+            nextTotalStock > 0 && updatedColors.some((c) => c.inStock && (c.stockCount || 0) > 0);
+          const stockDelta = Math.max(0, existingStockCount - nextTotalStock);
           const prevOrderCount =
             typeof prodData.orderCount === 'number' && Number.isFinite(prodData.orderCount)
               ? Math.max(0, Math.round(prodData.orderCount))
               : 0;
 
           productUpdates.push({
-            ref: productRefs[idx],
-            colors: sanitizeColorListForFirestore(updatedColors),
-            stockCount: nextTotalStock,
-            inStock: nextProductInStock,
-            orderCount: prevOrderCount + stockDelta,
+            prodRef,
+            patch: {
+              inStock: nextProductInStock,
+              stockCount: nextTotalStock,
+              colors: sanitizeColorsForFirestore(prodData, updatedColors),
+              orderCount: prevOrderCount + stockDelta,
+              updatedAt: serverTimestamp(),
+            },
           });
-        });
+        }
 
-        // 3. ALL WRITES: increment counter, deduct stock on products, save order
-        const currentNum = counterSnap.exists()
-          ? Number(counterSnap.data()?.lastOrderNumber || 0)
+        const currentCounter = counterSnap.exists()
+          ? Math.max(0, Math.round(Number(counterSnap.data()?.lastOrderNumber) || 0))
           : 0;
-        const nextNum = currentNum + 1;
-        const nextOrderIdStr = `#${nextNum}`;
-        const docId = `order-${nextNum}`;
-        const phoneSuffix = getPhoneSuffix(order.phone);
+        const nextNum = currentCounter + 1;
 
         if (counterSnap.exists()) {
-          transaction.update(counterRef, {
+          tx.update(counterRef, {
             lastOrderNumber: nextNum,
             updatedAt: serverTimestamp(),
           });
         } else {
-          transaction.set(counterRef, {
-            lastOrderNumber: nextNum,
+          tx.set(counterRef, {
+            lastOrderNumber: 1,
             updatedAt: serverTimestamp(),
           });
         }
 
         for (const upd of productUpdates) {
-          transaction.update(upd.ref, {
-            colors: upd.colors,
-            stockCount: upd.stockCount,
-            inStock: upd.inStock,
-            orderCount: upd.orderCount,
-            updatedAt: serverTimestamp(),
-          });
+          tx.update(upd.prodRef, upd.patch);
         }
 
-        const orderPayload: Record<string, unknown> = {
-          orderId: nextOrderIdStr,
+        const cleanedOrderItems = Array.isArray(order.orderItems)
+          ? order.orderItems.slice(0, 30).map((item) => {
+              const cleaned: Record<string, unknown> = {
+                productId: item.productId,
+                productName: item.productName,
+                colorId: item.colorId,
+                colorName: item.colorName,
+                quantity: Math.max(1, Math.round(Number(item.quantity) || 1)),
+              };
+              if (item.inkColorId) cleaned.inkColorId = item.inkColorId;
+              if (item.inkColorName) cleaned.inkColorName = item.inkColorName;
+              return cleaned;
+            })
+          : undefined;
+
+        const orderDocPayload: Record<string, unknown> = {
+          orderId: `#${nextNum}`,
           serialNumber: nextNum,
-          userId: verifiedUid,
-          userEmail: verifiedEmail.slice(0, 200),
-          phone: order.phone.trim().slice(0, 20),
+          userId: firebaseUser.uid,
+          userEmail: firebaseUser.email,
+          phone: cleanPhone,
           phoneSuffix,
           customerName: order.customerName.trim().slice(0, 100),
           city: order.city.trim().slice(0, 80),
           address: order.address.trim().slice(0, 400),
           paymentMethod: 'cod',
-          totalBdt: Math.max(0, Math.round(order.totalBdt)),
+          totalBdt: Math.max(0, Number(order.totalBdt) || 0),
           itemsSummary: order.itemsSummary.trim().slice(0, 1000),
-          placedAt: new Date().toLocaleString('en-US', {
-            month: 'short',
-            day: 'numeric',
-            hour: 'numeric',
-            minute: '2-digit',
-          }),
+          placedAt,
           currentStageIndex: 1,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         };
 
-        if (sanitizedOrderItems) {
-          orderPayload.orderItems = sanitizedOrderItems;
+        if (
+          order.city === 'Al Amanah Academy' &&
+          (order.academyClass === '5' || order.academyClass === '6' || order.academyClass === '7')
+        ) {
+          orderDocPayload.academyClass = order.academyClass;
         }
-        if (order.city === 'Al Amanah Academy' && order.academyClass) {
-          orderPayload.academyClass = order.academyClass;
+        if (cleanedOrderItems && cleanedOrderItems.length > 0) {
+          orderDocPayload.orderItems = cleanedOrderItems;
         }
 
-        transaction.set(doc(db, 'orders', docId), orderPayload);
+        const orderDocRef = doc(db, 'orders', `order-${nextNum}`);
+        tx.set(orderDocRef, orderDocPayload);
 
-        return { nextNum, orderPayload };
+        return {
+          ...order,
+          orderId: `#${nextNum}`,
+          serialNumber: nextNum,
+          userId: firebaseUser.uid,
+          userEmail: firebaseUser.email || undefined,
+          phone: cleanPhone,
+          placedAt,
+          currentStageIndex: 1,
+          isDemoRecord: false,
+        };
       });
 
-      const finalOrder: TrackedOrder = {
-        ...order,
-        orderId: String(assigned.orderPayload.orderId),
-        serialNumber: assigned.nextNum,
-        userId: verifiedUid,
-        userEmail: verifiedEmail,
-        placedAt: String(assigned.orderPayload.placedAt),
-        currentStageIndex: 1,
-        isDemoRecord: false,
-      };
-      return finalOrder;
+      return savedOrder;
     } catch (err) {
       if (err instanceof StockValidationError) {
         throw err;
       }
-      handleFirestoreError(err, OperationType.CREATE, `orders/${order.orderId}`);
+      handleFirestoreError(err, OperationType.WRITE, 'orders');
     }
   };
 
   const updateOrderStage = async (orderId: string, stageIndex: number) => {
-    if (!isAdmin) return;
+    if (!isFirebaseAdmin) {
+      showToast('Connect Google Admin Sync to update order status');
+      return;
+    }
     const clamped = Math.max(0, Math.min(4, stageIndex));
-    const serialNumber = parseSerialNumber(orderId);
-
-    if (!isFirebaseAdmin || serialNumber <= 0) {
-      showToast('Connect your Google Admin account to update orders live');
+    const target = cloudAdminOrders.find((o) => o.orderId === orderId);
+    const serial = target?.serialNumber || parseSerialNumber(orderId);
+    if (!serial) {
+      showToast('Invalid order ID');
       return;
     }
 
-    const docId = `order-${serialNumber}`;
     try {
-      await updateDoc(doc(db, 'orders', docId), {
+      await updateDoc(doc(db, 'orders', `order-${serial}`), {
         currentStageIndex: clamped,
         updatedAt: serverTimestamp(),
       });
       showToast(`Order ${orderId} marked as ${STAGE_LABELS[clamped]}`);
     } catch (err) {
-      try {
-        handleFirestoreError(err, OperationType.UPDATE, `orders/${docId}`);
-      } catch {
-        // Redacted error logged cleanly
-      }
-      showToast(formatLiveSyncError(err, 'Could not update order status in Live Sync.'));
+      showToast(formatLiveSyncError(err));
+      handleFirestoreError(err, OperationType.UPDATE, `orders/order-${serial}`);
     }
   };
 
   const deleteOrder = async (orderId: string) => {
-    if (!isAdmin) return;
-    const serialNumber = parseSerialNumber(orderId);
-
-    if (!isFirebaseAdmin || serialNumber <= 0) {
-      showToast('Connect your Google Admin account to delete orders live');
+    if (!isFirebaseAdmin) {
+      showToast('Connect Google Admin Sync to delete orders');
       return;
     }
+    const targetOrder = cloudAdminOrders.find((o) => o.orderId === orderId);
+    const serial = targetOrder?.serialNumber || parseSerialNumber(orderId);
+    if (!serial) return;
 
-    const docId = `order-${serialNumber}`;
+    const orderDocRef = doc(db, 'orders', `order-${serial}`);
+
     try {
-      const result = await runTransaction(db, async (transaction) => {
-        const orderRef = doc(db, 'orders', docId);
-        const orderSnap = await transaction.get(orderRef);
-        if (!orderSnap.exists()) {
-          return { deleted: false, restoredUnits: 0 };
-        }
+      const totalUnitsToRestore = await runTransaction(db, async (tx) => {
+        const orderSnap = await tx.get(orderDocRef);
+        if (!orderSnap.exists()) return 0;
 
-        const orderData = orderSnap.data() as TrackedOrder & { orderItems?: OrderLineItem[] };
-
-        // Resolve line items from structured snapshot or legacy summary fallback
+        const orderData = orderSnap.data() as Record<string, unknown>;
         const restoreList: {
           productId: string;
           colorId?: string;
@@ -1777,18 +1757,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }[] = [];
 
         if (Array.isArray(orderData.orderItems) && orderData.orderItems.length > 0) {
-          for (const item of orderData.orderItems) {
-            const qty = Math.max(0, Math.round(Number(item.quantity) || 0));
-            if (item.productId && qty > 0) {
+          for (const rawItem of orderData.orderItems as OrderLineItem[]) {
+            const qty = Math.max(0, Math.round(Number(rawItem.quantity) || 0));
+            if (rawItem.productId && qty > 0) {
               restoreList.push({
-                productId: item.productId,
-                colorId: item.colorId,
-                colorName: item.colorName,
+                productId: rawItem.productId,
+                colorId: rawItem.colorId,
+                colorName: rawItem.colorName,
                 qty,
               });
             }
           }
-        } else if (orderData.itemsSummary) {
+        } else if (typeof orderData.itemsSummary === 'string' && orderData.itemsSummary) {
           const parsedLegacy = parseOrderSummaryItems(orderData.itemsSummary, products);
           for (const parsed of parsedLegacy) {
             const qty = Math.max(0, Math.round(Number.parseInt(parsed.quantity, 10) || 0));
@@ -1807,30 +1787,36 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           string,
           { colorId?: string; colorName?: string; qty: number }[]
         >();
-        let totalUnitsToRestore = 0;
+        let totalUnits = 0;
         for (const item of restoreList) {
           const list = groupedRestores.get(item.productId) || [];
           list.push(item);
           groupedRestores.set(item.productId, list);
-          totalUnitsToRestore += item.qty;
+          totalUnits += item.qty;
         }
 
-        const productIds = Array.from(groupedRestores.keys());
-        const productRefs = productIds.map((pid) => doc(db, 'products', pid));
-        const productSnaps = await Promise.all(
-          productRefs.map((ref) => transaction.get(ref))
-        );
+        const readProducts: {
+          prodRef: ReturnType<typeof doc>;
+          prodData: Product | null;
+          entries: { colorId?: string; colorName?: string; qty: number }[];
+        }[] = [];
 
-        productIds.forEach((pid, idx) => {
-          const prodSnap = productSnaps[idx];
-          const entries = groupedRestores.get(pid);
-          if (!prodSnap.exists() || !entries || entries.length === 0) return;
+        for (const [pid, entries] of groupedRestores.entries()) {
+          const prodRef = doc(db, 'products', pid);
+          const prodSnap = await tx.get(prodRef);
+          readProducts.push({
+            prodRef,
+            prodData: prodSnap.exists() ? (prodSnap.data() as Product) : null,
+            entries,
+          });
+        }
 
-          const prodData = prodSnap.data() as Product;
-          const colors = Array.isArray(prodData.colors) ? prodData.colors : [];
-          if (colors.length === 0) return;
+        for (const { prodRef, prodData, entries } of readProducts) {
+          if (!prodData || !Array.isArray(prodData.colors) || prodData.colors.length === 0) {
+            continue;
+          }
 
-          const updatedColors = colors.map((c) => {
+          const updatedColors = prodData.colors.map((c) => {
             const avail = getColorAvailableCount(prodData, c);
             return {
               ...c,
@@ -1874,58 +1860,31 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             typeof prodData.orderCount === 'number' && Number.isFinite(prodData.orderCount)
               ? Math.max(0, Math.round(prodData.orderCount))
               : 0;
-          const nextOrderCount = Math.max(0, prevOrderCount - restoredForProduct);
 
-          transaction.update(productRefs[idx], {
-            colors: sanitizeColorListForFirestore(updatedColors),
+          tx.update(prodRef, {
+            colors: sanitizeColorsForFirestore(prodData, updatedColors),
             stockCount: nextTotalStock,
             inStock: nextInStock,
-            orderCount: nextOrderCount,
+            orderCount: Math.max(0, prevOrderCount - restoredForProduct),
             updatedAt: serverTimestamp(),
           });
-        });
+        }
 
-        transaction.delete(orderRef);
-        return { deleted: true, restoredUnits: totalUnitsToRestore };
+        tx.delete(orderDocRef);
+        return totalUnits;
       });
 
-      if (result.deleted) {
-        showToast(
-          result.restoredUnits > 0
-            ? `Order ${orderId} deleted · restored ${result.restoredUnits} item${
-                result.restoredUnits === 1 ? '' : 's'
-              } to stock`
-            : `Order ${orderId} deleted`
-        );
-      }
+      showToast(
+        totalUnitsToRestore > 0
+          ? `Order ${orderId} deleted · restored ${totalUnitsToRestore} item${
+              totalUnitsToRestore === 1 ? '' : 's'
+            } to stock`
+          : `Order ${orderId} deleted`
+      );
     } catch (err) {
-      try {
-        handleFirestoreError(err, OperationType.DELETE, `orders/${docId}`);
-      } catch {
-        // Redacted error logged cleanly
-      }
-      showToast(formatLiveSyncError(err, 'Could not delete order in Live Sync.'));
+      showToast(formatLiveSyncError(err));
+      handleFirestoreError(err, OperationType.DELETE, `orders/order-${serial}`);
     }
-  };
-
-  const ensureCatalogSeeded = async (skipId?: string) => {
-    if (catalogSeeded) return;
-    const seedSource = liveCatalog?.products?.length ? liveCatalog.products : PRODUCTS;
-    for (const item of seedSource) {
-      if (item.id === skipId) continue;
-      const existsInCloud = cloudProducts?.some((p) => p.id === item.id);
-      if (!existsInCloud) {
-        await setDoc(doc(db, 'products', item.id), {
-          ...sanitizeProductForFirestore(item),
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      }
-    }
-    await setDoc(doc(db, 'meta', 'catalogMeta'), {
-      seeded: true,
-      updatedAt: serverTimestamp(),
-    });
   };
 
   const addAdminProduct = async (input: NewProductInput) => {
@@ -1943,7 +1902,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     const fallbackPerColor = Math.max(
       1,
-      Math.round((Number.isFinite(input.stockCount) ? input.stockCount : 50) / Math.max(1, input.colors.length))
+      Math.round(
+        (Number.isFinite(input.stockCount) ? input.stockCount : 50) / Math.max(1, input.colors.length)
+      )
     );
     const validColors = input.colors
       .map((c) => {
@@ -1970,14 +1931,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (validColors.length === 0) {
       return { ok: false, error: 'Please add at least one colour option.' };
-    }
-
-    if (!isFirebaseAdmin) {
-      return {
-        ok: false,
-        error:
-          'Click "Connect Google Account" above so your new product syncs live across all devices.',
-      };
     }
 
     const catMeta = CATALOGUE_CATEGORIES.find((c) => c.id === input.category);
@@ -2071,26 +2024,25 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       sampleReviews: [],
     };
 
-    try {
-      await ensureCatalogSeeded();
-      await setDoc(doc(db, 'products', newProduct.id), {
-        ...sanitizeProductForFirestore(newProduct),
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-      showToast(`Added ${newProduct.name} live across all devices`);
-      return { ok: true, product: newProduct };
-    } catch (err) {
+    if (isFirebaseAdmin) {
       try {
-        handleFirestoreError(err, OperationType.CREATE, `products/${newProduct.id}`);
-      } catch {
-        // Redacted error logged cleanly
+        await ensureCatalogSeeded();
+        await setDoc(
+          doc(db, 'products', newProduct.id),
+          serializeProductForFirestore(newProduct, true)
+        );
+        showToast(`Saved ${newProduct.name} to live cloud catalog`);
+        return { ok: true, product: newProduct };
+      } catch (err) {
+        return { ok: false, error: formatLiveSyncError(err) };
       }
-      return {
-        ok: false,
-        error: formatLiveSyncError(err, 'Could not save product to Live Sync.'),
-      };
     }
+
+    setDeletedProductIds((prev) => prev.filter((id) => id !== newProduct.id));
+    setCustomProducts((prev) => [newProduct, ...prev]);
+    setCatalogDraftAt(new Date().toISOString());
+    showToast(`Added ${newProduct.name} locally (connect Google Sync to publish live)`);
+    return { ok: true, product: newProduct };
   };
 
   const updateAdminProduct = async (productId: string, input: NewProductInput) => {
@@ -2112,7 +2064,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
     const fallbackPerColor = Math.max(
       1,
-      Math.round((Number.isFinite(input.stockCount) ? input.stockCount : existing.stockCount || 50) / Math.max(1, input.colors.length))
+      Math.round(
+        (Number.isFinite(input.stockCount) ? input.stockCount : existing.stockCount || 50) /
+          Math.max(1, input.colors.length)
+      )
     );
     const validColors = input.colors
       .map((c) => {
@@ -2139,14 +2094,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     if (validColors.length === 0) {
       return { ok: false, error: 'Please keep at least one colour option.' };
-    }
-
-    if (!isFirebaseAdmin) {
-      return {
-        ok: false,
-        error:
-          'Click "Connect Google Account" above so your product edits sync live across all devices.',
-      };
     }
 
     const catMeta = CATALOGUE_CATEGORIES.find((c) => c.id === input.category);
@@ -2228,46 +2175,36 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           },
     };
 
-    try {
-      await ensureCatalogSeeded(productId);
-      const existsInCloud = cloudProducts?.some((p) => p.id === productId);
-      const sanitized = sanitizeProductForFirestore(updatedProduct);
-      if (existsInCloud) {
-        await updateDoc(doc(db, 'products', productId), {
-          ...sanitized,
-          updatedAt: serverTimestamp(),
-        });
-      } else {
-        await setDoc(doc(db, 'products', productId), {
-          ...sanitized,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      }
-      showToast(`Updated ${updatedProduct.name} live across all devices`);
-      return { ok: true, product: updatedProduct };
-    } catch (err) {
+    if (isFirebaseAdmin) {
       try {
-        handleFirestoreError(err, OperationType.UPDATE, `products/${productId}`);
-      } catch {
-        // Redacted error logged cleanly
+        await ensureCatalogSeeded();
+        const prodRef = doc(db, 'products', productId);
+        const snap = await getDoc(prodRef);
+        if (snap.exists()) {
+          await setDoc(
+            prodRef,
+            serializeProductForFirestore(updatedProduct, false, snap.data().createdAt)
+          );
+        } else {
+          await setDoc(prodRef, serializeProductForFirestore(updatedProduct, true));
+        }
+        showToast(`Updated ${updatedProduct.name} in live cloud catalog`);
+        return { ok: true, product: updatedProduct };
+      } catch (err) {
+        return { ok: false, error: formatLiveSyncError(err) };
       }
-      return {
-        ok: false,
-        error: formatLiveSyncError(err, 'Could not update product in Live Sync.'),
-      };
     }
+
+    persistLocalProductFallback(updatedProduct);
+    setCatalogDraftAt(new Date().toISOString());
+    showToast(`Updated ${updatedProduct.name} locally`);
+    return { ok: true, product: updatedProduct };
   };
 
   const toggleProductOutOfStock = async (productId: string) => {
     if (!isAdmin) return;
     const existing = products.find((p) => p.id === productId);
     if (!existing) return;
-
-    if (!isFirebaseAdmin) {
-      showToast('Click "Connect Google Account" above to sync stock status live');
-      return;
-    }
 
     const nextInStock = !existing.inStock;
     const anyExistingColorInStock = existing.colors.some((c) => c.inStock);
@@ -2298,43 +2235,46 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       ? nextColors.reduce((sum, c) => sum + (c.inStock ? c.stockCount || 0 : 0), 0)
       : existing.stockCount;
 
-    try {
-      await ensureCatalogSeeded(productId);
-      const existsInCloud = cloudProducts?.some((p) => p.id === productId);
-      const sanitized = sanitizeProductForFirestore({
-        ...existing,
-        inStock: nextInStock,
-        stockCount: nextStockCount,
-        colors: nextColors,
-      });
-      if (existsInCloud) {
-        await updateDoc(doc(db, 'products', productId), {
-          inStock: sanitized.inStock,
-          stockCount: sanitized.stockCount,
-          colors: sanitized.colors,
-          updatedAt: serverTimestamp(),
-        });
-      } else {
-        await setDoc(doc(db, 'products', productId), {
-          ...sanitized,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      }
+    const nextProduct: Product = {
+      ...existing,
+      inStock: nextInStock,
+      stockCount: nextStockCount,
+      colors: nextColors,
+    };
 
-      showToast(
-        nextInStock
-          ? `${existing.name} is back In Stock (Live)`
-          : `${existing.name} marked Out of Stock (Live)`
-      );
-    } catch (err) {
+    if (isFirebaseAdmin) {
       try {
-        handleFirestoreError(err, OperationType.UPDATE, `products/${productId}`);
-      } catch {
-        // Redacted error logged cleanly
+        await ensureCatalogSeeded();
+        const prodRef = doc(db, 'products', productId);
+        const snap = await getDoc(prodRef);
+        if (snap.exists()) {
+          await updateDoc(prodRef, {
+            inStock: nextInStock,
+            stockCount: nextStockCount,
+            colors: sanitizeColorsForFirestore(nextProduct, nextColors),
+            updatedAt: serverTimestamp(),
+          });
+        } else {
+          await setDoc(prodRef, serializeProductForFirestore(nextProduct, true));
+        }
+        showToast(
+          nextInStock
+            ? `${existing.name} is back In Stock`
+            : `${existing.name} marked Out of Stock`
+        );
+      } catch (err) {
+        showToast(formatLiveSyncError(err));
       }
-      showToast(formatLiveSyncError(err, 'Could not update stock status in Live Sync.'));
+      return;
     }
+
+    persistLocalProductFallback(nextProduct);
+    setCatalogDraftAt(new Date().toISOString());
+    showToast(
+      nextInStock
+        ? `${existing.name} is back In Stock (local)`
+        : `${existing.name} marked Out of Stock (local)`
+    );
   };
 
   const toggleProductColorStock = async (productId: string, colorId: string) => {
@@ -2344,11 +2284,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
 
     const targetColor = existing.colors.find((c) => c.id === colorId);
     if (!targetColor) return;
-
-    if (!isFirebaseAdmin) {
-      showToast('Click "Connect Google Account" above to sync colour stock live');
-      return;
-    }
 
     const nextColorInStock = !targetColor.inStock;
     const updatedColors = existing.colors.map((c) => {
@@ -2381,64 +2316,102 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         : false;
     const nextStockCount = totalColorStock;
 
-    try {
-      await ensureCatalogSeeded(productId);
-      const existsInCloud = cloudProducts?.some((p) => p.id === productId);
-      const updatedProduct: Product = {
-        ...existing,
-        inStock: nextProductInStock,
-        stockCount: nextStockCount,
-        colors: updatedColors,
-      };
-      const sanitized = sanitizeProductForFirestore(updatedProduct);
-      if (existsInCloud) {
-        await updateDoc(doc(db, 'products', productId), {
-          colors: sanitized.colors,
-          inStock: sanitized.inStock,
-          stockCount: sanitized.stockCount,
-          updatedAt: serverTimestamp(),
-        });
-      } else {
-        await setDoc(doc(db, 'products', productId), {
-          ...sanitized,
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-      }
+    const nextProduct: Product = {
+      ...existing,
+      inStock: nextProductInStock,
+      stockCount: nextStockCount,
+      colors: updatedColors,
+    };
 
-      showToast(
-        nextColorInStock
-          ? `${existing.name} (${targetColor.name}) is back In Stock`
-          : `${existing.name} (${targetColor.name}) marked Out of Stock`
-      );
-    } catch (err) {
+    if (isFirebaseAdmin) {
       try {
-        handleFirestoreError(err, OperationType.UPDATE, `products/${productId}`);
-      } catch {
-        // Redacted error logged cleanly
+        await ensureCatalogSeeded();
+        const prodRef = doc(db, 'products', productId);
+        const snap = await getDoc(prodRef);
+        if (snap.exists()) {
+          await updateDoc(prodRef, {
+            inStock: nextProductInStock,
+            stockCount: nextStockCount,
+            colors: sanitizeColorsForFirestore(nextProduct, updatedColors),
+            updatedAt: serverTimestamp(),
+          });
+        } else {
+          await setDoc(prodRef, serializeProductForFirestore(nextProduct, true));
+        }
+        showToast(
+          nextColorInStock
+            ? `${existing.name} (${targetColor.name}) is back In Stock`
+            : `${existing.name} (${targetColor.name}) marked Out of Stock`
+        );
+      } catch (err) {
+        showToast(formatLiveSyncError(err));
       }
-      showToast(formatLiveSyncError(err, 'Could not update colour stock status in Live Sync.'));
+      return;
     }
+
+    persistLocalProductFallback(nextProduct);
+    setCatalogDraftAt(new Date().toISOString());
+    showToast(
+      nextColorInStock
+        ? `${existing.name} (${targetColor.name}) is back In Stock (local)`
+        : `${existing.name} (${targetColor.name}) marked Out of Stock (local)`
+    );
   };
 
   const deleteAdminProduct = async (productId: string) => {
     if (!isAdmin) return;
-    if (!isFirebaseAdmin) {
-      showToast('Click "Connect Google Account" above to delete live across devices');
+
+    if (isFirebaseAdmin) {
+      try {
+        await ensureCatalogSeeded();
+        await deleteDoc(doc(db, 'products', productId));
+        showToast('Product deleted from live cloud catalog');
+      } catch (err) {
+        showToast(formatLiveSyncError(err));
+      }
       return;
     }
 
+    setCustomProducts((prev) => prev.filter((p) => p.id !== productId));
+    setProductOverrides((prev) => {
+      const next = { ...prev };
+      delete next[productId];
+      return next;
+    });
+    setDeletedProductIds((prev) => (prev.includes(productId) ? prev : [...prev, productId]));
+    setCatalogDraftAt(new Date().toISOString());
+    showToast('Product deleted locally');
+  };
+
+  const loginCustomerWithGoogle = async (phone?: string) => {
     try {
-      await ensureCatalogSeeded(productId);
-      await deleteDoc(doc(db, 'products', productId));
-      showToast('Product deleted live across all devices');
-    } catch (err) {
-      try {
-        handleFirestoreError(err, OperationType.DELETE, `products/${productId}`);
-      } catch {
-        // Redacted error logged cleanly
+      const cred = await signInWithPopup(auth, googleProvider);
+      if (cred.user && phone && phone.trim().length >= 8) {
+        const cleanPhone = phone.trim();
+        setSavedPhonesByUid((prev) => ({
+          ...prev,
+          [cred.user.uid]: cleanPhone,
+        }));
       }
-      showToast(formatLiveSyncError(err, 'Could not delete product in Live Sync.'));
+      setIsAuthModalOpen(false);
+      showToast(`Signed in as ${cred.user.displayName || cred.user.email}`);
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, error: formatLiveSyncError(err, 'Google sign-in failed.') };
+    }
+  };
+
+  const loginDemoUser = async (_name: string, _email: string, phone: string) => {
+    return loginCustomerWithGoogle(phone);
+  };
+
+  const logoutDemoUser = async () => {
+    try {
+      await signOut(auth);
+      setIsLocalAdmin(false);
+      showToast('Signed out');
+    } catch (err) {
+      showToast(formatLiveSyncError(err, 'Could not sign out right now.'));
     }
   };
 
@@ -2448,51 +2421,51 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       return { ok: false, error: 'Invalid admin Gmail or password.' };
     }
     setIsLocalAdmin(true);
-    showToast(
-      isFirebaseAdmin
-        ? 'Signed in as Live Cloud Admin'
-        : 'Admin unlocked — connect Google Account for live sync'
-    );
+    showToast('Admin signed in');
     return { ok: true };
   };
 
   const loginAdminWithGoogle = async () => {
     try {
       const cred = await signInWithPopup(auth, googleProvider);
-      const email = cred.user.email?.trim().toLowerCase() || '';
-      let allowed = isAuthorizedAdminEmail(email);
-      if (!allowed) {
-        const adminSnap = await getDoc(doc(db, 'admins', cred.user.uid)).catch(() => null);
-        allowed = Boolean(adminSnap?.exists());
-      }
-      if (!allowed || !cred.user.emailVerified) {
+      const user = cred.user;
+      if (!user || !user.emailVerified) {
         await signOut(auth);
+        return { ok: false, error: 'A verified Google account is required for Admin Sync.' };
+      }
+      let allowed = isAuthorizedAdminEmail(user.email);
+      if (!allowed) {
+        try {
+          const adminSnap = await getDoc(doc(db, 'admins', user.uid));
+          allowed = adminSnap.exists();
+        } catch {
+          allowed = false;
+        }
+      }
+      if (!allowed) {
         return {
           ok: false,
-          error: 'Wrong Google account. Please sign in with an authorized admin Google account.',
+          error: 'This Google account is not authorized as a store admin.',
         };
       }
       setCloudAdminAllowed(true);
       setIsLocalAdmin(true);
-      showToast('Live Cloud Admin connected across all devices');
+      showToast('Live Cloud Admin Sync connected');
       return { ok: true };
     } catch (err) {
-      return {
-        ok: false,
-        error: formatLiveSyncError(
-          err,
-          'Could not sign in with Google. Please try again with an authorized admin account.'
-        ),
-      };
+      return { ok: false, error: formatLiveSyncError(err) };
     }
   };
 
   const logoutAdmin = async () => {
     setIsLocalAdmin(false);
     setCloudAdminAllowed(false);
-    setCloudAdminOrders([]);
-    if (auth.currentUser) {
-      await signOut(auth).catch(() => {});
+    if (firebaseUser) {
+      try {
+        await signOut(auth);
+      } catch {
+        // Ignore signOut errors cleanly
+      }
     }
     showToast('Admin signed out');
   };
@@ -2501,18 +2474,35 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     orderId: string,
     phone: string
   ): Promise<TrackedOrder | undefined> => {
-    if (!firebaseUser || !firebaseUser.emailVerified) {
-      return undefined;
-    }
+    if (!isCustomerSignedIn) return undefined;
     const cleanId = orderId.trim().replace(/^#+/, '').toUpperCase();
     const cleanPhone = phone.replace(/[\s-]/g, '').trim();
+
     const localMatch = orders.find((o) => {
       const idMatch = o.orderId.trim().replace(/^#+/, '').toUpperCase() === cleanId;
       if (!idMatch) return false;
       if (!cleanPhone) return true;
       return o.phone.replace(/[\s-]/g, '').endsWith(cleanPhone.slice(-8));
     });
-    return localMatch;
+    if (localMatch) return localMatch;
+
+    const serial = parseSerialNumber(orderId);
+    if (!serial) return undefined;
+
+    try {
+      const snap = await getDoc(doc(db, 'orders', `order-${serial}`));
+      if (!snap.exists()) return undefined;
+      const ord = normalizeTrackedOrderFromFirestore(
+        snap.data() as Record<string, unknown>,
+        snap.id
+      );
+      if (cleanPhone && !ord.phone.replace(/[\s-]/g, '').endsWith(cleanPhone.slice(-8))) {
+        return undefined;
+      }
+      return ord;
+    } catch {
+      return undefined;
+    }
   };
 
   return (
@@ -2543,14 +2533,6 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updatePreferences,
         isSettingsOpen,
         setIsSettingsOpen,
-        demoUser,
-        isCustomerSignedIn,
-        authLoading,
-        isAuthModalOpen,
-        setIsAuthModalOpen,
-        loginDemoUser,
-        loginCustomerWithGoogle,
-        logoutDemoUser,
         products,
         isCloudSynced: isCloudCatalogActive,
         hasUnpublishedProductChanges,
@@ -2568,9 +2550,21 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         findOrder,
         updateOrderStage,
         deleteOrder,
+        demoUser,
+        isCustomerSignedIn,
+        authLoading,
+        isAuthModalOpen,
+        setIsAuthModalOpen,
+        loginDemoUser,
+        loginCustomerWithGoogle,
+        logoutDemoUser,
         isAdmin,
         isFirebaseAdmin,
-        adminEmail: isAdmin ? firebaseUser?.email || ADMIN_ACCOUNT.email : null,
+        adminEmail: isFirebaseAdmin
+          ? firebaseUser?.email || ADMIN_ACCOUNT.email
+          : isAdmin
+          ? ADMIN_ACCOUNT.email
+          : null,
         isAdminModalOpen,
         setIsAdminModalOpen,
         loginAdmin,

@@ -1,12 +1,12 @@
 {
-  "projectId": "gen-lang-client-0731387427",
-  "appId": "1:851569566412:web:71fceb7e735b8c5d70d869",
-  "apiKey": "AIzaSyCOCWqxOtH2BEcsgBHYMIzwop72pV3viIc",
-  "authDomain": "gen-lang-client-0731387427.firebaseapp.com",
+  "projectId": "arefin-mart",
+  "appId": "1:124799825081:web:943bd9f26cf088128b9768",
+  "apiKey": "AIzaSyDXn8BqlazDyjAYXD1LmQ7N0GUXRbmyHoA",
+  "authDomain": "arefin-mart.firebaseapp.com",
   "firestoreDatabaseId": "ai-studio-arefinspen-5ec24444-45c9-4935-b2c4-998148bd0411",
-  "storageBucket": "gen-lang-client-0731387427.firebasestorage.app",
-  "messagingSenderId": "851569566412",
+  "storageBucket": "arefin-mart.firebasestorage.app",
+  "messagingSenderId": "124799825081",
   "measurementId": "",
-  "oAuthClientId": "851569566412-n8id83v7m2dqml8tmvqkn6fltbq0ek8n.apps.googleusercontent.com",
+  "oAuthClientId": "124799825081-8id7600vmbsvtoum506uvpckvfrcc6je.apps.googleusercontent.com",
   "recaptchaSiteKey": ""
 }

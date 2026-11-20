@@ -78,7 +78,7 @@ export const HomePage: React.FC = () => {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-2">
             <button
               type="button"
-              onClick={() => navigate('shop', { category: 'all' })}
+              onClick={() => navigate('shop', { category: 'all-pens' })}
               className="w-full sm:w-auto px-7 py-3.5 rounded-full text-sm sm:text-base font-semibold cta-glow-red inline-flex items-center justify-center gap-2 transition-all hover:-translate-y-0.5"
             >
               <span>Shop Collection</span>

@@ -318,25 +318,14 @@ export const AdminModal: React.FC = () => {
   };
 
   const handleGoogleAdminLogin = async () => {
+    if (googleLoading) return;
     setError('');
     setGoogleLoading(true);
     try {
       const res = await loginAdminWithGoogle();
       if (!res.ok) {
-        setError(
-          formatLiveSyncError(
-            res.error,
-            'Wrong Google account. Please sign in with an authorized admin Google account.'
-          )
-        );
+        setError(res.error || 'Google Admin sign-in failed.');
       }
-    } catch (err) {
-      setError(
-        formatLiveSyncError(
-          err,
-          'Could not connect Live Sync. Please sign in with an authorized admin Google account.'
-        )
-      );
     } finally {
       setGoogleLoading(false);
     }
@@ -795,30 +784,26 @@ export const AdminModal: React.FC = () => {
         {!isAdmin ? (
           <div className="space-y-4">
             <p className="text-xs sm:text-sm text-[var(--text-secondary)]">
-              Sign in with your authorized Google account for real-time cloud sync across all
-              devices, or unlock with your admin Gmail and password.
+              Sign in with your authorized Google account for real-time cross-device sync, or use
+              your store admin Gmail and password.
             </p>
 
             <button
               type="button"
-              onClick={() => void handleGoogleAdminLogin()}
               disabled={googleLoading}
-              className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold cta-glow-red inline-flex items-center justify-center gap-2 disabled:opacity-60"
+              onClick={() => void handleGoogleAdminLogin()}
+              className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-[var(--accent-cta-text)] cta-glow-red inline-flex items-center justify-center gap-2 disabled:opacity-60 transition-all"
             >
               <Cloud className="w-4 h-4" />
               <span>
-                {googleLoading
-                  ? 'Connecting Google Admin...'
-                  : 'Sign in with Google (Live Sync)'}
+                {googleLoading ? 'Connecting Google Account...' : 'Sign In with Admin Google Account'}
               </span>
             </button>
 
-            <div className="flex items-center gap-3">
-              <div className="h-px flex-1 bg-[var(--border-subtle)]" />
-              <span className="text-[11px] font-medium text-[var(--text-muted)] uppercase tracking-wider">
-                or
-              </span>
-              <div className="h-px flex-1 bg-[var(--border-subtle)]" />
+            <div className="flex items-center gap-3 text-[11px] text-[var(--text-muted)]">
+              <span className="h-px flex-1 bg-[var(--border-subtle)]" />
+              <span>or</span>
+              <span className="h-px flex-1 bg-[var(--border-subtle)]" />
             </div>
 
             <form onSubmit={handleLogin} className="space-y-3.5" noValidate>
@@ -884,37 +869,30 @@ export const AdminModal: React.FC = () => {
 
               <button
                 type="submit"
-                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-main)] hover:border-accent transition-colors"
+                className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold text-[var(--accent-cta-text)] cta-glow-red transition-all"
               >
-                Sign In with Gmail &amp; Password
+                Sign In to Admin Panel
               </button>
             </form>
           </div>
         ) : (
           <>
             {!isFirebaseAdmin && (
-              <div className="rounded-xl border border-amber-500/50 bg-amber-500/10 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 shrink-0">
-                <div className="flex items-start gap-2.5 min-w-0">
-                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
-                  <div className="space-y-0.5 text-xs">
-                    <p className="font-semibold text-amber-700 dark:text-amber-300">
-                      Connect your Google Account to save live changes across all devices
-                    </p>
-                    <p className="text-[11px] text-[var(--text-secondary)]">
-                      Firebase requires verified Google Admin authentication before writing new
-                      products, stock toggles, or order updates to the cloud database.
-                    </p>
-                    {error && <p className="text-[11px] font-medium text-rose-500">{error}</p>}
-                  </div>
+              <div className="rounded-xl border border-amber-500/50 bg-amber-500/10 px-3.5 py-2.5 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+                <div className="flex items-center gap-2 text-xs text-amber-800 dark:text-amber-200 min-w-0">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 shrink-0" />
+                  <span className="font-medium">
+                    Connect your Google Account to save live changes across all devices
+                  </span>
                 </div>
                 <button
                   type="button"
-                  onClick={() => void handleGoogleAdminLogin()}
                   disabled={googleLoading}
-                  className="px-3.5 py-2 rounded-xl text-xs font-semibold cta-glow-red inline-flex items-center justify-center gap-1.5 shrink-0 disabled:opacity-60"
+                  onClick={() => void handleGoogleAdminLogin()}
+                  className="px-3 py-1.5 rounded-lg bg-amber-500 text-black text-xs font-bold hover:bg-amber-400 disabled:opacity-60 inline-flex items-center gap-1.5 shrink-0 transition-colors"
                 >
                   <Cloud className="w-3.5 h-3.5" />
-                  <span>{googleLoading ? 'Connecting...' : 'Connect Google Account'}</span>
+                  <span>{googleLoading ? 'Connecting...' : 'Connect Google Sync'}</span>
                 </button>
               </div>
             )}
@@ -1051,7 +1029,7 @@ export const AdminModal: React.FC = () => {
                   {filteredOrders.length === 0 ? (
                     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-8 text-center text-sm text-[var(--text-secondary)]">
                       {!isFirebaseAdmin
-                        ? 'Connect your Google Admin account above to view and manage live customer orders.'
+                        ? 'Connect your Google Account above to view live customer orders from the cloud database.'
                         : 'No matching orders found.'}
                     </div>
                   ) : (
@@ -1347,29 +1325,38 @@ export const AdminModal: React.FC = () => {
                 ref={productsTabScrollRef}
                 className="flex-1 overflow-y-auto overflow-x-hidden space-y-5 pr-1"
               >
-                {/* Live Cloud Sync & Catalog Backup Bar */}
+                {/* Real-Time Cloud Database Sync & Backup Bar */}
                 <div className="rounded-xl border border-accent/45 bg-[var(--bg-card)] p-3.5 sm:p-4 space-y-2.5">
                   <div className="flex flex-wrap items-center justify-between gap-2">
                     <div className="space-y-0.5">
                       <div className="flex flex-wrap items-center gap-2">
+                        <Cloud className="w-4 h-4 text-accent-bright shrink-0" />
                         <h3 className="font-display text-xs sm:text-sm font-bold text-[var(--text-main)]">
                           Real-Time Cloud Database Sync
                         </h3>
-                        {isFirebaseAdmin || isCloudSynced ? (
-                          <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-emerald-500/15 border border-emerald-500/45 text-emerald-600 dark:text-emerald-400 inline-flex items-center gap-1">
-                            <Cloud className="w-3 h-3" />
-                            <span>Live Cloud Sync Active</span>
-                          </span>
-                        ) : hasUnpublishedProductChanges ? (
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                            isFirebaseAdmin || isCloudSynced
+                              ? 'bg-emerald-500/15 border-emerald-500/45 text-emerald-600 dark:text-emerald-400'
+                              : 'bg-amber-500/15 border-amber-500/50 text-amber-600 dark:text-amber-400'
+                          }`}
+                        >
+                          {isFirebaseAdmin
+                            ? 'Live Cloud Sync Active'
+                            : isCloudSynced
+                            ? 'Cloud Read Active'
+                            : 'Local Changes Only'}
+                        </span>
+                        {hasUnpublishedProductChanges && (
                           <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 border border-amber-500/50 text-amber-600 dark:text-amber-400">
-                            Connect Google for Live Sync
+                            Local Edits Unexported
                           </span>
-                        ) : null}
+                        )}
                       </div>
                       <p className="text-[11px] sm:text-xs text-[var(--text-secondary)]">
                         {isFirebaseAdmin
-                          ? 'Every product add, edit, delete, or Out of Stock toggle syncs instantly across all phones, browsers, and your Netlify site.'
-                          : 'Sign in with Google Admin above to sync products, stock switches, and orders live across all devices.'}
+                          ? 'Every add, edit, stock change, and delete saves immediately to Firestore for all visitors and devices.'
+                          : 'Connect Google Sync above to save products to the live cloud database, or export products.json for deployment backup.'}
                       </p>
                     </div>
                   </div>
