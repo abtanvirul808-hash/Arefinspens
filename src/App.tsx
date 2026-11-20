@@ -15,6 +15,7 @@ import {
   ToastBanner,
 } from './components/StoreOverlays';
 import { AdminModal } from './components/AdminModal';
+import { SearchOverlay } from './components/SearchOverlay';
 import { HomePage } from './pages/HomePage';
 import { CataloguePage } from './pages/CataloguePage';
 import { ProductDetailsPage } from './pages/ProductDetailsPage';
@@ -60,6 +61,7 @@ const StorefrontShell: React.FC = () => {
       <SettingsPanel />
       <AuthModal />
       <AdminModal />
+      <SearchOverlay />
       <ToastBanner />
     </div>
   );

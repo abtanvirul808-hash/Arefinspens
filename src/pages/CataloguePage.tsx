@@ -17,6 +17,7 @@ import {
 import { CategoryId, SortOption } from '../types';
 import { BrandPackageLogo, CategoryVectorIcon } from '../components/BrandIcons';
 import { ProductCard } from '../components/ProductCard';
+import { fuzzySearchProducts } from '../utils/fuzzySearch';
 
 export const CataloguePage: React.FC = () => {
   const { selectedCategory, navigate, searchQuery, setSearchQuery, products } = useStore();
@@ -95,9 +96,15 @@ export const CataloguePage: React.FC = () => {
   };
 
   const filteredProducts = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase();
+    const query = searchQuery.trim();
+    const baseCandidates = query
+      ? fuzzySearchProducts(products, query, {
+          category: selectedCategory,
+          inStockOnly,
+        }).results.map((r) => r.product)
+      : products;
 
-    const list = products.filter((p) => {
+    const list = baseCandidates.filter((p) => {
       const otherItem = isOtherProduct(p);
       const productInks = otherItem ? [] : getProductInkColors(p);
       if (selectedCategory === 'all-pens') {
@@ -122,14 +129,12 @@ export const CataloguePage: React.FC = () => {
       }
       if (p.rating < minRating) return false;
       if (inStockOnly && !p.inStock) return false;
-      if (query) {
-        const inkNames = otherItem ? '' : productInks.map((i) => i.name).join(' ');
-        const specText = otherItem ? '' : p.specs.tipSize;
-        const hay = `${p.name} ${p.categoryLabel} ${p.shortDescription} ${specText} ${inkNames}`.toLowerCase();
-        if (!hay.includes(query)) return false;
-      }
       return true;
     });
+
+    if (query && sortBy === 'popularity') {
+      return list;
+    }
 
     const sorted = [...list];
     sorted.sort((a, b) => {

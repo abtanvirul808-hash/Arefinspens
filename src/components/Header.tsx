@@ -4,6 +4,7 @@ import {
   ChevronDown,
   Menu,
   Moon,
+  Search,
   Settings,
   ShieldCheck,
   ShoppingCart,
@@ -29,6 +30,8 @@ export const Header: React.FC = () => {
     isAdmin,
     isAdminModalOpen,
     setIsAdminModalOpen,
+    isSearchOpen,
+    setIsSearchOpen,
     demoUser,
     setIsAuthModalOpen,
     products,
@@ -93,10 +96,10 @@ export const Header: React.FC = () => {
             className="flex items-center gap-2 sm:gap-2.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-lg py-1 min-w-0"
           >
             <BrandMartLogo
-              iconClassName="w-10 h-9 sm:w-11 sm:h-10"
+              iconClassName="w-8 h-8 sm:w-11 sm:h-10"
               className="transition-transform duration-200 group-hover:scale-105"
             />
-            <span className="font-display text-base sm:text-xl font-bold tracking-tight whitespace-nowrap">
+            <span className="font-display text-[15px] sm:text-xl font-bold tracking-tight whitespace-nowrap">
               <span className="text-[var(--text-main)]">Arefin </span>
               <span className="text-accent">Mart</span>
             </span>
@@ -296,8 +299,24 @@ export const Header: React.FC = () => {
           </button>
         </nav>
 
-        {/* Right: Brightness, Settings, Admin immediately beside Settings, User, Login/Register, Cart */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+        {/* Right: Search, Brightness, Settings, Admin, User, Login/Register, Cart */}
+        <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
+          {/* Intelligent Search Trigger */}
+          <button
+            type="button"
+            onClick={() => setIsSearchOpen(true)}
+            className={`w-9 h-9 sm:w-10 sm:h-10 rounded-full border bg-[var(--bg-card)] inline-flex items-center justify-center transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+              isSearchOpen
+                ? 'border-accent text-accent-bright'
+                : 'border-[var(--border-subtle)] text-[var(--text-main)] hover:border-accent hover:text-accent-bright'
+            }`}
+            aria-label="Open intelligent product search"
+            aria-expanded={isSearchOpen}
+            title="Search Products (Ctrl+K)"
+          >
+            <Search className="w-[17px] h-[17px] sm:w-[18px] sm:h-[18px]" />
+          </button>
+
           {/* Brightness / Theme Toggle */}
           <button
             type="button"

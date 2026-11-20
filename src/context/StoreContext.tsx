@@ -131,6 +131,7 @@ interface StoreContextValue {
   setIsSettingsOpen: (open: boolean) => void;
 
   products: Product[];
+  isCatalogLoading: boolean;
   isCloudSynced: boolean;
   hasUnpublishedProductChanges: boolean;
   exportLiveProductsJson: () => string;
@@ -175,6 +176,9 @@ interface StoreContextValue {
   loginAdmin: (email: string, password: string) => { ok: boolean; error?: string };
   loginAdminWithGoogle: () => Promise<{ ok: boolean; error?: string }>;
   logoutAdmin: () => Promise<void>;
+
+  isSearchOpen: boolean;
+  setIsSearchOpen: (open: boolean) => void;
 
   toast: ToastState | null;
   showToast: (message: string) => void;
@@ -532,6 +536,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [isSearchOpen, setIsSearchOpen] = useState(false);
   const [toast, setToast] = useState<ToastState | null>(null);
 
   // Firebase Auth listener + /admins/{uid} role verification
@@ -2534,6 +2539,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         isSettingsOpen,
         setIsSettingsOpen,
         products,
+        isCatalogLoading: cloudProducts === null,
         isCloudSynced: isCloudCatalogActive,
         hasUnpublishedProductChanges,
         exportLiveProductsJson,
@@ -2567,6 +2573,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           : null,
         isAdminModalOpen,
         setIsAdminModalOpen,
+        isSearchOpen,
+        setIsSearchOpen,
         loginAdmin,
         loginAdminWithGoogle,
         logoutAdmin,

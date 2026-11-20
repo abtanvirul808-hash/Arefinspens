@@ -396,6 +396,11 @@ const THEME_COLOR_OPTIONS: {
   { id: 'yellow', label: 'Yellow', swatch: '#FACC15' },
   { id: 'green', label: 'Green', swatch: '#10B981' },
   { id: 'sky-blue', label: 'Sky Blue', swatch: '#38BDF8' },
+  {
+    id: 'monochrome',
+    label: 'White / Black',
+    swatch: 'linear-gradient(135deg, #ffffff 50%, #09090b 50%)',
+  },
 ];
 
 export const SettingsPanel: React.FC = () => {
@@ -473,8 +478,8 @@ export const SettingsPanel: React.FC = () => {
                   }`}
                 >
                   <span
-                    className="w-3.5 h-3.5 rounded-full border border-black/20 dark:border-white/30 shrink-0"
-                    style={{ backgroundColor: opt.swatch }}
+                    className="w-3.5 h-3.5 rounded-full border border-black/25 dark:border-white/35 shrink-0"
+                    style={{ background: opt.swatch }}
                   />
                   <span className="truncate">{opt.label}</span>
                 </button>
@@ -524,8 +529,10 @@ export const SettingsPanel: React.FC = () => {
             }`}
           >
             <span
-              className={`block w-5 h-5 rounded-full bg-white transition-transform ${
-                preferences.reducedMotion ? 'translate-x-5' : 'translate-x-0'
+              className={`block w-5 h-5 rounded-full transition-transform ${
+                preferences.reducedMotion
+                  ? 'translate-x-5 bg-[var(--accent-cta-text)]'
+                  : 'translate-x-0 bg-white'
               }`}
             />
           </button>

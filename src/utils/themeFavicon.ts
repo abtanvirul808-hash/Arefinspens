@@ -56,6 +56,15 @@ const DARK_PALETTES: Record<AccentThemeColor, FaviconPalette> = {
     detail: '#03080e',
     themeColor: '#38bdf8',
   },
+  monochrome: {
+    bg: '#09090b',
+    border: '#ffffff',
+    bright: '#ffffff',
+    primary: '#e4e4e7',
+    deep: '#52525b',
+    detail: '#09090b',
+    themeColor: '#18181b',
+  },
 };
 
 const LIGHT_PALETTES: Record<AccentThemeColor, FaviconPalette> = {
@@ -103,6 +112,15 @@ const LIGHT_PALETTES: Record<AccentThemeColor, FaviconPalette> = {
     deep: '#0c4a6e',
     detail: '#ffffff',
     themeColor: '#0284c7',
+  },
+  monochrome: {
+    bg: '#ffffff',
+    border: '#18181b',
+    bright: '#3f3f46',
+    primary: '#18181b',
+    deep: '#09090b',
+    detail: '#ffffff',
+    themeColor: '#ffffff',
   },
 };
 

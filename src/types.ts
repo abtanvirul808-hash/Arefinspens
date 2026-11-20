@@ -145,7 +145,13 @@ export interface TrackedOrder {
   isDemoRecord?: boolean;
 }
 
-export type AccentThemeColor = 'red' | 'purple' | 'yellow' | 'green' | 'sky-blue';
+export type AccentThemeColor =
+  | 'red'
+  | 'purple'
+  | 'yellow'
+  | 'green'
+  | 'sky-blue'
+  | 'monochrome';
 
 export interface StorePreferences {
   theme: 'dark' | 'light';

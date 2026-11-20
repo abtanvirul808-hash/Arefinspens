@@ -116,6 +116,33 @@
     --footer-top: #06131b;
   }
 
+  html[data-accent="monochrome"] {
+    --bg-main: #fafafa;
+    --bg-secondary: #ffffff;
+    --bg-card: #ffffff;
+    --bg-card-elevated: #f1f1f3;
+    --bg-input: #ffffff;
+    --text-main: #09090b;
+    --text-secondary: #3f3f46;
+    --text-muted: #71717a;
+    --border-subtle: rgba(18, 18, 22, 0.16);
+    --border-strong: rgba(18, 18, 22, 0.45);
+    --accent-primary: #111114;
+    --accent-bright: #000000;
+    --accent-deep: #27272a;
+    --accent-rgb: 24, 24, 27;
+    --accent-deep-rgb: 63, 63, 70;
+    --accent-cta-start: #18181b;
+    --accent-cta-end: #09090b;
+    --accent-cta-hover-start: #27272a;
+    --accent-cta-hover-end: #18181b;
+    --accent-cta-text: #ffffff;
+    --card-glow: rgba(18, 18, 22, 0.08);
+    --header-bg: rgba(255, 255, 255, 0.88);
+    --surface-edge: #111114;
+    --footer-top: #0c0c0e;
+  }
+
   .dark,
   html.dark[data-accent="red"] {
     --bg-main: #050505;
@@ -234,6 +261,33 @@
     --card-glow: rgba(56, 189, 248, 0.16);
     --surface-edge: #071720;
     --footer-top: #06131b;
+  }
+
+  html.dark[data-accent="monochrome"] {
+    --bg-main: #050506;
+    --bg-secondary: #0b0b0d;
+    --bg-card: #121215;
+    --bg-card-elevated: #1c1c20;
+    --bg-input: #0e0e10;
+    --text-main: #ffffff;
+    --text-secondary: #d4d4d8;
+    --text-muted: #9ca3af;
+    --border-subtle: rgba(255, 255, 255, 0.22);
+    --border-strong: rgba(255, 255, 255, 0.55);
+    --accent-primary: #ffffff;
+    --accent-bright: #ffffff;
+    --accent-deep: #3f3f46;
+    --accent-rgb: 255, 255, 255;
+    --accent-deep-rgb: 113, 113, 122;
+    --accent-cta-start: #ffffff;
+    --accent-cta-end: #e4e4e7;
+    --accent-cta-hover-start: #ffffff;
+    --accent-cta-hover-end: #f4f4f5;
+    --accent-cta-text: #09090b;
+    --card-glow: rgba(255, 255, 255, 0.12);
+    --header-bg: rgba(5, 5, 6, 0.86);
+    --surface-edge: #111114;
+    --footer-top: #0c0c0e;
   }
 
   html, body {
@@ -532,7 +586,8 @@ html[data-accent="yellow"] .mart-logo-img {
   opacity: 0.96;
 }
 
-html[data-accent="yellow"] .mart-logo-tint {
+html[data-accent="yellow"] .mart-logo-tint,
+html[data-accent="monochrome"] .mart-logo-tint {
   opacity: 0;
 }
 

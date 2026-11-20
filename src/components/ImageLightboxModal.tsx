@@ -93,7 +93,7 @@ export const ImageLightboxModal: React.FC<ImageLightboxModalProps> = ({
             onClick={() => setZoomed((z) => !z)}
             className={`px-3 py-2 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
               zoomed
-                ? 'border-accent bg-accent text-white'
+                ? 'border-accent bg-accent text-[var(--accent-cta-text)]'
                 : 'border-white/20 bg-white/10 text-white hover:border-accent'
             }`}
             aria-label={zoomed ? 'Zoom out to fit screen' : 'Zoom in to inspect colour details'}
