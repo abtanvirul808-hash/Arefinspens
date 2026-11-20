@@ -3,6 +3,8 @@ import {
   AlertTriangle,
   Check,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Cloud,
   Copy,
   Download,
@@ -20,6 +22,7 @@ import {
   Phone,
   Plus,
   RefreshCw,
+  RotateCcw,
   Save,
   Search,
   ShieldCheck,
@@ -63,6 +66,37 @@ const INK_COLOR_PRESETS: { name: string; hex: string }[] = [
   { name: 'Orange', hex: '#EA580C' },
   { name: 'Brown', hex: '#92400E' },
   { name: 'Multi-Color', hex: '#F59E0B' },
+];
+
+const BODY_COLOR_PRESETS: { name: string; hex: string }[] = [
+  { name: 'Black', hex: '#1E293B' },
+  { name: 'Blue', hex: '#2563EB' },
+  { name: 'Red', hex: '#DC2626' },
+  { name: 'White', hex: '#F8FAFC' },
+  { name: 'Pink', hex: '#EC4899' },
+  { name: 'Green', hex: '#059669' },
+  { name: 'Sky Blue', hex: '#0EA5E9' },
+  { name: 'Purple', hex: '#7C3AED' },
+  { name: 'Silver', hex: '#94A3B8' },
+  { name: 'Gold', hex: '#D97706' },
+];
+
+const TIP_SIZE_PRESETS = [
+  '0.5 mm Needle Tip',
+  '0.7 mm Bullet Tip',
+  '1.0 mm Broad Tip',
+  '0.5 mm Lead',
+  'Fine Nib (0.5 mm)',
+  'Chisel Tip',
+];
+
+const INK_TYPE_PRESETS = [
+  'Smooth Gel Ink',
+  'Low-Viscosity Ballpoint',
+  'Quick-Dry Ink',
+  'Permanent Marker Ink',
+  'Liquid Fountain Ink',
+  '2B Polymer Lead',
 ];
 
 interface ColorDraft {
@@ -200,6 +234,7 @@ export const AdminModal: React.FC = () => {
     OTHER_PRODUCT_SUBCATEGORIES[0] || 'Other Products'
   );
   const [prodName, setProdName] = useState('');
+  const [prodBrand, setProdBrand] = useState('Arefin Mart');
   const [prodPrice, setProdPrice] = useState<string>('50');
   const [prodOriginalPrice, setProdOriginalPrice] = useState<string>('');
   const [prodTipSize, setProdTipSize] = useState('0.5 mm Needle Tip');
@@ -227,6 +262,7 @@ export const AdminModal: React.FC = () => {
   const [comboCustomInkByDraft, setComboCustomInkByDraft] = useState<
     Record<string, { name: string; hex: string }>
   >({});
+  const [expandedInkDraftIds, setExpandedInkDraftIds] = useState<Record<string, boolean>>({});
   const [prodFormError, setProdFormError] = useState('');
   const [catalogListFilter, setCatalogListFilter] = useState<CategoryId>('all');
   const [prodSearchTerm, setProdSearchTerm] = useState('');
@@ -301,6 +337,42 @@ export const AdminModal: React.FC = () => {
       return sum + qty;
     }, 0);
   }, [colorDrafts, prodOutOfStock]);
+
+  const parsedSellingPrice = Number(prodPrice);
+  const parsedMrpPrice = prodOriginalPrice.trim() ? Number(prodOriginalPrice) : 0;
+  const discountInfo = useMemo(() => {
+    if (!prodOriginalPrice.trim() || !Number.isFinite(parsedMrpPrice) || parsedMrpPrice <= 0) {
+      return null;
+    }
+    if (!Number.isFinite(parsedSellingPrice) || parsedSellingPrice <= 0) {
+      return null;
+    }
+    if (parsedMrpPrice <= parsedSellingPrice) {
+      return { valid: false as const, percent: 0, savings: 0 };
+    }
+    const savings = Math.round(parsedMrpPrice - parsedSellingPrice);
+    const percent = Math.max(1, Math.round((savings / parsedMrpPrice) * 100));
+    return { valid: true as const, percent, savings };
+  }, [prodOriginalPrice, parsedMrpPrice, parsedSellingPrice]);
+
+  const selectedCategoryLabel = isOtherMode
+    ? otherSubcategory || 'Other Products'
+    : PEN_CATEGORIES.find((c) => c.id === prodCategory)?.label || 'Pen Category';
+
+  const readinessIssues = useMemo(() => {
+    const issues: string[] = [];
+    if (prodName.trim().length < 2) {
+      issues.push('Product name (at least 2 characters)');
+    }
+    if (!Number.isFinite(parsedSellingPrice) || parsedSellingPrice <= 0) {
+      issues.push('Valid selling price (> ৳0)');
+    }
+    const namedColors = colorDrafts.filter((c) => c.name.trim().length > 0);
+    if (namedColors.length === 0) {
+      issues.push('At least 1 named colour variant');
+    }
+    return issues;
+  }, [prodName, parsedSellingPrice, colorDrafts]);
 
   if (!isAdminModalOpen) return null;
 
@@ -509,6 +581,7 @@ export const AdminModal: React.FC = () => {
     setProdFormError('');
     setOtherSubcategory(OTHER_PRODUCT_SUBCATEGORIES[0] || 'Other Products');
     setProdName('');
+    setProdBrand('Arefin Mart');
     setProdPrice('50');
     setProdOriginalPrice('');
     setProdTipSize('0.5 mm Needle Tip');
@@ -520,6 +593,7 @@ export const AdminModal: React.FC = () => {
     setProdFeatured(false);
     setProdOutOfStock(false);
     setComboCustomInkByDraft({});
+    setExpandedInkDraftIds({});
     setColorDrafts([
       {
         id: `c-${Date.now()}`,
@@ -544,6 +618,7 @@ export const AdminModal: React.FC = () => {
       );
     }
     setProdName(prod.name);
+    setProdBrand(prod.brand || 'Arefin Mart');
     setProdPrice(String(prod.priceBdt));
     setProdOriginalPrice(prod.originalPriceBdt ? String(prod.originalPriceBdt) : '');
     setProdTipSize(prod.specs.tipSize || '0.5 mm Needle Tip');
@@ -558,6 +633,7 @@ export const AdminModal: React.FC = () => {
     setProdFeatured(Boolean(prod.featured));
     setProdOutOfStock(!prod.inStock);
     setComboCustomInkByDraft({});
+    setExpandedInkDraftIds({});
     setColorDrafts(
       prod.colors.length > 0
         ? prod.colors.map((c, idx) => {
@@ -638,6 +714,7 @@ export const AdminModal: React.FC = () => {
     const payload = isOtherMode
       ? {
           name: prodName,
+          brand: prodBrand.trim() || 'Arefin Mart',
           category: 'other-products' as const,
           categoryLabel: otherSubcategory.trim() || 'Other Products',
           priceBdt: parsedPrice,
@@ -666,6 +743,7 @@ export const AdminModal: React.FC = () => {
         }
       : {
           name: prodName,
+          brand: prodBrand.trim() || 'Arefin Mart',
           category: prodCategory,
           priceBdt: parsedPrice,
           originalPriceBdt: parsedOriginal,
@@ -1403,601 +1481,1074 @@ export const AdminModal: React.FC = () => {
 
                 <form
                   onSubmit={handleSaveProduct}
-                  className="rounded-xl border border-accent/40 bg-[var(--bg-card)] p-4 sm:p-5 space-y-4"
+                  className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 sm:p-6 space-y-6"
                   noValidate
                 >
-                  <div className="flex flex-wrap items-start justify-between gap-2">
+                  {/* Form Header */}
+                  <div className="flex flex-wrap items-start justify-between gap-3 pb-4 border-b border-[var(--border-subtle)]">
                     <div className="space-y-1">
-                      <h3 className="font-display text-base font-bold text-[var(--text-main)]">
+                      <h3 className="font-display text-base sm:text-lg font-bold text-[var(--text-main)]">
                         {editingProductId
                           ? `Edit Product: ${prodName || (isOtherMode ? 'Other Product' : 'Pen')}`
-                          : isOtherMode
-                            ? 'Add Other Product'
-                            : 'Add Product to Pen Category'}
+                          : 'Add New Product'}
                       </h3>
                       <p className="text-xs text-[var(--text-secondary)]">
                         {editingProductId
-                          ? 'Update category, price, colours, photos, or out-of-stock status below.'
-                          : isOtherMode
-                            ? 'Other products added here immediately appear under Other Products on Arefin Mart.'
-                            : 'Products added here immediately appear in the selected category and in All Pens.'}
+                          ? 'Update any details below and click Save Changes to update the live storefront.'
+                          : 'Follow the four steps below. Required fields are marked with *.'}
                       </p>
                     </div>
-                    {editingProductId && (
-                      <button
-                        type="button"
-                        onClick={resetProductForm}
-                        className="px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-main)] hover:border-accent"
-                      >
-                        Cancel Edit
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2 shrink-0">
+                      {editingProductId ? (
+                        <button
+                          type="button"
+                          onClick={resetProductForm}
+                          className="px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-main)] hover:border-accent whitespace-nowrap shrink-0 transition-colors"
+                        >
+                          Cancel Edit
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={resetProductForm}
+                          className="px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:border-accent inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors"
+                          title="Reset all fields back to default values"
+                        >
+                          <RotateCcw className="w-3.5 h-3.5" />
+                          <span>Reset Form</span>
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  {/* Product Section Switcher: Pen vs Other Product */}
-                  <div className="space-y-2">
-                    <label className="inline-flex items-center px-2.5 py-1 rounded-lg bg-accent/20 border border-accent/60 text-xs font-extrabold text-accent dark:text-accent-bright shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)]">
-                      Product Type *
-                    </label>
-                    <div className="grid grid-cols-2 gap-2">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          if (isOtherMode) {
-                            setProdCategory('gel-pens');
+                  {/* Step 01: Category & Basic Details */}
+                  <section className="space-y-4">
+                    <div className="space-y-0.5">
+                      <h4 className="font-display text-sm font-bold text-[var(--text-main)]">
+                        01. Category &amp; Basic Information
+                      </h4>
+                      <p className="text-xs text-[var(--text-muted)]">
+                        Choose where this product appears in the store and enter its name and description.
+                      </p>
+                    </div>
+
+                    {/* Product Type */}
+                    <div className="space-y-1.5">
+                      <span className="block text-xs font-semibold text-[var(--text-main)]">
+                        Product Type <span className="text-rose-500">*</span>
+                      </span>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <button
+                          type="button"
+                          aria-pressed={!isOtherMode}
+                          onClick={() => {
+                            if (isOtherMode) {
+                              setProdCategory('gel-pens');
+                              setProdFormError('');
+                            }
+                          }}
+                          className={`px-3.5 py-2.5 rounded-xl border text-left transition-all ${
+                            !isOtherMode
+                              ? 'border-accent bg-accent/10 text-[var(--text-main)]'
+                              : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-accent/50 hover:text-[var(--text-main)]'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs sm:text-sm font-bold">Pens</span>
+                            {!isOtherMode && (
+                              <CheckCircle2 className="w-4 h-4 text-accent-bright shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                            Gel, ballpoint, fountain, marker &amp; mechanical pens
+                          </p>
+                        </button>
+
+                        <button
+                          type="button"
+                          aria-pressed={isOtherMode}
+                          onClick={() => {
+                            setProdCategory('other-products');
                             setProdFormError('');
-                          }
-                        }}
-                        className={`px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold border text-center transition-all ${
-                          !isOtherMode
-                            ? 'border-accent bg-accent/15 text-accent dark:text-accent-bright shadow-[0_0_12px_rgba(var(--accent-rgb),0.25)]'
-                            : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
-                        }`}
-                      >
-                        Pens
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setProdCategory('other-products');
-                          setProdFormError('');
-                        }}
-                        className={`px-3 py-2.5 rounded-xl text-xs sm:text-sm font-bold border text-center transition-all ${
-                          isOtherMode
-                            ? 'border-accent bg-accent/15 text-accent dark:text-accent-bright shadow-[0_0_12px_rgba(var(--accent-rgb),0.25)]'
-                            : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
-                        }`}
-                      >
-                        Other Product
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* Category Selector: Pen Categories OR Other Product Select Category */}
-                  {isOtherMode ? (
-                    <div className="space-y-2">
-                      <label
-                        htmlFor="admin-other-category-select"
-                        className="inline-flex items-center px-2.5 py-1 rounded-lg bg-accent/20 border border-accent/60 text-xs font-extrabold text-accent dark:text-accent-bright shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)]"
-                      >
-                        Select Category *
-                      </label>
-                      <select
-                        id="admin-other-category-select"
-                        value={otherSubcategory}
-                        onChange={(e) => setOtherSubcategory(e.target.value)}
-                        className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm font-medium text-[var(--text-main)] focus:outline-none focus:border-accent"
-                      >
-                        {!OTHER_PRODUCT_SUBCATEGORIES.includes(otherSubcategory) && (
-                          <option value={otherSubcategory}>{otherSubcategory}</option>
-                        )}
-                        {OTHER_PRODUCT_SUBCATEGORIES.map((subcat) => (
-                          <option key={subcat} value={subcat}>
-                            {subcat}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  ) : (
-                    <div className="space-y-2">
-                      <label className="inline-flex items-center px-2.5 py-1 rounded-lg bg-accent/20 border border-accent/60 text-xs font-extrabold text-accent dark:text-accent-bright shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)]">
-                        Select Pen Category *
-                      </label>
-                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
-                        {PEN_CATEGORIES.map((cat) => {
-                          const selected = prodCategory === cat.id;
-                          return (
-                            <button
-                              key={cat.id}
-                              type="button"
-                              onClick={() => setProdCategory(cat.id)}
-                              className={`px-3 py-2 rounded-xl text-xs font-semibold border text-left transition-all ${
-                                selected
-                                  ? 'border-accent bg-accent/15 text-accent dark:text-accent-bright shadow-[0_0_12px_rgba(var(--accent-rgb),0.25)]'
-                                  : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
-                              }`}
-                            >
-                              {cat.label}
-                            </button>
-                          );
-                        })}
+                          }}
+                          className={`px-3.5 py-2.5 rounded-xl border text-left transition-all ${
+                            isOtherMode
+                              ? 'border-accent bg-accent/10 text-[var(--text-main)]'
+                              : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-accent/50 hover:text-[var(--text-main)]'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs sm:text-sm font-bold">Other Product</span>
+                            {isOtherMode && (
+                              <CheckCircle2 className="w-4 h-4 text-accent-bright shrink-0" />
+                            )}
+                          </div>
+                          <p className="text-[11px] text-[var(--text-muted)] mt-0.5">
+                            Notebooks, geometry boxes, ink bottles &amp; stationery
+                          </p>
+                        </button>
                       </div>
                     </div>
-                  )}
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    <div className="sm:col-span-2">
-                      <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright mb-1.5">
-                        Product Name *
+                    {/* Category Selector */}
+                    {isOtherMode ? (
+                      <div className="space-y-1.5">
+                        <label
+                          htmlFor="admin-other-category-select"
+                          className="block text-xs font-semibold text-[var(--text-main)]"
+                        >
+                          Stationery Subcategory <span className="text-rose-500">*</span>
+                        </label>
+                        <select
+                          id="admin-other-category-select"
+                          value={otherSubcategory}
+                          onChange={(e) => setOtherSubcategory(e.target.value)}
+                          className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm font-medium text-[var(--text-main)] focus:outline-none focus:border-accent"
+                        >
+                          {!OTHER_PRODUCT_SUBCATEGORIES.includes(otherSubcategory) && (
+                            <option value={otherSubcategory}>{otherSubcategory}</option>
+                          )}
+                          {OTHER_PRODUCT_SUBCATEGORIES.map((subcat) => (
+                            <option key={subcat} value={subcat}>
+                              {subcat}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <span className="block text-xs font-semibold text-[var(--text-main)]">
+                          Pen Category <span className="text-rose-500">*</span>
+                        </span>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                          {PEN_CATEGORIES.map((cat) => {
+                            const selected = prodCategory === cat.id;
+                            return (
+                              <button
+                                key={cat.id}
+                                type="button"
+                                aria-pressed={selected}
+                                onClick={() => setProdCategory(cat.id)}
+                                className={`px-3 py-2 rounded-xl text-xs font-semibold border flex items-center justify-between gap-2 text-left transition-colors ${
+                                  selected
+                                    ? 'border-accent bg-accent/15 text-accent dark:text-accent-bright'
+                                    : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-accent/55 hover:text-[var(--text-main)]'
+                                }`}
+                              >
+                                <span className="truncate">{cat.label}</span>
+                                {selected && <Check className="w-3.5 h-3.5 shrink-0" />}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Name & Brand */}
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="sm:col-span-2 space-y-1">
+                        <label
+                          htmlFor="admin-product-name"
+                          className="block text-xs font-semibold text-[var(--text-main)]"
+                        >
+                          Product Name <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          id="admin-product-name"
+                          type="text"
+                          required
+                          value={prodName}
+                          onChange={(e) => {
+                            setProdName(e.target.value);
+                            if (prodFormError) setProdFormError('');
+                          }}
+                          placeholder={
+                            isOtherMode
+                              ? 'e.g. A5 Hardcover Dotted Notebook'
+                              : 'e.g. Matador Hi-School Gel Pen'
+                          }
+                          className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                        />
+                      </div>
+
+                      <div className="space-y-1">
+                        <label
+                          htmlFor="admin-product-brand"
+                          className="block text-xs font-semibold text-[var(--text-main)]"
+                        >
+                          Brand <span className="font-normal text-[var(--text-muted)]">(Optional)</span>
+                        </label>
+                        <input
+                          id="admin-product-brand"
+                          type="text"
+                          value={prodBrand}
+                          onChange={(e) => setProdBrand(e.target.value)}
+                          placeholder="e.g. Matador, Deli, Pilot"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                        />
+                      </div>
+                    </div>
+
+                    {/* Short Description */}
+                    <div className="space-y-1">
+                      <label
+                        htmlFor="admin-product-desc"
+                        className="block text-xs font-semibold text-[var(--text-main)]"
+                      >
+                        Short Description{' '}
+                        <span className="font-normal text-[var(--text-muted)]">(Optional)</span>
                       </label>
-                      <input
-                        type="text"
-                        required
-                        value={prodName}
-                        onChange={(e) => setProdName(e.target.value)}
+                      <textarea
+                        id="admin-product-desc"
+                        rows={2}
+                        value={prodShortDesc}
+                        onChange={(e) => setProdShortDesc(e.target.value)}
                         placeholder={
                           isOtherMode
-                            ? 'e.g. A5 Hardcover Notebook / Desk Organizer'
-                            : 'e.g. Matador Hi-School / Neucose B'
+                            ? 'Describe size, page count, material, or key features...'
+                            : 'Describe ink smoothness, grip comfort, and tip precision...'
                         }
                         className="w-full px-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
                       />
+                      <p className="text-[11px] text-[var(--text-muted)]">
+                        Shown on product cards and search results. Leave blank to auto-generate a summary.
+                      </p>
+                    </div>
+                  </section>
+
+                  {/* Step 02: Pricing, Specs & Default Ink */}
+                  <section className="space-y-4 pt-5 border-t border-[var(--border-subtle)]">
+                    <div className="space-y-0.5">
+                      <h4 className="font-display text-sm font-bold text-[var(--text-main)]">
+                        {isOtherMode
+                          ? '02. Pricing & Stock Overview'
+                          : '02. Pricing, Pen Specs & Default Ink'}
+                      </h4>
+                      <p className="text-xs text-[var(--text-muted)]">
+                        {isOtherMode
+                          ? 'Set your selling price and an optional original price to highlight a discount.'
+                          : 'Set selling price, tip & ink specifications, and default ink colours inherited by new body colours.'}
+                      </p>
                     </div>
 
-                    <div>
-                      <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright mb-1.5">
-                        Price (৳ BDT) *
-                      </label>
-                      <input
-                        type="number"
-                        min={1}
-                        required
-                        value={prodPrice}
-                        onChange={(e) => setProdPrice(e.target.value)}
-                        className="w-full px-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent"
-                      />
-                    </div>
-
-                    <div>
-                      <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright mb-1.5">
-                        Original Price (Optional ৳)
-                      </label>
-                      <input
-                        type="number"
-                        min={0}
-                        value={prodOriginalPrice}
-                        onChange={(e) => setProdOriginalPrice(e.target.value)}
-                        placeholder="Leave blank if no discount"
-                        className="w-full px-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent"
-                      />
-                    </div>
-
-                    {!isOtherMode && (
-                      <div>
-                        <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright mb-1.5">
-                          Tip / Nib Size
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <label
+                          htmlFor="admin-product-price"
+                          className="block text-xs font-semibold text-[var(--text-main)]"
+                        >
+                          Selling Price (৳ BDT) <span className="text-rose-500">*</span>
                         </label>
                         <input
-                          type="text"
-                          value={prodTipSize}
-                          onChange={(e) => setProdTipSize(e.target.value)}
-                          placeholder="e.g. 0.5 mm Needle Tip"
-                          className="w-full px-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                          id="admin-product-price"
+                          type="number"
+                          min={1}
+                          required
+                          value={prodPrice}
+                          onChange={(e) => {
+                            setProdPrice(e.target.value);
+                            if (prodFormError) setProdFormError('');
+                          }}
+                          className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent"
                         />
                       </div>
-                    )}
 
-                    <div className={isOtherMode ? 'sm:col-span-2' : ''}>
-                      <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright mb-1.5">
-                        Total Stock (Auto from Colours)
-                      </label>
-                      <div className="w-full px-3 py-2 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-sm font-mono-num font-bold text-[var(--text-main)] flex items-center justify-between gap-2">
-                        <span>{autoTotalStock.toLocaleString('en-US')} pcs</span>
-                        <span className="text-[11px] font-sans font-normal text-[var(--text-muted)]">
-                          Auto-summed
+                      <div className="space-y-1">
+                        <label
+                          htmlFor="admin-product-original-price"
+                          className="block text-xs font-semibold text-[var(--text-main)]"
+                        >
+                          Original Price (৳){' '}
+                          <span className="font-normal text-[var(--text-muted)]">(Optional)</span>
+                        </label>
+                        <input
+                          id="admin-product-original-price"
+                          type="number"
+                          min={0}
+                          value={prodOriginalPrice}
+                          onChange={(e) => setProdOriginalPrice(e.target.value)}
+                          placeholder="Leave blank if no discount"
+                          className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent"
+                        />
+                        {discountInfo && (
+                          <p
+                            className={`text-[11px] font-medium font-mono-num ${
+                              discountInfo.valid
+                                ? 'text-emerald-600 dark:text-emerald-400'
+                                : 'text-amber-600 dark:text-amber-400'
+                            }`}
+                          >
+                            {discountInfo.valid
+                              ? `${discountInfo.percent}% off · Customer saves ৳${discountInfo.savings.toLocaleString('en-US')}`
+                              : 'Must be higher than selling price to show discount'}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="space-y-1">
+                        <span className="block text-xs font-semibold text-[var(--text-main)]">
+                          Total Stock
                         </span>
-                      </div>
-                    </div>
-
-                    {!isOtherMode && (
-                      <div>
-                        <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright mb-1.5">
-                          Ink / Lead Type
-                        </label>
-                        <input
-                          type="text"
-                          value={prodInkType}
-                          onChange={(e) => setProdInkType(e.target.value)}
-                          placeholder="e.g. Quick-Dry Black Gel Ink"
-                          className="w-full px-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
-                        />
-                      </div>
-                    )}
-
-                    {/* Colour, Stock & Photo Upload */}
-                    <div className="sm:col-span-2 space-y-2.5 pt-2 border-t border-[var(--border-subtle)]">
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="inline-flex items-center px-2.5 py-1 rounded-lg bg-accent/20 border border-accent/60 text-xs font-extrabold text-accent dark:text-accent-bright shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)]">
-                            {isOtherMode
-                              ? 'Product Image, Colour & Stock *'
-                              : 'Pen Body Colours, Ink Colour Combos & Photo Upload *'}
-                          </span>
-                          <span className="text-[11px] font-mono-num font-bold text-accent dark:text-accent-bright">
-                            {colorDrafts.filter((c) => c.inStock).length}/{colorDrafts.length} in stock
+                        <div className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-sm font-mono-num font-bold text-[var(--text-main)] flex items-center justify-between gap-2">
+                          <span>{autoTotalStock.toLocaleString('en-US')} pcs</span>
+                          <span className="text-[11px] font-sans font-normal text-[var(--text-muted)]">
+                            Auto-summed
                           </span>
                         </div>
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          {!isOtherMode && (
+                      </div>
+                    </div>
+
+                    {!isOtherMode && (
+                      <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="space-y-1.5">
+                            <label
+                              htmlFor="admin-product-tip"
+                              className="block text-xs font-semibold text-[var(--text-main)]"
+                            >
+                              Tip / Nib Size
+                            </label>
+                            <input
+                              id="admin-product-tip"
+                              type="text"
+                              value={prodTipSize}
+                              onChange={(e) => setProdTipSize(e.target.value)}
+                              placeholder="e.g. 0.5 mm Needle Tip"
+                              className="w-full px-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                            />
+                            <div className="flex flex-wrap gap-1">
+                              {TIP_SIZE_PRESETS.map((preset) => (
+                                <button
+                                  key={preset}
+                                  type="button"
+                                  onClick={() => setProdTipSize(preset)}
+                                  className={`px-2 py-0.5 rounded-md text-[11px] border transition-colors whitespace-nowrap shrink-0 ${
+                                    prodTipSize === preset
+                                      ? 'border-accent bg-accent/15 text-accent dark:text-accent-bright font-semibold'
+                                      : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:border-accent/50'
+                                  }`}
+                                >
+                                  {preset}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <label
+                              htmlFor="admin-product-ink-type"
+                              className="block text-xs font-semibold text-[var(--text-main)]"
+                            >
+                              Ink / Lead Type
+                            </label>
+                            <input
+                              id="admin-product-ink-type"
+                              type="text"
+                              value={prodInkType}
+                              onChange={(e) => setProdInkType(e.target.value)}
+                              placeholder="e.g. Smooth Gel Ink"
+                              className="w-full px-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                            />
+                            <div className="flex flex-wrap gap-1">
+                              {INK_TYPE_PRESETS.map((preset) => (
+                                <button
+                                  key={preset}
+                                  type="button"
+                                  onClick={() => setProdInkType(preset)}
+                                  className={`px-2 py-0.5 rounded-md text-[11px] border transition-colors whitespace-nowrap shrink-0 ${
+                                    prodInkType === preset
+                                      ? 'border-accent bg-accent/15 text-accent dark:text-accent-bright font-semibold'
+                                      : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:border-accent/50'
+                                  }`}
+                                >
+                                  {preset}
+                                </button>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Default Ink Colours */}
+                        <div className="p-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] space-y-3">
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div className="space-y-0.5">
+                              <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-main)]">
+                                <Droplets className="w-3.5 h-3.5 text-accent-bright shrink-0" />
+                                <span>
+                                  Default Ink Colours <span className="text-rose-500">*</span>
+                                </span>
+                                <span className="text-[var(--text-muted)] font-normal">
+                                  · {prodInkColors.length} selected
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-[var(--text-muted)]">
+                                New body colours below copy these inks automatically. You can still customize inks per body colour.
+                              </p>
+                            </div>
+
+                            {colorDrafts.length > 0 && (
+                              <button
+                                type="button"
+                                onClick={handleApplyDefaultInksToAllBodies}
+                                className="px-2.5 py-1.5 rounded-lg border border-accent/45 bg-accent/10 text-[11px] font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 whitespace-nowrap shrink-0 transition-colors"
+                                title="Replace ink choices on every body colour below with these defaults"
+                              >
+                                Apply to All Body Colours
+                              </button>
+                            )}
+                          </div>
+
+                          {/* Multi-Toggle Ink Presets */}
+                          <div className="flex flex-wrap gap-1.5">
+                            {INK_COLOR_PRESETS.map((ink) => {
+                              const selected = prodInkColors.some(
+                                (item) => item.name.trim().toLowerCase() === ink.name.toLowerCase()
+                              );
+                              return (
+                                <button
+                                  key={ink.name}
+                                  type="button"
+                                  aria-pressed={selected}
+                                  onClick={() => handleToggleInkColorPreset(ink)}
+                                  className={`min-h-[34px] px-2.5 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-all ${
+                                    selected
+                                      ? 'border-accent bg-accent/15 text-[var(--text-main)] font-semibold'
+                                      : 'border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
+                                  }`}
+                                >
+                                  <span
+                                    className="w-3 h-3 rounded-full border border-black/20 dark:border-white/25 shrink-0 flex items-center justify-center"
+                                    style={{ backgroundColor: ink.hex }}
+                                  >
+                                    {selected && (
+                                      <Check className="w-2 h-2 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.85)]" />
+                                    )}
+                                  </span>
+                                  <span>{ink.name}</span>
+                                </button>
+                              );
+                            })}
+                          </div>
+
+                          {/* Selected Custom Inks (if any non-preset added) */}
+                          {prodInkColors.some(
+                            (sel) =>
+                              !INK_COLOR_PRESETS.some(
+                                (p) => p.name.toLowerCase() === sel.name.trim().toLowerCase()
+                              )
+                          ) && (
+                            <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                              <span className="text-[11px] text-[var(--text-muted)]">
+                                Custom inks:
+                              </span>
+                              {prodInkColors
+                                .filter(
+                                  (sel) =>
+                                    !INK_COLOR_PRESETS.some(
+                                      (p) => p.name.toLowerCase() === sel.name.trim().toLowerCase()
+                                    )
+                                )
+                                .map((ink) => (
+                                  <span
+                                    key={ink.id}
+                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-accent/45 bg-accent/10 text-xs font-medium text-[var(--text-main)]"
+                                  >
+                                    <span
+                                      className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/30 shrink-0"
+                                      style={{ backgroundColor: ink.hex }}
+                                    />
+                                    <span>{ink.name}</span>
+                                    {prodInkColors.length > 1 && (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleRemoveSelectedInkColor(ink.id)}
+                                        className="text-[var(--text-muted)] hover:text-rose-500"
+                                        aria-label={`Remove ${ink.name} ink`}
+                                      >
+                                        <X className="w-3 h-3" />
+                                      </button>
+                                    )}
+                                  </span>
+                                ))}
+                            </div>
+                          )}
+
+                          {/* Custom Ink Adder */}
+                          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                            <input
+                              type="color"
+                              value={customInkHex}
+                              onChange={(e) => setCustomInkHex(e.target.value)}
+                              aria-label="Custom ink colour picker"
+                              className="w-9 h-9 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
+                            />
+                            <input
+                              type="text"
+                              value={customInkName}
+                              onChange={(e) => setCustomInkName(e.target.value)}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.preventDefault();
+                                  handleAddCustomInkColor();
+                                }
+                              }}
+                              placeholder="Or add a custom ink (e.g. Blue-Black)"
+                              className="flex-1 min-w-[140px] px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] focus:outline-none focus:border-accent"
+                            />
                             <button
                               type="button"
-                              onClick={handleApplyDefaultInksToAllBodies}
-                              className="px-2.5 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[11px] font-semibold text-[var(--text-secondary)] hover:border-accent hover:text-[var(--text-main)]"
-                              title="Copy default ink colours to every body colour below"
+                              onClick={handleAddCustomInkColor}
+                              className="min-h-[36px] px-3 py-2 rounded-lg border border-accent/55 bg-accent/10 text-xs font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 inline-flex items-center gap-1 whitespace-nowrap shrink-0"
                             >
-                              Sync Default Inks
+                              <Plus className="w-3.5 h-3.5" />
+                              <span>Add Ink</span>
                             </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={handleAddColorDraft}
-                            className="px-2.5 py-1.5 rounded-lg border border-accent/50 text-xs font-semibold text-accent dark:text-accent-bright hover:bg-accent/10 inline-flex items-center gap-1"
-                          >
-                            <Plus className="w-3.5 h-3.5" />
-                            <span>{isOtherMode ? 'Add Colour' : 'Add Body Colour'}</span>
-                          </button>
+                          </div>
                         </div>
+                      </>
+                    )}
+                  </section>
+
+                  {/* Step 03: Colour Variants, Photos & Stock */}
+                  <section className="space-y-3.5 pt-5 border-t border-[var(--border-subtle)]">
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="space-y-0.5">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <h4 className="font-display text-sm font-bold text-[var(--text-main)]">
+                            {isOtherMode
+                              ? '03. Colour Variants, Photos & Stock'
+                              : '03. Body Colours, Photos & Stock'}
+                          </h4>
+                          <span className="text-xs font-mono-num text-[var(--text-muted)]">
+                            {colorDrafts.filter((c) => c.inStock).length}/{colorDrafts.length} in stock ·{' '}
+                            {autoTotalStock.toLocaleString('en-US')} pcs
+                          </span>
+                        </div>
+                        <p className="text-xs text-[var(--text-muted)]">
+                          Add each {isOtherMode ? 'product colour' : 'pen body colour'}, set available units, and upload a photo or paste an image URL.
+                        </p>
                       </div>
 
-                      <div className="space-y-2.5">
-                        {colorDrafts.map((col, idx) => {
-                          const colorOutOfStock = !col.inStock;
-                          return (
-                            <div
-                              key={col.id}
-                              className={`p-3 rounded-xl border space-y-2.5 transition-colors ${
-                                colorOutOfStock
-                                  ? 'border-rose-500/45 bg-rose-500/[0.04]'
-                                  : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)]'
-                              }`}
-                            >
-                              <div className="space-y-2.5 min-w-0">
-                                {/* Row 1: Preview + Colour Picker + Name + Qty + Stock Switch + Remove Button */}
-                                <div className="flex flex-wrap items-center justify-between gap-2 min-w-0">
-                                  <div className="flex flex-wrap items-center gap-2 flex-1 min-w-[200px]">
-                                    {col.image ? (
-                                      <button
-                                        type="button"
-                                        onClick={() => {
-                                          const variantSlides: LightboxSlide[] = colorDrafts
-                                            .filter((draft) => Boolean(draft.image))
-                                            .map((draft, slideIdx) => ({
-                                              src: draft.image,
-                                              label: draft.name.trim() || `Body ${slideIdx + 1}`,
-                                              colorHex: draft.hex,
-                                            }));
-                                          const startIdx = Math.max(
-                                            0,
-                                            variantSlides.findIndex((s) => s.src === col.image)
-                                          );
-                                          setLightboxState({
-                                            title: prodName.trim() || col.name.trim() || 'Pen Photo',
-                                            slides:
-                                              variantSlides.length > 0
-                                                ? variantSlides
-                                                : [
-                                                    {
-                                                      src: col.image,
-                                                      label: col.name.trim() || `Body ${idx + 1}`,
-                                                      colorHex: col.hex,
-                                                    },
-                                                  ],
-                                            initialIndex: startIdx,
-                                          });
-                                        }}
-                                        title="Open pen photo full screen to inspect colour & structure"
-                                        aria-label={`View ${col.name || `Pen variant ${idx + 1}`} photo full screen`}
-                                        className="group relative w-14 h-11 rounded-lg overflow-hidden border border-accent/45 hover:border-accent bg-[#0B0809] shrink-0 flex items-center justify-center transition-all"
-                                      >
-                                        <SafeImage
-                                          src={col.image}
-                                          alt={col.name || `Pen variant ${idx + 1}`}
-                                          className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${
-                                            colorOutOfStock ? 'opacity-45 grayscale-[30%]' : ''
-                                          }`}
-                                        />
-                                        <span className="absolute bottom-1 right-1 w-4 h-4 rounded bg-black/75 border border-white/25 text-white flex items-center justify-center shadow">
-                                          <Maximize2 className="w-2.5 h-2.5" />
-                                        </span>
-                                      </button>
-                                    ) : (
-                                      <div className="w-14 h-11 rounded-lg overflow-hidden border border-[var(--border-subtle)] bg-[#0B0809] shrink-0 flex items-center justify-center relative">
-                                        <ImageIcon className="w-4 h-4 text-[var(--text-muted)]" />
-                                      </div>
-                                    )}
+                      <button
+                        type="button"
+                        onClick={handleAddColorDraft}
+                        className="px-3 py-2 rounded-xl border border-accent/55 bg-accent/10 text-xs font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                        <span>{isOtherMode ? 'Add Colour' : 'Add Body Colour'}</span>
+                      </button>
+                    </div>
 
-                                    <input
-                                      type="color"
-                                      value={col.hex}
-                                      onChange={(e) =>
-                                        handleUpdateColorDraft(col.id, { hex: e.target.value })
-                                      }
-                                      aria-label={`Colour picker ${idx + 1}`}
-                                      className="w-9 h-9 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
-                                    />
-
-                                    <input
-                                      type="text"
-                                      value={col.name}
-                                      onChange={(e) =>
-                                        handleUpdateColorDraft(col.id, { name: e.target.value })
-                                      }
-                                      placeholder={
-                                        isOtherMode
-                                          ? 'Colour name (e.g. Navy Blue)'
-                                          : 'Body colour (e.g. Pink)'
-                                      }
-                                      className="flex-1 min-w-[120px] px-2.5 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] focus:outline-none focus:border-accent"
-                                    />
-                                  </div>
-
-                                  <div className="flex flex-wrap items-center gap-2 shrink-0">
-                                    <div className="flex items-center gap-1 shrink-0">
-                                      <span className="px-1.5 py-0.5 rounded bg-accent/15 border border-accent/45 text-[10px] font-bold text-accent dark:text-accent-bright">
-                                        Qty
-                                      </span>
-                                      <input
-                                        type="number"
-                                        min={0}
-                                        value={col.stockCount}
-                                        onChange={(e) => {
-                                          const raw = e.target.value;
-                                          if (raw === '') {
-                                            handleUpdateColorDraft(col.id, { stockCount: '' });
-                                            return;
-                                          }
-                                          const parsedQty = Math.max(
-                                            0,
-                                            Math.round(Number(raw) || 0)
-                                          );
-                                          handleUpdateColorDraft(col.id, {
-                                            stockCount: String(parsedQty),
-                                            inStock: parsedQty > 0,
-                                            prevStockCount:
-                                              parsedQty > 0
-                                                ? String(parsedQty)
-                                                : col.prevStockCount,
-                                          });
-                                        }}
-                                        aria-label={`Stock quantity for ${col.name || `colour ${idx + 1}`}`}
-                                        className="w-16 px-2 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent"
-                                      />
-                                    </div>
-
-                                    <button
-                                      type="button"
-                                      role="switch"
-                                      aria-checked={colorOutOfStock}
-                                      onClick={() => {
-                                        if (col.inStock) {
-                                          handleUpdateColorDraft(col.id, {
-                                            inStock: false,
-                                            prevStockCount:
-                                              Number(col.stockCount) > 0
-                                                ? col.stockCount
-                                                : col.prevStockCount,
-                                            stockCount: '0',
-                                          });
-                                        } else {
-                                          const restored =
-                                            Number(col.prevStockCount) > 0
-                                              ? col.prevStockCount!
-                                              : '25';
-                                          handleUpdateColorDraft(col.id, {
-                                            inStock: true,
-                                            stockCount: restored,
-                                          });
-                                        }
-                                      }}
-                                      className={`px-2.5 py-2 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 shrink-0 transition-colors ${
-                                        colorOutOfStock
-                                          ? 'border-rose-500/60 bg-rose-500/15 text-rose-600 dark:text-rose-400 hover:bg-rose-500/25'
-                                          : 'border-emerald-500/45 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20'
-                                      }`}
-                                      title={`Toggle ${col.name || 'this colour'} Out of Stock ON/OFF`}
-                                    >
-                                      <span
-                                        className={`w-2 h-2 rounded-full ${
-                                          colorOutOfStock ? 'bg-rose-500' : 'bg-emerald-500'
-                                        }`}
-                                      />
-                                      <span>{colorOutOfStock ? 'Out of Stock' : 'In Stock'}</span>
-                                    </button>
-
-                                    {colorDrafts.length > 1 && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemoveColorDraft(col.id)}
-                                        className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-rose-500 hover:border-rose-500/50 transition-colors shrink-0"
-                                        aria-label="Remove colour option"
-                                        title="Remove colour option"
-                                      >
-                                        <X className="w-4 h-4" />
-                                      </button>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {/* Row 2: Image URL + Enlarged Upload Image Button */}
-                                <div className="flex flex-wrap items-center gap-2.5 min-w-0">
-                                  <input
-                                    type="text"
-                                    value={col.image}
-                                    onChange={(e) =>
-                                      handleUpdateColorDraft(col.id, { image: e.target.value })
-                                    }
-                                    placeholder={
-                                      isOtherMode
-                                        ? 'Image URL or upload product photo'
-                                        : 'Image URL or upload pen photo'
-                                    }
-                                    className="flex-1 min-w-[160px] px-2.5 py-2.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] focus:outline-none focus:border-accent"
-                                  />
-
-                                  <label className="px-4 py-2.5 rounded-lg border border-accent/45 bg-accent/10 hover:bg-accent/20 text-xs sm:text-sm font-semibold text-[var(--text-main)] hover:border-accent cursor-pointer inline-flex items-center gap-2 shrink-0 transition-colors">
-                                    <ImagePlus className="w-4 h-4 text-accent-bright" />
-                                    <span>Upload Image</span>
-                                    <input
-                                      type="file"
-                                      accept="image/*"
-                                      className="hidden"
-                                      onChange={(e) =>
-                                        handleColorImageUpload(col.id, e.target.files?.[0])
-                                      }
-                                    />
-                                  </label>
-                                </div>
+                    <div className="space-y-3">
+                      {colorDrafts.map((col, idx) => {
+                        const colorOutOfStock = !col.inStock;
+                        const isInkEditorOpen = Boolean(expandedInkDraftIds[col.id]);
+                        return (
+                          <div
+                            key={col.id}
+                            className={`p-3.5 rounded-xl border space-y-3 transition-colors ${
+                              colorOutOfStock
+                                ? 'border-rose-500/45 bg-rose-500/[0.04]'
+                                : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)]'
+                            }`}
+                          >
+                            {/* Variant Header */}
+                            <div className="flex flex-wrap items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 text-xs">
+                                <span
+                                  className="w-3 h-3 rounded-full border border-black/25 dark:border-white/30 shrink-0"
+                                  style={{ backgroundColor: col.hex }}
+                                />
+                                <span className="font-semibold text-[var(--text-main)]">
+                                  Variant {idx + 1}
+                                  {col.name.trim() ? `: ${col.name.trim()}` : ''}
+                                </span>
+                                <span className="text-[var(--text-muted)]">·</span>
+                                <span
+                                  className={`font-mono-num font-medium ${
+                                    colorOutOfStock
+                                      ? 'text-rose-500'
+                                      : 'text-emerald-600 dark:text-emerald-400'
+                                  }`}
+                                >
+                                  {colorOutOfStock
+                                    ? 'Out of Stock'
+                                    : `${Math.max(0, Math.round(Number(col.stockCount) || 0))} pcs in stock`}
+                                </span>
                               </div>
 
-                              {/* Multi-Select Combo Ink Colours for this Body Colour */}
-                              {!isOtherMode && (
-                              <div className="pt-2.5 border-t border-[var(--border-subtle)]/60 space-y-2">
-                                <div className="flex flex-wrap items-center justify-between gap-2">
-                                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-[11px] font-bold text-accent dark:text-accent-bright">
-                                    <Droplets className="w-3.5 h-3.5 shrink-0" />
-                                    <span>
-                                      Combo Ink Colours for {col.name || `Body ${idx + 1}`} (Multi-Select)
-                                    </span>
-                                  </span>
-                                  <span className="text-[10px] font-bold font-mono-num text-accent dark:text-accent-bright">
-                                    {col.inkColors.length} ink{col.inkColors.length === 1 ? '' : 's'}
-                                  </span>
-                                </div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <button
+                                  type="button"
+                                  role="switch"
+                                  aria-checked={!colorOutOfStock}
+                                  onClick={() => {
+                                    if (col.inStock) {
+                                      handleUpdateColorDraft(col.id, {
+                                        inStock: false,
+                                        prevStockCount:
+                                          Number(col.stockCount) > 0
+                                            ? col.stockCount
+                                            : col.prevStockCount,
+                                        stockCount: '0',
+                                      });
+                                    } else {
+                                      const restored =
+                                        Number(col.prevStockCount) > 0
+                                          ? col.prevStockCount!
+                                          : '25';
+                                      handleUpdateColorDraft(col.id, {
+                                        inStock: true,
+                                        stockCount: restored,
+                                      });
+                                    }
+                                  }}
+                                  className={`px-2.5 py-1 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors ${
+                                    colorOutOfStock
+                                      ? 'border-rose-500/60 bg-rose-500/15 text-rose-600 dark:text-rose-400 hover:bg-rose-500/25'
+                                      : 'border-emerald-500/45 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20'
+                                  }`}
+                                  title={`Toggle ${col.name || `Variant ${idx + 1}`} availability`}
+                                >
+                                  <span>{colorOutOfStock ? 'Marked Sold Out' : 'In Stock'}</span>
+                                </button>
 
-                                {/* Selected Combo Ink Chips */}
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                  {col.inkColors.map((ink) => (
-                                    <span
-                                      key={ink.id}
-                                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-accent/45 bg-accent/10 text-[11px] font-semibold text-[var(--text-main)]"
-                                    >
-                                      <span
-                                        className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/30 shrink-0"
-                                        style={{ backgroundColor: ink.hex }}
+                                {colorDrafts.length > 1 && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleRemoveColorDraft(col.id)}
+                                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-rose-500 hover:border-rose-500/50 transition-colors shrink-0"
+                                    aria-label={`Remove variant ${idx + 1}`}
+                                    title="Remove this colour variant"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                  </button>
+                                )}
+                              </div>
+                            </div>
+
+                            {/* Variant Main Controls: Photo Thumb + Colour Name + Hex + Quick Swatches + Qty */}
+                            <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+                              {/* Photo Preview */}
+                              <div className="shrink-0">
+                                {col.image ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const variantSlides: LightboxSlide[] = colorDrafts
+                                        .filter((draft) => Boolean(draft.image))
+                                        .map((draft, slideIdx) => ({
+                                          src: draft.image,
+                                          label: draft.name.trim() || `Variant ${slideIdx + 1}`,
+                                          colorHex: draft.hex,
+                                        }));
+                                      const startIdx = Math.max(
+                                        0,
+                                        variantSlides.findIndex((s) => s.src === col.image)
+                                      );
+                                      setLightboxState({
+                                        title: prodName.trim() || col.name.trim() || 'Product Photo',
+                                        slides:
+                                          variantSlides.length > 0
+                                            ? variantSlides
+                                            : [
+                                                {
+                                                  src: col.image,
+                                                  label: col.name.trim() || `Variant ${idx + 1}`,
+                                                  colorHex: col.hex,
+                                                },
+                                              ],
+                                        initialIndex: startIdx,
+                                      });
+                                    }}
+                                    title="Click to inspect photo full screen"
+                                    aria-label={`View ${col.name || `variant ${idx + 1}`} photo full screen`}
+                                    className="group relative w-20 h-16 rounded-xl overflow-hidden border border-accent/45 hover:border-accent bg-[#0B0809] flex items-center justify-center transition-all"
+                                  >
+                                    <SafeImage
+                                      src={col.image}
+                                      alt={col.name || `Variant ${idx + 1}`}
+                                      className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${
+                                        colorOutOfStock ? 'opacity-45 grayscale-[30%]' : ''
+                                      }`}
+                                    />
+                                    <span className="absolute bottom-1 right-1 w-5 h-5 rounded bg-black/75 border border-white/25 text-white flex items-center justify-center shadow">
+                                      <Maximize2 className="w-3 h-3" />
+                                    </span>
+                                  </button>
+                                ) : (
+                                  <div className="w-20 h-16 rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-input)] flex flex-col items-center justify-center gap-0.5 text-[var(--text-muted)]">
+                                    <ImageIcon className="w-4 h-4" />
+                                    <span className="text-[10px]">No photo</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Name, Picker, Quick Swatches, Qty */}
+                              <div className="flex-1 space-y-2.5 min-w-0">
+                                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                                  <div className="sm:col-span-8 space-y-1">
+                                    <label className="block text-[11px] font-semibold text-[var(--text-secondary)]">
+                                      {isOtherMode ? 'Colour Name *' : 'Body Colour Name *'}
+                                    </label>
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="color"
+                                        value={col.hex}
+                                        onChange={(e) =>
+                                          handleUpdateColorDraft(col.id, { hex: e.target.value })
+                                        }
+                                        aria-label={`Colour picker for variant ${idx + 1}`}
+                                        className="w-9 h-9 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
                                       />
-                                      <span>{ink.name}</span>
-                                      {col.inkColors.length > 1 && (
-                                        <button
-                                          type="button"
-                                          onClick={() => handleRemoveVariantInkColor(col.id, ink.id)}
-                                          className="text-[var(--text-muted)] hover:text-rose-500"
-                                          aria-label={`Remove ${ink.name} ink from ${col.name || `Body ${idx + 1}`}`}
-                                        >
-                                          <X className="w-3 h-3" />
-                                        </button>
-                                      )}
-                                    </span>
-                                  ))}
+                                      <input
+                                        type="text"
+                                        value={col.name}
+                                        onChange={(e) => {
+                                          handleUpdateColorDraft(col.id, { name: e.target.value });
+                                          if (prodFormError) setProdFormError('');
+                                        }}
+                                        placeholder={
+                                          isOtherMode
+                                            ? 'e.g. Navy Blue, Classic Black'
+                                            : 'e.g. Matte Black, Pastel Pink'
+                                        }
+                                        className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs sm:text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="sm:col-span-4 space-y-1">
+                                    <label className="block text-[11px] font-semibold text-[var(--text-secondary)]">
+                                      Stock Quantity
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      value={col.stockCount}
+                                      onChange={(e) => {
+                                        const raw = e.target.value;
+                                        if (raw === '') {
+                                          handleUpdateColorDraft(col.id, { stockCount: '' });
+                                          return;
+                                        }
+                                        const parsedQty = Math.max(
+                                          0,
+                                          Math.round(Number(raw) || 0)
+                                        );
+                                        handleUpdateColorDraft(col.id, {
+                                          stockCount: String(parsedQty),
+                                          inStock: parsedQty > 0,
+                                          prevStockCount:
+                                            parsedQty > 0
+                                              ? String(parsedQty)
+                                              : col.prevStockCount,
+                                        });
+                                      }}
+                                      aria-label={`Stock quantity for ${col.name || `variant ${idx + 1}`}`}
+                                      className="w-full px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs sm:text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent"
+                                    />
+                                  </div>
                                 </div>
 
-                                {/* Multi-Select Preset Ink Toggles */}
-                                <div className="flex flex-wrap gap-1.5">
-                                  {INK_COLOR_PRESETS.map((ink) => {
-                                    const selected = col.inkColors.some(
-                                      (item) =>
-                                        item.name.trim().toLowerCase() === ink.name.toLowerCase()
-                                    );
+                                {/* 1-Click Quick Body Colour Presets */}
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className="text-[11px] text-[var(--text-muted)] mr-0.5">
+                                    Quick pick:
+                                  </span>
+                                  {BODY_COLOR_PRESETS.map((preset) => {
+                                    const active =
+                                      col.name.trim().toLowerCase() === preset.name.toLowerCase();
                                     return (
                                       <button
-                                        key={ink.name}
+                                        key={preset.name}
                                         type="button"
-                                        aria-pressed={selected}
-                                        onClick={() => handleToggleVariantInkColor(col.id, ink)}
-                                        className={`min-h-[30px] px-2 py-1 rounded-lg border text-[11px] font-medium inline-flex items-center gap-1.5 transition-all ${
-                                          selected
-                                            ? 'border-accent bg-accent/20 text-[var(--text-main)] font-semibold shadow-[0_0_8px_rgba(var(--accent-rgb),0.2)]'
-                                            : 'border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
+                                        onClick={() =>
+                                          handleUpdateColorDraft(col.id, {
+                                            name: preset.name,
+                                            hex: preset.hex,
+                                          })
+                                        }
+                                        title={`Use ${preset.name} (${preset.hex})`}
+                                        aria-label={`Set colour to ${preset.name}`}
+                                        className={`w-5 h-5 rounded-full border transition-transform hover:scale-110 shrink-0 ${
+                                          active
+                                            ? 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--bg-secondary)] border-white/60'
+                                            : 'border-black/25 dark:border-white/30'
                                         }`}
-                                      >
-                                        <span
-                                          className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/25 shrink-0 flex items-center justify-center"
-                                          style={{ backgroundColor: ink.hex }}
-                                        >
-                                          {selected && (
-                                            <Check className="w-2 h-2 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.85)]" />
-                                          )}
-                                        </span>
-                                        <span>{ink.name}</span>
-                                      </button>
+                                        style={{ backgroundColor: preset.hex }}
+                                      />
                                     );
                                   })}
                                 </div>
+                              </div>
+                            </div>
 
-                                {/* Custom Ink Adder for this Body Colour */}
-                                <div className="flex flex-wrap items-center gap-1.5 pt-0.5 min-w-0">
+                            {/* Photo URL & Upload Row */}
+                            <div className="space-y-1">
+                              <label className="block text-[11px] font-semibold text-[var(--text-secondary)]">
+                                Product Photo (Upload or Image URL)
+                              </label>
+                              <div className="flex flex-wrap items-center gap-2 min-w-0">
+                                <input
+                                  type="text"
+                                  value={col.image}
+                                  onChange={(e) =>
+                                    handleUpdateColorDraft(col.id, { image: e.target.value })
+                                  }
+                                  placeholder="Paste https:// image URL or click Upload Photo"
+                                  className="flex-1 min-w-[160px] px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] focus:outline-none focus:border-accent"
+                                />
+
+                                <label className="px-3.5 py-2 rounded-lg border border-accent/45 bg-accent/10 hover:bg-accent/20 text-xs font-semibold text-[var(--text-main)] hover:border-accent cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors">
+                                  <ImagePlus className="w-4 h-4 text-accent-bright" />
+                                  <span>{col.image ? 'Replace Photo' : 'Upload Photo'}</span>
                                   <input
-                                    type="color"
-                                    value={comboCustomInkByDraft[col.id]?.hex || '#1D4ED8'}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
                                     onChange={(e) =>
-                                      setComboCustomInkByDraft((prev) => ({
-                                        ...prev,
-                                        [col.id]: {
-                                          name: prev[col.id]?.name || '',
-                                          hex: e.target.value,
-                                        },
-                                      }))
+                                      handleColorImageUpload(col.id, e.target.files?.[0])
                                     }
-                                    aria-label={`Custom ink colour picker for ${col.name || `Body ${idx + 1}`}`}
-                                    className="w-8 h-8 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
                                   />
-                                  <input
-                                    type="text"
-                                    value={comboCustomInkByDraft[col.id]?.name || ''}
-                                    onChange={(e) =>
-                                      setComboCustomInkByDraft((prev) => ({
-                                        ...prev,
-                                        [col.id]: {
-                                          hex: prev[col.id]?.hex || '#1D4ED8',
-                                          name: e.target.value,
-                                        },
-                                      }))
-                                    }
-                                    onKeyDown={(e) => {
-                                      if (e.key === 'Enter') {
-                                        e.preventDefault();
-                                        handleAddCustomVariantInkColor(col.id);
-                                      }
-                                    }}
-                                    placeholder={`Custom ink for ${col.name || 'this body'}...`}
-                                    className="flex-1 min-w-[130px] px-2.5 py-1.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-[11px] text-[var(--text-main)] focus:outline-none focus:border-accent"
-                                  />
+                                </label>
+
+                                {col.image && (
                                   <button
                                     type="button"
-                                    onClick={() => handleAddCustomVariantInkColor(col.id)}
-                                    className="min-h-[30px] px-2.5 py-1 rounded-lg border border-accent/55 bg-accent/10 text-[11px] font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 inline-flex items-center gap-1 shrink-0"
+                                    onClick={() => handleUpdateColorDraft(col.id, { image: '' })}
+                                    className="px-2.5 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-xs text-[var(--text-muted)] hover:text-rose-500 hover:border-rose-500/45 whitespace-nowrap shrink-0 transition-colors"
+                                    title="Remove attached photo"
                                   >
-                                    <Plus className="w-3 h-3" />
-                                    <span>Add</span>
+                                    Clear
                                   </button>
-                                  {/* Custom Ink Adder end */}
-                                </div>
+                                )}
                               </div>
-                              )}
                             </div>
-                          );
-                        })}
-                      </div>
+
+                            {/* Per-Body Ink Colours (Compact Summary + Expandable Multi-Select) */}
+                            {!isOtherMode && (
+                              <div className="pt-2.5 border-t border-[var(--border-subtle)] space-y-2.5">
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <div className="flex flex-wrap items-center gap-2 text-xs min-w-0">
+                                    <span className="font-semibold text-[var(--text-secondary)]">
+                                      Ink options:
+                                    </span>
+                                    <div className="flex flex-wrap items-center gap-1.5">
+                                      {col.inkColors.map((ink) => (
+                                        <span
+                                          key={ink.id}
+                                          className="inline-flex items-center gap-1 text-xs font-medium text-[var(--text-main)]"
+                                        >
+                                          <span
+                                            className="w-2.5 h-2.5 rounded-full border border-black/25 dark:border-white/30 shrink-0"
+                                            style={{ backgroundColor: ink.hex }}
+                                          />
+                                          <span>{ink.name}</span>
+                                        </span>
+                                      ))}
+                                    </div>
+                                  </div>
+
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setExpandedInkDraftIds((prev) => ({
+                                        ...prev,
+                                        [col.id]: !prev[col.id],
+                                      }))
+                                    }
+                                    className="px-2.5 py-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[11px] font-semibold text-[var(--text-secondary)] hover:border-accent hover:text-[var(--text-main)] inline-flex items-center gap-1 whitespace-nowrap shrink-0 transition-colors"
+                                  >
+                                    <span>{isInkEditorOpen ? 'Done' : 'Customize Inks'}</span>
+                                    {isInkEditorOpen ? (
+                                      <ChevronUp className="w-3.5 h-3.5" />
+                                    ) : (
+                                      <ChevronDown className="w-3.5 h-3.5" />
+                                    )}
+                                  </button>
+                                </div>
+
+                                {isInkEditorOpen && (
+                                  <div className="space-y-2.5 pt-1">
+                                    <div className="flex flex-wrap items-center justify-between gap-2">
+                                      <p className="text-[11px] text-[var(--text-muted)]">
+                                        Select ink colours sold specifically inside this{' '}
+                                        {col.name.trim() || `variant ${idx + 1}`} body:
+                                      </p>
+                                      <button
+                                        type="button"
+                                        onClick={() =>
+                                          handleUpdateColorDraft(col.id, {
+                                            inkColors: prodInkColors.map((i) => ({ ...i })),
+                                          })
+                                        }
+                                        className="text-[11px] font-semibold text-accent dark:text-accent-bright hover:underline whitespace-nowrap shrink-0"
+                                      >
+                                        Reset to Default Inks
+                                      </button>
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-1.5">
+                                      {INK_COLOR_PRESETS.map((ink) => {
+                                        const selected = col.inkColors.some(
+                                          (item) =>
+                                            item.name.trim().toLowerCase() ===
+                                            ink.name.toLowerCase()
+                                        );
+                                        return (
+                                          <button
+                                            key={ink.name}
+                                            type="button"
+                                            aria-pressed={selected}
+                                            onClick={() => handleToggleVariantInkColor(col.id, ink)}
+                                            className={`min-h-[30px] px-2 py-1 rounded-lg border text-[11px] font-medium inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-all ${
+                                              selected
+                                                ? 'border-accent bg-accent/15 text-[var(--text-main)] font-semibold'
+                                                : 'border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
+                                            }`}
+                                          >
+                                            <span
+                                              className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/25 shrink-0 flex items-center justify-center"
+                                              style={{ backgroundColor: ink.hex }}
+                                            >
+                                              {selected && (
+                                                <Check className="w-2 h-2 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.85)]" />
+                                              )}
+                                            </span>
+                                            <span>{ink.name}</span>
+                                          </button>
+                                        );
+                                      })}
+                                    </div>
+
+                                    {col.inkColors.some(
+                                      (sel) =>
+                                        !INK_COLOR_PRESETS.some(
+                                          (p) =>
+                                            p.name.toLowerCase() === sel.name.trim().toLowerCase()
+                                        )
+                                    ) && (
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        {col.inkColors
+                                          .filter(
+                                            (sel) =>
+                                              !INK_COLOR_PRESETS.some(
+                                                (p) =>
+                                                  p.name.toLowerCase() ===
+                                                  sel.name.trim().toLowerCase()
+                                              )
+                                          )
+                                          .map((ink) => (
+                                            <span
+                                              key={ink.id}
+                                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md border border-accent/45 bg-accent/10 text-[11px] font-medium text-[var(--text-main)]"
+                                            >
+                                              <span
+                                                className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/30 shrink-0"
+                                                style={{ backgroundColor: ink.hex }}
+                                              />
+                                              <span>{ink.name}</span>
+                                              {col.inkColors.length > 1 && (
+                                                <button
+                                                  type="button"
+                                                  onClick={() =>
+                                                    handleRemoveVariantInkColor(col.id, ink.id)
+                                                  }
+                                                  className="text-[var(--text-muted)] hover:text-rose-500"
+                                                  aria-label={`Remove ${ink.name} ink`}
+                                                >
+                                                  <X className="w-3 h-3" />
+                                                </button>
+                                              )}
+                                            </span>
+                                          ))}
+                                      </div>
+                                    )}
+
+                                    <div className="flex flex-wrap items-center gap-1.5 min-w-0">
+                                      <input
+                                        type="color"
+                                        value={comboCustomInkByDraft[col.id]?.hex || '#1D4ED8'}
+                                        onChange={(e) =>
+                                          setComboCustomInkByDraft((prev) => ({
+                                            ...prev,
+                                            [col.id]: {
+                                              name: prev[col.id]?.name || '',
+                                              hex: e.target.value,
+                                            },
+                                          }))
+                                        }
+                                        aria-label={`Custom ink colour picker for ${col.name || `Variant ${idx + 1}`}`}
+                                        className="w-8 h-8 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={comboCustomInkByDraft[col.id]?.name || ''}
+                                        onChange={(e) =>
+                                          setComboCustomInkByDraft((prev) => ({
+                                            ...prev,
+                                            [col.id]: {
+                                              hex: prev[col.id]?.hex || '#1D4ED8',
+                                              name: e.target.value,
+                                            },
+                                          }))
+                                        }
+                                        onKeyDown={(e) => {
+                                          if (e.key === 'Enter') {
+                                            e.preventDefault();
+                                            handleAddCustomVariantInkColor(col.id);
+                                          }
+                                        }}
+                                        placeholder={`Add custom ink for ${col.name || 'this body'}...`}
+                                        className="flex-1 min-w-[130px] px-2.5 py-1.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-[11px] text-[var(--text-main)] focus:outline-none focus:border-accent"
+                                      />
+                                      <button
+                                        type="button"
+                                        onClick={() => handleAddCustomVariantInkColor(col.id)}
+                                        className="min-h-[30px] px-2.5 py-1 rounded-lg border border-accent/55 bg-accent/10 text-[11px] font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 inline-flex items-center gap-1 whitespace-nowrap shrink-0"
+                                      >
+                                        <Plus className="w-3 h-3" />
+                                        <span>Add</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </section>
+
+                  {/* Step 04: Visibility & Publish Summary */}
+                  <section className="space-y-4 pt-5 border-t border-[var(--border-subtle)]">
+                    <div className="space-y-0.5">
+                      <h4 className="font-display text-sm font-bold text-[var(--text-main)]">
+                        04. Visibility &amp; Publish
+                      </h4>
+                      <p className="text-xs text-[var(--text-muted)]">
+                        Choose whether to highlight this item on the homepage or mark the entire product sold out.
+                      </p>
                     </div>
 
-                    <div className="sm:col-span-2 flex flex-wrap items-center justify-between gap-3 pt-1">
-                      <label className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-lg bg-accent/15 border border-accent/45 text-xs sm:text-sm font-bold text-accent dark:text-accent-bright cursor-pointer">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <label className="flex items-start gap-3 p-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] cursor-pointer hover:border-accent/55 transition-colors">
                         <input
                           type="checkbox"
                           checked={prodFeatured}
                           onChange={(e) => setProdFeatured(e.target.checked)}
-                          className="w-4 h-4 accent-accent rounded"
+                          className="mt-0.5 w-4 h-4 accent-accent rounded shrink-0"
                         />
-                        <span>Feature on Homepage</span>
+                        <div className="space-y-0.5">
+                          <span className="block text-xs font-semibold text-[var(--text-main)]">
+                            Feature on Homepage
+                          </span>
+                          <span className="block text-[11px] text-[var(--text-muted)]">
+                            Displays this item inside the Featured Pens &amp; Supplies showcase.
+                          </span>
+                        </div>
                       </label>
 
                       <button
@@ -2005,175 +2556,120 @@ export const AdminModal: React.FC = () => {
                         role="switch"
                         aria-checked={prodOutOfStock}
                         onClick={() => setProdOutOfStock((prev) => !prev)}
-                        className={`px-3 py-1.5 rounded-xl border text-xs font-semibold inline-flex items-center gap-2 transition-colors ${
+                        className={`flex items-start justify-between gap-3 p-3 rounded-xl border text-left transition-colors ${
                           prodOutOfStock
-                            ? 'border-rose-500/60 bg-rose-500/15 text-rose-600 dark:text-rose-400'
-                            : 'border-emerald-500/50 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400'
+                            ? 'border-rose-500/60 bg-rose-500/10'
+                            : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] hover:border-emerald-500/50'
                         }`}
                       >
-                        <span
-                          className={`w-2 h-2 rounded-full ${
-                            prodOutOfStock ? 'bg-rose-500' : 'bg-emerald-500'
-                          }`}
-                        />
-                        <span>Out of Stock: {prodOutOfStock ? 'ON' : 'OFF'}</span>
-                      </button>
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright mb-1.5">
-                        Short Description
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={prodShortDesc}
-                        onChange={(e) => setProdShortDesc(e.target.value)}
-                        placeholder={
-                          isOtherMode
-                            ? 'Describe size, material, or key features (optional)...'
-                            : 'Describe grip, ink flow, tip precision...'
-                        }
-                        className="w-full px-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Dedicated Multi Ink Colour Selector (Pens only) */}
-                  {!isOtherMode && (
-                  <div className="p-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-accent/20 border border-accent/60 text-xs font-extrabold text-accent dark:text-accent-bright shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)]">
-                        <Droplets className="w-3.5 h-3.5 shrink-0" />
-                        <span>Multi Ink Colour Selector * (Select one or more)</span>
-                      </span>
-                      <span className="text-[11px] font-bold font-mono-num text-accent dark:text-accent-bright">
-                        {prodInkColors.length} selected
-                      </span>
-                    </div>
-
-                    {/* Selected Ink Colours Pills */}
-                    <div className="flex flex-wrap items-center gap-1.5">
-                      {prodInkColors.map((ink) => (
-                        <span
-                          key={ink.id}
-                          className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-accent/50 bg-accent/10 text-xs font-semibold text-[var(--text-main)]"
-                        >
+                        <div className="space-y-0.5">
                           <span
-                            className="w-3 h-3 rounded-full border border-black/20 dark:border-white/30 shrink-0"
-                            style={{ backgroundColor: ink.hex }}
-                          />
-                          <span>{ink.name}</span>
-                          {prodInkColors.length > 1 && (
-                            <button
-                              type="button"
-                              onClick={() => handleRemoveSelectedInkColor(ink.id)}
-                              className="ml-0.5 text-[var(--text-muted)] hover:text-rose-500"
-                              aria-label={`Remove ${ink.name} ink`}
-                            >
-                              <X className="w-3 h-3" />
-                            </button>
-                          )}
-                        </span>
-                      ))}
-                    </div>
-
-                    {/* Multi-Toggle Preset Chips */}
-                    <div className="flex flex-wrap gap-1.5">
-                      {INK_COLOR_PRESETS.map((ink) => {
-                        const selected = prodInkColors.some(
-                          (item) => item.name.trim().toLowerCase() === ink.name.toLowerCase()
-                        );
-                        return (
-                          <button
-                            key={ink.name}
-                            type="button"
-                            aria-pressed={selected}
-                            onClick={() => handleToggleInkColorPreset(ink)}
-                            className={`min-h-[34px] px-2.5 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 transition-all ${
-                              selected
-                                ? 'border-accent bg-accent/20 text-[var(--text-main)] font-semibold shadow-[0_0_10px_rgba(var(--accent-rgb),0.22)]'
-                                : 'border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
+                            className={`block text-xs font-semibold ${
+                              prodOutOfStock
+                                ? 'text-rose-600 dark:text-rose-400'
+                                : 'text-[var(--text-main)]'
                             }`}
                           >
-                            <span
-                              className="w-3 h-3 rounded-full border border-black/20 dark:border-white/25 shrink-0 flex items-center justify-center"
-                              style={{ backgroundColor: ink.hex }}
-                            >
-                              {selected && (
-                                <Check className="w-2 h-2 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.85)]" />
-                              )}
-                            </span>
-                            <span>{ink.name}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-
-                    {/* Custom Ink Colour Adder */}
-                    <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 pt-0.5">
-                      <input
-                        type="color"
-                        value={customInkHex}
-                        onChange={(e) => setCustomInkHex(e.target.value)}
-                        aria-label="Custom ink colour picker"
-                        className="w-10 h-9 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
-                      />
-                      <input
-                        type="text"
-                        value={customInkName}
-                        onChange={(e) => setCustomInkName(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === 'Enter') {
-                            e.preventDefault();
-                            handleAddCustomInkColor();
-                          }
-                        }}
-                        placeholder="Add custom ink (e.g. Blue-Black)"
-                        className="flex-1 min-w-[140px] px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] focus:outline-none focus:border-accent"
-                      />
-                      <button
-                        type="button"
-                        onClick={handleAddCustomInkColor}
-                        className="min-h-[36px] px-3 py-2 rounded-lg border border-accent/55 bg-accent/10 text-xs font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 inline-flex items-center gap-1 shrink-0"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                        <span>Add Ink</span>
+                            {prodOutOfStock
+                              ? 'Entire Product Marked Out of Stock'
+                              : 'Product Available for Order'}
+                          </span>
+                          <span className="block text-[11px] text-[var(--text-muted)]">
+                            {prodOutOfStock
+                              ? 'Click to re-enable ordering based on variant stock.'
+                              : 'Click to override variants and mark entire product Sold Out.'}
+                          </span>
+                        </div>
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-[11px] font-bold shrink-0 ${
+                            prodOutOfStock
+                              ? 'bg-rose-500/20 text-rose-600 dark:text-rose-400'
+                              : 'bg-emerald-500/15 text-emerald-700 dark:text-emerald-400'
+                          }`}
+                        >
+                          {prodOutOfStock ? 'Sold Out' : 'Active'}
+                        </span>
                       </button>
                     </div>
-                  </div>
-                  )}
 
-                  {prodFormError && (
-                    <p className="text-xs font-medium text-rose-500 bg-rose-500/10 border border-rose-500/35 rounded-xl px-3 py-2">
-                      {prodFormError}
-                    </p>
-                  )}
+                    {/* Live Publish Preview Bar */}
+                    <div className="p-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                      <div className="space-y-0.5 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2 text-xs">
+                          <span className="font-bold text-[var(--text-main)] truncate">
+                            {prodName.trim() || 'Untitled Product'}
+                          </span>
+                          <span className="text-[var(--text-muted)]">·</span>
+                          <span className="text-[var(--text-secondary)]">
+                            {selectedCategoryLabel}
+                          </span>
+                          <span className="text-[var(--text-muted)]">·</span>
+                          <span className="font-mono-num font-bold text-[var(--text-main)]">
+                            ৳
+                            {(Number.isFinite(parsedSellingPrice) && parsedSellingPrice > 0
+                              ? Math.round(parsedSellingPrice)
+                              : 0
+                            ).toLocaleString('en-US')}
+                          </span>
+                          {discountInfo?.valid && (
+                            <span className="font-mono-num text-[11px] text-[var(--text-muted)] line-through">
+                              ৳{Math.round(parsedMrpPrice).toLocaleString('en-US')}
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-[var(--text-muted)] font-mono-num">
+                          {colorDrafts.filter((c) => c.name.trim()).length}{' '}
+                          {colorDrafts.filter((c) => c.name.trim()).length === 1
+                            ? 'colour'
+                            : 'colours'}{' '}
+                          · {autoTotalStock.toLocaleString('en-US')} pcs total ·{' '}
+                          {colorDrafts.filter((c) => Boolean(c.image.trim())).length}{' '}
+                          {colorDrafts.filter((c) => Boolean(c.image.trim())).length === 1
+                            ? 'photo'
+                            : 'photos'}
+                        </p>
+                      </div>
 
-                  <button
-                    type="submit"
-                    disabled={savingProduct}
-                    className="w-full py-2.5 px-4 rounded-xl text-sm font-semibold cta-glow-red inline-flex items-center justify-center gap-2 disabled:opacity-60"
-                  >
-                    {savingProduct ? (
-                      <span>Saving Live Changes...</span>
-                    ) : editingProductId ? (
-                      <>
-                        <Save className="w-4 h-4" />
-                        <span>Save Product Changes</span>
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="w-4 h-4" />
-                        <span>
-                          Add Product to{' '}
-                          {isOtherMode
-                            ? otherSubcategory || 'Other Products'
-                            : PEN_CATEGORIES.find((c) => c.id === prodCategory)?.label ||
-                              'Category'}
-                        </span>
-                      </>
+                      <div className="text-xs font-semibold shrink-0">
+                        {readinessIssues.length === 0 ? (
+                          <span className="inline-flex items-center gap-1.5 text-emerald-600 dark:text-emerald-400">
+                            <CheckCircle2 className="w-4 h-4 shrink-0" />
+                            <span>Ready to {editingProductId ? 'save' : 'publish'}</span>
+                          </span>
+                        ) : (
+                          <span className="text-amber-600 dark:text-amber-400">
+                            Needed: {readinessIssues.join(', ')}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    {prodFormError && (
+                      <p className="text-xs font-medium text-rose-500 bg-rose-500/10 border border-rose-500/35 rounded-xl px-3 py-2">
+                        {prodFormError}
+                      </p>
                     )}
-                  </button>
+
+                    <button
+                      type="submit"
+                      disabled={savingProduct}
+                      className="w-full py-3 px-4 rounded-xl text-sm font-semibold cta-glow-red inline-flex items-center justify-center gap-2 disabled:opacity-60 transition-all"
+                    >
+                      {savingProduct ? (
+                        <span>Saving Live Changes...</span>
+                      ) : editingProductId ? (
+                        <>
+                          <Save className="w-4 h-4" />
+                          <span>Save Changes to {prodName.trim() || 'Product'}</span>
+                        </>
+                      ) : (
+                        <>
+                          <Plus className="w-4 h-4" />
+                          <span>Add Product to {selectedCategoryLabel}</span>
+                        </>
+                      )}
+                    </button>
+                  </section>
                 </form>
 
                 {/* Manage Existing Catalogue Products */}
