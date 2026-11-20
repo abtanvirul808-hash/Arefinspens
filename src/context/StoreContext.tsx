@@ -198,7 +198,7 @@ const STORAGE_KEYS = {
 };
 
 const ADMIN_ACCOUNT = {
-  email: 'adminarefin808@gmail.com',
+  email: 'a.b.tanvirul808@gmail.com',
   password: 'Arefin@808#',
 };
 

@@ -14,7 +14,6 @@ export const googleProvider = new GoogleAuthProvider();
 googleProvider.setCustomParameters({ prompt: 'select_account' });
 
 export const ADMIN_ALLOWED_EMAILS = [
-  'adminarefin808@gmail.com',
   'a.b.tanvirul808@gmail.com',
 ];
 
@@ -36,14 +35,30 @@ export function formatLiveSyncError(
   error: unknown,
   fallback = 'Live sync could not be completed. Please sign in with an authorized admin Google account.'
 ): string {
-  const raw = error instanceof Error ? error.message : String(error || '');
-  const trimmed = raw.trim();
-  if (!trimmed || trimmed.startsWith('{')) {
+  let raw = error instanceof Error ? error.message : String(error || '');
+  let trimmed = raw.trim();
+  if (trimmed.startsWith('{')) {
+    try {
+      const parsed = JSON.parse(trimmed) as { error?: string };
+      if (parsed?.error) {
+        raw = parsed.error;
+        trimmed = raw.trim();
+      } else {
+        return fallback;
+      }
+    } catch {
+      return fallback;
+    }
+  }
+  if (!trimmed) {
     return fallback;
   }
 
   const lower = trimmed.toLowerCase();
   if (lower.includes('permission') || lower.includes('insufficient')) {
+    if (auth.currentUser?.emailVerified && isAuthorizedAdminEmail(auth.currentUser.email)) {
+      return 'Firestore denied write access for your admin account. Please verify your Firestore security rules are deployed to this database.';
+    }
     return 'Live sync permission denied. Please connect an authorized admin Google account.';
   }
   if (lower.includes('offline') || lower.includes('network')) {
