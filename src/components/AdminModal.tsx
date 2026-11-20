@@ -99,6 +99,8 @@ const INK_TYPE_PRESETS = [
   '2B Polymer Lead',
 ];
 
+const LOW_STOCK_THRESHOLD = 5;
+
 interface ColorDraft {
   id: string;
   colorId?: string;
@@ -265,6 +267,7 @@ export const AdminModal: React.FC = () => {
   const [expandedInkDraftIds, setExpandedInkDraftIds] = useState<Record<string, boolean>>({});
   const [prodFormError, setProdFormError] = useState('');
   const [catalogListFilter, setCatalogListFilter] = useState<CategoryId>('all');
+  const [lowStockOnly, setLowStockOnly] = useState(false);
   const [prodSearchTerm, setProdSearchTerm] = useState('');
   const [confirmDeleteProductId, setConfirmDeleteProductId] = useState<string | null>(null);
   const [copiedCatalogJson, setCopiedCatalogJson] = useState(false);
@@ -311,6 +314,15 @@ export const AdminModal: React.FC = () => {
     [filteredOrders, products]
   );
 
+  const lowStockCount = useMemo(
+    () =>
+      products.filter((p) => {
+        const total = getProductTotalAvailableCount(p);
+        return p.inStock && total > 0 && total < LOW_STOCK_THRESHOLD;
+      }).length,
+    [products]
+  );
+
   const filteredProducts = useMemo(() => {
     const q = prodSearchTerm.trim().toLowerCase();
     return products.filter((p) => {
@@ -321,11 +333,17 @@ export const AdminModal: React.FC = () => {
       } else if (catalogListFilter !== 'all' && p.category !== catalogListFilter) {
         return false;
       }
+      if (lowStockOnly) {
+        const total = getProductTotalAvailableCount(p);
+        if (!p.inStock || total <= 0 || total >= LOW_STOCK_THRESHOLD) {
+          return false;
+        }
+      }
       if (!q) return true;
-      const hay = `${p.name} ${p.categoryLabel} ${p.colors.map((c) => c.name).join(' ')}`.toLowerCase();
+      const hay = `${p.name} ${p.brand} ${p.categoryLabel} ${p.colors.map((c) => c.name).join(' ')}`.toLowerCase();
       return hay.includes(q);
     });
-  }, [products, catalogListFilter, prodSearchTerm]);
+  }, [products, catalogListFilter, lowStockOnly, prodSearchTerm]);
 
   const isOtherMode = prodCategory === 'other-products';
 
@@ -1481,7 +1499,7 @@ export const AdminModal: React.FC = () => {
 
                 <form
                   onSubmit={handleSaveProduct}
-                  className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 sm:p-6 space-y-6"
+                  className="rounded-2xl border border-accent/45 bg-[var(--bg-card)] p-4 sm:p-6 space-y-6"
                   noValidate
                 >
                   {/* Form Header */}
@@ -1503,7 +1521,7 @@ export const AdminModal: React.FC = () => {
                         <button
                           type="button"
                           onClick={resetProductForm}
-                          className="px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-main)] hover:border-accent whitespace-nowrap shrink-0 transition-colors"
+                          className="px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-main)] hover:border-accent transition-colors whitespace-nowrap shrink-0"
                         >
                           Cancel Edit
                         </button>
@@ -1511,7 +1529,7 @@ export const AdminModal: React.FC = () => {
                         <button
                           type="button"
                           onClick={resetProductForm}
-                          className="px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:border-accent inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors"
+                          className="px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:border-accent inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0"
                           title="Reset all fields back to default values"
                         >
                           <RotateCcw className="w-3.5 h-3.5" />
@@ -1523,19 +1541,20 @@ export const AdminModal: React.FC = () => {
 
                   {/* Step 01: Category & Basic Details */}
                   <section className="space-y-4">
-                    <div className="space-y-0.5">
-                      <h4 className="font-display text-sm font-bold text-[var(--text-main)]">
+                    <div className="px-3.5 py-2.5 rounded-xl border border-accent/45 bg-accent/10 space-y-0.5">
+                      <h4 className="font-display text-sm font-bold text-accent dark:text-accent-bright">
                         01. Category &amp; Basic Information
                       </h4>
-                      <p className="text-xs text-[var(--text-muted)]">
-                        Choose where this product appears in the store and enter its name and description.
+                      <p className="text-xs text-[var(--text-secondary)]">
+                        Choose where this product appears in the store and enter its name, brand, and description.
                       </p>
                     </div>
 
                     {/* Product Type */}
                     <div className="space-y-1.5">
-                      <span className="block text-xs font-semibold text-[var(--text-main)]">
-                        Product Type <span className="text-rose-500">*</span>
+                      <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright">
+                        <span>Product Type</span>
+                        <span className="text-rose-500">*</span>
                       </span>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                         <button
@@ -1549,12 +1568,18 @@ export const AdminModal: React.FC = () => {
                           }}
                           className={`px-3.5 py-2.5 rounded-xl border text-left transition-all ${
                             !isOtherMode
-                              ? 'border-accent bg-accent/10 text-[var(--text-main)]'
-                              : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-accent/50 hover:text-[var(--text-main)]'
+                              ? 'border-accent bg-accent/15 text-[var(--text-main)] shadow-[0_0_12px_rgba(var(--accent-rgb),0.18)]'
+                              : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
                           }`}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs sm:text-sm font-bold">Pens</span>
+                            <span
+                              className={`text-xs sm:text-sm font-bold ${
+                                !isOtherMode ? 'text-accent dark:text-accent-bright' : ''
+                              }`}
+                            >
+                              Pens
+                            </span>
                             {!isOtherMode && (
                               <CheckCircle2 className="w-4 h-4 text-accent-bright shrink-0" />
                             )}
@@ -1573,12 +1598,18 @@ export const AdminModal: React.FC = () => {
                           }}
                           className={`px-3.5 py-2.5 rounded-xl border text-left transition-all ${
                             isOtherMode
-                              ? 'border-accent bg-accent/10 text-[var(--text-main)]'
-                              : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-accent/50 hover:text-[var(--text-main)]'
+                              ? 'border-accent bg-accent/15 text-[var(--text-main)] shadow-[0_0_12px_rgba(var(--accent-rgb),0.18)]'
+                              : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
                           }`}
                         >
                           <div className="flex items-center justify-between gap-2">
-                            <span className="text-xs sm:text-sm font-bold">Other Product</span>
+                            <span
+                              className={`text-xs sm:text-sm font-bold ${
+                                isOtherMode ? 'text-accent dark:text-accent-bright' : ''
+                              }`}
+                            >
+                              Other Product
+                            </span>
                             {isOtherMode && (
                               <CheckCircle2 className="w-4 h-4 text-accent-bright shrink-0" />
                             )}
@@ -1595,15 +1626,16 @@ export const AdminModal: React.FC = () => {
                       <div className="space-y-1.5">
                         <label
                           htmlFor="admin-other-category-select"
-                          className="block text-xs font-semibold text-[var(--text-main)]"
+                          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright"
                         >
-                          Stationery Subcategory <span className="text-rose-500">*</span>
+                          <span>Stationery Subcategory</span>
+                          <span className="text-rose-500">*</span>
                         </label>
                         <select
                           id="admin-other-category-select"
                           value={otherSubcategory}
                           onChange={(e) => setOtherSubcategory(e.target.value)}
-                          className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm font-medium text-[var(--text-main)] focus:outline-none focus:border-accent"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-accent/35 text-sm font-medium text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                         >
                           {!OTHER_PRODUCT_SUBCATEGORIES.includes(otherSubcategory) && (
                             <option value={otherSubcategory}>{otherSubcategory}</option>
@@ -1617,8 +1649,9 @@ export const AdminModal: React.FC = () => {
                       </div>
                     ) : (
                       <div className="space-y-1.5">
-                        <span className="block text-xs font-semibold text-[var(--text-main)]">
-                          Pen Category <span className="text-rose-500">*</span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright">
+                          <span>Pen Category</span>
+                          <span className="text-rose-500">*</span>
                         </span>
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                           {PEN_CATEGORIES.map((cat) => {
@@ -1629,10 +1662,10 @@ export const AdminModal: React.FC = () => {
                                 type="button"
                                 aria-pressed={selected}
                                 onClick={() => setProdCategory(cat.id)}
-                                className={`px-3 py-2 rounded-xl text-xs font-semibold border flex items-center justify-between gap-2 text-left transition-colors ${
+                                className={`px-3 py-2.5 rounded-xl border text-xs flex items-center justify-between gap-2 text-left transition-all ${
                                   selected
-                                    ? 'border-accent bg-accent/15 text-accent dark:text-accent-bright'
-                                    : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-accent/55 hover:text-[var(--text-main)]'
+                                    ? 'border-accent bg-accent/15 text-accent dark:text-accent-bright font-bold shadow-[0_0_12px_rgba(var(--accent-rgb),0.18)]'
+                                    : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] font-semibold hover:border-accent/60 hover:text-[var(--text-main)]'
                                 }`}
                               >
                                 <span className="truncate">{cat.label}</span>
@@ -1646,12 +1679,13 @@ export const AdminModal: React.FC = () => {
 
                     {/* Name & Brand */}
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div className="sm:col-span-2 space-y-1">
+                      <div className="sm:col-span-2 space-y-1.5">
                         <label
                           htmlFor="admin-product-name"
-                          className="block text-xs font-semibold text-[var(--text-main)]"
+                          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright"
                         >
-                          Product Name <span className="text-rose-500">*</span>
+                          <span>Product Name</span>
+                          <span className="text-rose-500">*</span>
                         </label>
                         <input
                           id="admin-product-name"
@@ -1667,16 +1701,17 @@ export const AdminModal: React.FC = () => {
                               ? 'e.g. A5 Hardcover Dotted Notebook'
                               : 'e.g. Matador Hi-School Gel Pen'
                           }
-                          className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-accent/35 text-sm text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                         />
                       </div>
 
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <label
                           htmlFor="admin-product-brand"
-                          className="block text-xs font-semibold text-[var(--text-main)]"
+                          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright"
                         >
-                          Brand <span className="font-normal text-[var(--text-muted)]">(Optional)</span>
+                          <span>Brand</span>
+                          <span className="font-normal text-[var(--text-muted)]">(Optional)</span>
                         </label>
                         <input
                           id="admin-product-brand"
@@ -1684,18 +1719,18 @@ export const AdminModal: React.FC = () => {
                           value={prodBrand}
                           onChange={(e) => setProdBrand(e.target.value)}
                           placeholder="e.g. Matador, Deli, Pilot"
-                          className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-accent/35 text-sm text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                         />
                       </div>
                     </div>
 
                     {/* Short Description */}
-                    <div className="space-y-1">
+                    <div className="space-y-1.5">
                       <label
                         htmlFor="admin-product-desc"
-                        className="block text-xs font-semibold text-[var(--text-main)]"
+                        className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright"
                       >
-                        Short Description{' '}
+                        <span>Short Description</span>
                         <span className="font-normal text-[var(--text-muted)]">(Optional)</span>
                       </label>
                       <textarea
@@ -1708,7 +1743,7 @@ export const AdminModal: React.FC = () => {
                             ? 'Describe size, page count, material, or key features...'
                             : 'Describe ink smoothness, grip comfort, and tip precision...'
                         }
-                        className="w-full px-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-accent/35 text-sm text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                       />
                       <p className="text-[11px] text-[var(--text-muted)]">
                         Shown on product cards and search results. Leave blank to auto-generate a summary.
@@ -1718,13 +1753,13 @@ export const AdminModal: React.FC = () => {
 
                   {/* Step 02: Pricing, Specs & Default Ink */}
                   <section className="space-y-4 pt-5 border-t border-[var(--border-subtle)]">
-                    <div className="space-y-0.5">
-                      <h4 className="font-display text-sm font-bold text-[var(--text-main)]">
+                    <div className="px-3.5 py-2.5 rounded-xl border border-accent/45 bg-accent/10 space-y-0.5">
+                      <h4 className="font-display text-sm font-bold text-accent dark:text-accent-bright">
                         {isOtherMode
                           ? '02. Pricing & Stock Overview'
                           : '02. Pricing, Pen Specs & Default Ink'}
                       </h4>
-                      <p className="text-xs text-[var(--text-muted)]">
+                      <p className="text-xs text-[var(--text-secondary)]">
                         {isOtherMode
                           ? 'Set your selling price and an optional original price to highlight a discount.'
                           : 'Set selling price, tip & ink specifications, and default ink colours inherited by new body colours.'}
@@ -1732,12 +1767,13 @@ export const AdminModal: React.FC = () => {
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <label
                           htmlFor="admin-product-price"
-                          className="block text-xs font-semibold text-[var(--text-main)]"
+                          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright"
                         >
-                          Selling Price (৳ BDT) <span className="text-rose-500">*</span>
+                          <span>Selling Price (৳ BDT)</span>
+                          <span className="text-rose-500">*</span>
                         </label>
                         <input
                           id="admin-product-price"
@@ -1749,16 +1785,16 @@ export const AdminModal: React.FC = () => {
                             setProdPrice(e.target.value);
                             if (prodFormError) setProdFormError('');
                           }}
-                          className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-accent/35 text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                         />
                       </div>
 
-                      <div className="space-y-1">
+                      <div className="space-y-1.5">
                         <label
                           htmlFor="admin-product-original-price"
-                          className="block text-xs font-semibold text-[var(--text-main)]"
+                          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright"
                         >
-                          Original Price (৳){' '}
+                          <span>Original Price (৳)</span>
                           <span className="font-normal text-[var(--text-muted)]">(Optional)</span>
                         </label>
                         <input
@@ -1768,7 +1804,7 @@ export const AdminModal: React.FC = () => {
                           value={prodOriginalPrice}
                           onChange={(e) => setProdOriginalPrice(e.target.value)}
                           placeholder="Leave blank if no discount"
-                          className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent"
+                          className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-accent/35 text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                         />
                         {discountInfo && (
                           <p
@@ -1785,11 +1821,11 @@ export const AdminModal: React.FC = () => {
                         )}
                       </div>
 
-                      <div className="space-y-1">
-                        <span className="block text-xs font-semibold text-[var(--text-main)]">
+                      <div className="space-y-1.5">
+                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright">
                           Total Stock
                         </span>
-                        <div className="w-full px-3 py-2.5 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-sm font-mono-num font-bold text-[var(--text-main)] flex items-center justify-between gap-2">
+                        <div className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-secondary)] border border-accent/30 text-sm font-mono-num font-bold text-[var(--text-main)] flex items-center justify-between gap-2">
                           <span>{autoTotalStock.toLocaleString('en-US')} pcs</span>
                           <span className="text-[11px] font-sans font-normal text-[var(--text-muted)]">
                             Auto-summed
@@ -1804,7 +1840,7 @@ export const AdminModal: React.FC = () => {
                           <div className="space-y-1.5">
                             <label
                               htmlFor="admin-product-tip"
-                              className="block text-xs font-semibold text-[var(--text-main)]"
+                              className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright"
                             >
                               Tip / Nib Size
                             </label>
@@ -1814,7 +1850,7 @@ export const AdminModal: React.FC = () => {
                               value={prodTipSize}
                               onChange={(e) => setProdTipSize(e.target.value)}
                               placeholder="e.g. 0.5 mm Needle Tip"
-                              className="w-full px-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                              className="w-full px-3.5 py-2 rounded-xl bg-[var(--bg-input)] border border-accent/35 text-sm text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                             />
                             <div className="flex flex-wrap gap-1">
                               {TIP_SIZE_PRESETS.map((preset) => (
@@ -1822,10 +1858,10 @@ export const AdminModal: React.FC = () => {
                                   key={preset}
                                   type="button"
                                   onClick={() => setProdTipSize(preset)}
-                                  className={`px-2 py-0.5 rounded-md text-[11px] border transition-colors whitespace-nowrap shrink-0 ${
+                                  className={`px-2 py-0.5 rounded-md border text-[11px] whitespace-nowrap shrink-0 transition-colors ${
                                     prodTipSize === preset
                                       ? 'border-accent bg-accent/15 text-accent dark:text-accent-bright font-semibold'
-                                      : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:border-accent/50'
+                                      : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:border-accent/60 hover:text-[var(--text-main)]'
                                   }`}
                                 >
                                   {preset}
@@ -1837,7 +1873,7 @@ export const AdminModal: React.FC = () => {
                           <div className="space-y-1.5">
                             <label
                               htmlFor="admin-product-ink-type"
-                              className="block text-xs font-semibold text-[var(--text-main)]"
+                              className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright"
                             >
                               Ink / Lead Type
                             </label>
@@ -1847,7 +1883,7 @@ export const AdminModal: React.FC = () => {
                               value={prodInkType}
                               onChange={(e) => setProdInkType(e.target.value)}
                               placeholder="e.g. Smooth Gel Ink"
-                              className="w-full px-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                              className="w-full px-3.5 py-2 rounded-xl bg-[var(--bg-input)] border border-accent/35 text-sm text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                             />
                             <div className="flex flex-wrap gap-1">
                               {INK_TYPE_PRESETS.map((preset) => (
@@ -1855,10 +1891,10 @@ export const AdminModal: React.FC = () => {
                                   key={preset}
                                   type="button"
                                   onClick={() => setProdInkType(preset)}
-                                  className={`px-2 py-0.5 rounded-md text-[11px] border transition-colors whitespace-nowrap shrink-0 ${
+                                  className={`px-2 py-0.5 rounded-md border text-[11px] whitespace-nowrap shrink-0 transition-colors ${
                                     prodInkType === preset
                                       ? 'border-accent bg-accent/15 text-accent dark:text-accent-bright font-semibold'
-                                      : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-[var(--text-main)] hover:border-accent/50'
+                                      : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:border-accent/60 hover:text-[var(--text-main)]'
                                   }`}
                                 >
                                   {preset}
@@ -1872,12 +1908,14 @@ export const AdminModal: React.FC = () => {
                         <div className="p-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] space-y-3">
                           <div className="flex flex-wrap items-start justify-between gap-2">
                             <div className="space-y-0.5">
-                              <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--text-main)]">
-                                <Droplets className="w-3.5 h-3.5 text-accent-bright shrink-0" />
-                                <span>
-                                  Default Ink Colours <span className="text-rose-500">*</span>
+                              <div className="flex items-center gap-1.5 text-xs">
+                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 font-bold text-accent dark:text-accent-bright">
+                                  <Droplets className="w-3.5 h-3.5 shrink-0" />
+                                  <span>
+                                    Default Ink Colours <span className="text-rose-500">*</span>
+                                  </span>
                                 </span>
-                                <span className="text-[var(--text-muted)] font-normal">
+                                <span className="text-[var(--text-muted)] font-normal font-mono-num">
                                   · {prodInkColors.length} selected
                                 </span>
                               </div>
@@ -1890,7 +1928,7 @@ export const AdminModal: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={handleApplyDefaultInksToAllBodies}
-                                className="px-2.5 py-1.5 rounded-lg border border-accent/45 bg-accent/10 text-[11px] font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 whitespace-nowrap shrink-0 transition-colors"
+                                className="px-2.5 py-1.5 rounded-lg border border-accent/45 bg-accent/10 text-[11px] font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 transition-colors whitespace-nowrap shrink-0"
                                 title="Replace ink choices on every body colour below with these defaults"
                               >
                                 Apply to All Body Colours
@@ -1998,7 +2036,7 @@ export const AdminModal: React.FC = () => {
                             <button
                               type="button"
                               onClick={handleAddCustomInkColor}
-                              className="min-h-[36px] px-3 py-2 rounded-lg border border-accent/55 bg-accent/10 text-xs font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 inline-flex items-center gap-1 whitespace-nowrap shrink-0"
+                              className="min-h-[36px] px-3 py-2 rounded-lg border border-accent/55 bg-accent/10 text-xs font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 inline-flex items-center gap-1 whitespace-nowrap shrink-0 transition-colors"
                             >
                               <Plus className="w-3.5 h-3.5" />
                               <span>Add Ink</span>
@@ -2011,20 +2049,20 @@ export const AdminModal: React.FC = () => {
 
                   {/* Step 03: Colour Variants, Photos & Stock */}
                   <section className="space-y-3.5 pt-5 border-t border-[var(--border-subtle)]">
-                    <div className="flex flex-wrap items-start justify-between gap-2">
+                    <div className="px-3.5 py-2.5 rounded-xl border border-accent/45 bg-accent/10 flex flex-wrap items-center justify-between gap-2">
                       <div className="space-y-0.5">
                         <div className="flex flex-wrap items-center gap-2">
-                          <h4 className="font-display text-sm font-bold text-[var(--text-main)]">
+                          <h4 className="font-display text-sm font-bold text-accent dark:text-accent-bright">
                             {isOtherMode
                               ? '03. Colour Variants, Photos & Stock'
                               : '03. Body Colours, Photos & Stock'}
                           </h4>
-                          <span className="text-xs font-mono-num text-[var(--text-muted)]">
+                          <span className="text-xs font-mono-num text-[var(--text-secondary)]">
                             {colorDrafts.filter((c) => c.inStock).length}/{colorDrafts.length} in stock ·{' '}
                             {autoTotalStock.toLocaleString('en-US')} pcs
                           </span>
                         </div>
-                        <p className="text-xs text-[var(--text-muted)]">
+                        <p className="text-xs text-[var(--text-secondary)]">
                           Add each {isOtherMode ? 'product colour' : 'pen body colour'}, set available units, and upload a photo or paste an image URL.
                         </p>
                       </div>
@@ -2188,8 +2226,9 @@ export const AdminModal: React.FC = () => {
                               <div className="flex-1 space-y-2.5 min-w-0">
                                 <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
                                   <div className="sm:col-span-8 space-y-1">
-                                    <label className="block text-[11px] font-semibold text-[var(--text-secondary)]">
-                                      {isOtherMode ? 'Colour Name *' : 'Body Colour Name *'}
+                                    <label className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-[11px] font-bold text-accent dark:text-accent-bright">
+                                      <span>{isOtherMode ? 'Colour Name' : 'Body Colour Name'}</span>
+                                      <span className="text-rose-500">*</span>
                                     </label>
                                     <div className="flex items-center gap-2">
                                       <input
@@ -2213,13 +2252,13 @@ export const AdminModal: React.FC = () => {
                                             ? 'e.g. Navy Blue, Classic Black'
                                             : 'e.g. Matte Black, Pastel Pink'
                                         }
-                                        className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs sm:text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                                        className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-accent/35 text-xs sm:text-sm text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                                       />
                                     </div>
                                   </div>
 
                                   <div className="sm:col-span-4 space-y-1">
-                                    <label className="block text-[11px] font-semibold text-[var(--text-secondary)]">
+                                    <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-[11px] font-bold text-accent dark:text-accent-bright">
                                       Stock Quantity
                                     </label>
                                     <input
@@ -2246,7 +2285,7 @@ export const AdminModal: React.FC = () => {
                                         });
                                       }}
                                       aria-label={`Stock quantity for ${col.name || `variant ${idx + 1}`}`}
-                                      className="w-full px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs sm:text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent"
+                                      className="w-full px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-accent/35 text-xs sm:text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                                     />
                                   </div>
                                 </div>
@@ -2285,8 +2324,8 @@ export const AdminModal: React.FC = () => {
                             </div>
 
                             {/* Photo URL & Upload Row */}
-                            <div className="space-y-1">
-                              <label className="block text-[11px] font-semibold text-[var(--text-secondary)]">
+                            <div className="space-y-1.5">
+                              <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-[11px] font-bold text-accent dark:text-accent-bright">
                                 Product Photo (Upload or Image URL)
                               </label>
                               <div className="flex flex-wrap items-center gap-2 min-w-0">
@@ -2297,10 +2336,10 @@ export const AdminModal: React.FC = () => {
                                     handleUpdateColorDraft(col.id, { image: e.target.value })
                                   }
                                   placeholder="Paste https:// image URL or click Upload Photo"
-                                  className="flex-1 min-w-[160px] px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] focus:outline-none focus:border-accent"
+                                  className="flex-1 min-w-[160px] px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-accent/35 text-xs text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                                 />
 
-                                <label className="px-3.5 py-2 rounded-lg border border-accent/45 bg-accent/10 hover:bg-accent/20 text-xs font-semibold text-[var(--text-main)] hover:border-accent cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors">
+                                <label className="px-3.5 py-2 rounded-lg border border-accent/60 bg-accent/10 hover:bg-accent/20 text-xs font-semibold text-[var(--text-main)] cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors">
                                   <ImagePlus className="w-4 h-4 text-accent-bright" />
                                   <span>{col.image ? 'Replace Photo' : 'Upload Photo'}</span>
                                   <input
@@ -2331,8 +2370,8 @@ export const AdminModal: React.FC = () => {
                               <div className="pt-2.5 border-t border-[var(--border-subtle)] space-y-2.5">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                   <div className="flex flex-wrap items-center gap-2 text-xs min-w-0">
-                                    <span className="font-semibold text-[var(--text-secondary)]">
-                                      Ink options:
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-[11px] font-bold text-accent dark:text-accent-bright">
+                                      Ink options
                                     </span>
                                     <div className="flex flex-wrap items-center gap-1.5">
                                       {col.inkColors.map((ink) => (
@@ -2524,17 +2563,23 @@ export const AdminModal: React.FC = () => {
 
                   {/* Step 04: Visibility & Publish Summary */}
                   <section className="space-y-4 pt-5 border-t border-[var(--border-subtle)]">
-                    <div className="space-y-0.5">
-                      <h4 className="font-display text-sm font-bold text-[var(--text-main)]">
+                    <div className="px-3.5 py-2.5 rounded-xl border border-accent/45 bg-accent/10 space-y-0.5">
+                      <h4 className="font-display text-sm font-bold text-accent dark:text-accent-bright">
                         04. Visibility &amp; Publish
                       </h4>
-                      <p className="text-xs text-[var(--text-muted)]">
+                      <p className="text-xs text-[var(--text-secondary)]">
                         Choose whether to highlight this item on the homepage or mark the entire product sold out.
                       </p>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                      <label className="flex items-start gap-3 p-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] cursor-pointer hover:border-accent/55 transition-colors">
+                      <label
+                        className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                          prodFeatured
+                            ? 'border-accent bg-accent/10'
+                            : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] hover:border-accent/60'
+                        }`}
+                      >
                         <input
                           type="checkbox"
                           checked={prodFeatured}
@@ -2542,7 +2587,7 @@ export const AdminModal: React.FC = () => {
                           className="mt-0.5 w-4 h-4 accent-accent rounded shrink-0"
                         />
                         <div className="space-y-0.5">
-                          <span className="block text-xs font-semibold text-[var(--text-main)]">
+                          <span className="inline-block px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright">
                             Feature on Homepage
                           </span>
                           <span className="block text-[11px] text-[var(--text-muted)]">
@@ -2559,7 +2604,7 @@ export const AdminModal: React.FC = () => {
                         className={`flex items-start justify-between gap-3 p-3 rounded-xl border text-left transition-colors ${
                           prodOutOfStock
                             ? 'border-rose-500/60 bg-rose-500/10'
-                            : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] hover:border-emerald-500/50'
+                            : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] hover:border-accent/60'
                         }`}
                       >
                         <div className="space-y-0.5">
@@ -2593,7 +2638,7 @@ export const AdminModal: React.FC = () => {
                     </div>
 
                     {/* Live Publish Preview Bar */}
-                    <div className="p-3 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
+                    <div className="p-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
                       <div className="space-y-0.5 min-w-0">
                         <div className="flex flex-wrap items-center gap-2 text-xs">
                           <span className="font-bold text-[var(--text-main)] truncate">
@@ -2675,9 +2720,27 @@ export const AdminModal: React.FC = () => {
                 {/* Manage Existing Catalogue Products */}
                 <div className="space-y-3">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <h3 className="font-display text-sm font-bold text-[var(--text-main)]">
-                      Manage Products ({filteredProducts.length})
-                    </h3>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="font-display text-sm font-bold text-[var(--text-main)]">
+                        Manage Products ({filteredProducts.length})
+                      </h3>
+                      {lowStockCount > 0 && (
+                        <button
+                          type="button"
+                          aria-pressed={lowStockOnly}
+                          onClick={() => setLowStockOnly((prev) => !prev)}
+                          className={`px-2.5 py-1 rounded-lg text-[11px] font-bold border inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors ${
+                            lowStockOnly
+                              ? 'border-amber-500 bg-amber-500 text-black'
+                              : 'border-amber-500/55 bg-amber-500/15 text-amber-700 dark:text-amber-300 hover:bg-amber-500/25'
+                          }`}
+                          title="Filter to items with fewer than 5 units in stock"
+                        >
+                          <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                          <span>Low Stock Alert ({lowStockCount})</span>
+                        </button>
+                      )}
+                    </div>
                     <div className="flex flex-wrap gap-1.5">
                       {CATALOGUE_CATEGORIES.map((cat) => (
                         <button
@@ -2702,20 +2765,25 @@ export const AdminModal: React.FC = () => {
                       type="search"
                       value={prodSearchTerm}
                       onChange={(e) => setProdSearchTerm(e.target.value)}
-                      placeholder="Search products by name, category, or colour..."
+                      placeholder="Search products by name, brand, category, or colour..."
                       className="w-full pl-9 pr-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs sm:text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
                     />
                   </div>
 
                   {filteredProducts.length === 0 ? (
                     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-6 text-center text-xs text-[var(--text-secondary)]">
-                      No matching products in this category. Use the form above to add one.
+                      {lowStockOnly
+                        ? 'No products with fewer than 5 units in stock match the current filter.'
+                        : 'No matching products in this category. Use the form above to add one.'}
                     </div>
                   ) : (
                     <div className="space-y-2">
                       {filteredProducts.map((prod) => {
                         const confirmingProdDelete = confirmDeleteProductId === prod.id;
-                        const isOutOfStock = !prod.inStock;
+                        const totalAvailableUnits = getProductTotalAvailableCount(prod);
+                        const isOutOfStock = !prod.inStock || totalAvailableUnits <= 0;
+                        const isLowStock =
+                          !isOutOfStock && totalAvailableUnits < LOW_STOCK_THRESHOLD;
                         const isEditingThis = editingProductId === prod.id;
                         return (
                           <div
@@ -2723,6 +2791,8 @@ export const AdminModal: React.FC = () => {
                             className={`rounded-xl border p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-colors ${
                               isEditingThis
                                 ? 'border-accent bg-accent/5'
+                                : isLowStock
+                                ? 'border-amber-500/65 bg-amber-500/[0.06]'
                                 : 'border-[var(--border-subtle)] bg-[var(--bg-card)]'
                             }`}
                           >
@@ -2783,14 +2853,26 @@ export const AdminModal: React.FC = () => {
                                       Out of Stock
                                     </span>
                                   )}
+                                  {isLowStock && (
+                                    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold bg-amber-500/15 border border-amber-500/55 text-amber-700 dark:text-amber-300">
+                                      <AlertTriangle className="w-3 h-3 shrink-0" />
+                                      <span>Low Stock · {totalAvailableUnits} left</span>
+                                    </span>
+                                  )}
                                 </div>
                                 <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
                                   <span className="font-mono-num font-semibold text-[var(--text-main)]">
                                     ৳{prod.priceBdt.toLocaleString('en-US')}
                                   </span>
                                   <span>·</span>
-                                  <span className="text-[11px] font-mono-num text-[var(--text-muted)]">
-                                    Total: {getProductTotalAvailableCount(prod).toLocaleString('en-US')} pcs
+                                  <span
+                                    className={`text-[11px] font-mono-num ${
+                                      isLowStock
+                                        ? 'font-bold text-amber-600 dark:text-amber-400'
+                                        : 'text-[var(--text-muted)]'
+                                    }`}
+                                  >
+                                    Total: {totalAvailableUnits.toLocaleString('en-US')} pcs
                                     {' · '}
                                     {prod.colors.filter((c) => getColorAvailableCount(prod, c) > 0).length}/
                                     {prod.colors.length}{' '}
@@ -2805,6 +2887,10 @@ export const AdminModal: React.FC = () => {
                                         : getVariantInkColors(prod, c);
                                       const colorSoldOut = !c.inStock;
                                       const colorCount = getColorAvailableCount(prod, c);
+                                      const colorLowStock =
+                                        !colorSoldOut &&
+                                        colorCount > 0 &&
+                                        colorCount < LOW_STOCK_THRESHOLD;
                                       return (
                                         <button
                                           key={c.id}
@@ -2844,6 +2930,8 @@ export const AdminModal: React.FC = () => {
                                           className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[11px] transition-colors ${
                                             colorSoldOut
                                               ? 'border-rose-500/45 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20'
+                                              : colorLowStock
+                                              ? 'border-amber-500/55 bg-amber-500/10 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20'
                                               : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] hover:border-accent/60'
                                           }`}
                                           title={`Click to mark ${c.name} colour ${
@@ -2875,7 +2963,13 @@ export const AdminModal: React.FC = () => {
                                             </span>
                                           ) : (
                                             <>
-                                              <span className="text-[10px] font-mono-num text-[var(--text-muted)]">
+                                              <span
+                                                className={`text-[10px] font-mono-num ${
+                                                  colorLowStock
+                                                    ? 'font-bold text-amber-700 dark:text-amber-300'
+                                                    : 'text-[var(--text-muted)]'
+                                                }`}
+                                              >
                                                 ({colorCount})
                                               </span>
                                               {!otherItem && comboInks.length > 0 && (
