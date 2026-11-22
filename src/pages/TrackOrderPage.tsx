@@ -128,7 +128,7 @@ export const TrackOrderPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsAuthModalOpen(true)}
-            className="px-6 py-3 rounded-xl text-sm font-semibold text-[var(--accent-cta-text)] cta-glow-red"
+            className="min-h-[44px] px-6 py-3 rounded-xl text-sm font-semibold text-[var(--accent-cta-text)] cta-glow-red"
           >
             Sign In with Google
           </button>
@@ -155,7 +155,7 @@ export const TrackOrderPage: React.FC = () => {
                   value={orderIdInput}
                   onChange={(e) => setOrderIdInput(e.target.value)}
                   placeholder="e.g. #1"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent"
+                  className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent"
                 />
               </div>
               <div>
@@ -174,7 +174,7 @@ export const TrackOrderPage: React.FC = () => {
                   value={phoneInput}
                   onChange={(e) => setPhoneInput(e.target.value)}
                   placeholder="e.g. 017XXXXXXXX"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent"
+                  className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent"
                 />
               </div>
             </div>
@@ -195,7 +195,7 @@ export const TrackOrderPage: React.FC = () => {
                         setSelectedOrderId(ord.orderId);
                         setSearched(true);
                       }}
-                      className={`min-h-[34px] px-3 py-1.5 rounded-lg border font-mono-num transition-colors ${
+                      className={`min-h-[44px] sm:min-h-[34px] px-3.5 sm:px-3 py-1.5 rounded-lg border font-mono-num transition-colors ${
                         selectedOrderId === ord.orderId
                           ? 'border-accent bg-accent/15 text-accent-bright font-semibold'
                           : 'border-[var(--border-subtle)] hover:border-accent text-[var(--text-secondary)]'
@@ -447,7 +447,7 @@ export const TrackOrderPage: React.FC = () => {
                 <button
                   type="button"
                   onClick={() => navigate('shop', { category: 'all-pens' })}
-                  className="px-5 py-2.5 rounded-xl text-sm font-semibold text-[var(--accent-cta-text)] cta-glow-red"
+                  className="min-h-[44px] px-5 py-2.5 rounded-xl text-sm font-semibold text-[var(--accent-cta-text)] cta-glow-red"
                 >
                   Browse Products
                 </button>

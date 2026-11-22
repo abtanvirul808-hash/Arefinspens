@@ -240,7 +240,7 @@ export const CartDrawer: React.FC = () => {
                               <button
                                 type="button"
                                 onClick={() => updateCartQuantity(item.key, item.quantity - 1)}
-                                className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
+                                className="w-10 h-10 sm:w-8 sm:h-8 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
                                 aria-label="Decrease quantity"
                               >
                                 <Minus className="w-3.5 h-3.5" />
@@ -252,7 +252,7 @@ export const CartDrawer: React.FC = () => {
                                 type="button"
                                 disabled={atColorMax}
                                 onClick={() => updateCartQuantity(item.key, item.quantity + 1)}
-                                className="w-9 h-9 sm:w-8 sm:h-8 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)] disabled:opacity-35 disabled:cursor-not-allowed"
+                                className="w-10 h-10 sm:w-8 sm:h-8 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)] disabled:opacity-35 disabled:cursor-not-allowed"
                                 aria-label="Increase quantity"
                                 title={
                                   atColorMax
@@ -409,13 +409,13 @@ export const SettingsPanel: React.FC = () => {
   if (!isSettingsOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center sm:items-start justify-center sm:justify-end p-3 sm:p-6 sm:pt-20" role="dialog" aria-modal="true" aria-label="Display Settings">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-start justify-center sm:justify-end p-0 sm:p-6 sm:pt-20" role="dialog" aria-modal="true" aria-label="Display Settings">
       <div
         className="fixed inset-0 bg-black/50 backdrop-blur-[2px]"
         onClick={() => setIsSettingsOpen(false)}
       />
 
-      <div className="relative z-10 w-full max-w-sm rounded-2xl border border-accent/45 bg-white dark:bg-[var(--bg-input)] p-4 sm:p-5 shadow-2xl space-y-5 max-h-[88dvh] overflow-y-auto">
+      <div className="relative z-10 w-full sm:max-w-sm rounded-t-2xl sm:rounded-2xl border border-accent/45 bg-white dark:bg-[var(--bg-input)] p-4 sm:p-5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl space-y-5 max-h-[88dvh] overflow-y-auto">
         <div className="flex items-center justify-between pb-3 border-b border-[var(--border-subtle)]">
           <h2 className="font-display text-base font-bold text-[var(--text-main)]">
             Display &amp; Accessibility Settings
@@ -423,7 +423,7 @@ export const SettingsPanel: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsSettingsOpen(false)}
-            className="w-8 h-8 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-main)] inline-flex items-center justify-center"
+            className="w-10 h-10 sm:w-8 sm:h-8 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-main)] inline-flex items-center justify-center"
             aria-label="Close settings"
           >
             <X className="w-4 h-4" />
@@ -437,7 +437,7 @@ export const SettingsPanel: React.FC = () => {
             <button
               type="button"
               onClick={() => updatePreferences({ theme: 'dark' })}
-              className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-colors ${
+              className={`min-h-[44px] sm:min-h-0 py-2 px-3 rounded-xl text-xs font-semibold border transition-colors ${
                 preferences.theme === 'dark'
                   ? 'border-accent bg-accent/15 text-accent-bright'
                   : 'border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-main)]'
@@ -448,7 +448,7 @@ export const SettingsPanel: React.FC = () => {
             <button
               type="button"
               onClick={() => updatePreferences({ theme: 'light' })}
-              className={`py-2 px-3 rounded-xl text-xs font-semibold border transition-colors ${
+              className={`min-h-[44px] sm:min-h-0 py-2 px-3 rounded-xl text-xs font-semibold border transition-colors ${
                 preferences.theme === 'light'
                   ? 'border-accent bg-accent/15 text-accent'
                   : 'border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-main)]'
@@ -471,7 +471,7 @@ export const SettingsPanel: React.FC = () => {
                   type="button"
                   onClick={() => updatePreferences({ accentColor: opt.id })}
                   aria-pressed={active}
-                  className={`py-2 px-2.5 rounded-xl text-xs font-semibold border inline-flex items-center gap-2 transition-all ${
+                  className={`min-h-[44px] sm:min-h-0 py-2 px-2.5 rounded-xl text-xs font-semibold border inline-flex items-center gap-2 transition-all ${
                     active
                       ? 'border-accent bg-accent/15 text-[var(--text-main)] shadow-[0_0_12px_rgba(var(--accent-rgb),0.25)]'
                       : 'border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:border-accent/50'
@@ -497,7 +497,7 @@ export const SettingsPanel: React.FC = () => {
                 key={size}
                 type="button"
                 onClick={() => updatePreferences({ textSize: size })}
-                className={`py-2 px-2 rounded-xl text-xs font-semibold capitalize border transition-colors ${
+                className={`min-h-[44px] sm:min-h-0 py-2 px-2 rounded-xl text-xs font-semibold capitalize border transition-colors ${
                   preferences.textSize === size
                     ? 'border-accent bg-accent/15 text-accent-bright'
                     : 'border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-main)]'
@@ -578,12 +578,12 @@ export const AuthModal: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4" role="dialog" aria-modal="true" aria-label="Account">
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4" role="dialog" aria-modal="true" aria-label="Account">
       <div
         className="fixed inset-0 bg-black/75 backdrop-blur-sm"
         onClick={() => setIsAuthModalOpen(false)}
       />
-      <div className="relative z-10 w-full max-w-md rounded-2xl border border-accent/45 bg-white dark:bg-[var(--bg-input)] p-4 sm:p-6 shadow-2xl space-y-5 max-h-[90dvh] overflow-y-auto">
+      <div className="relative z-10 w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl border border-accent/45 bg-white dark:bg-[var(--bg-input)] p-4 sm:p-6 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl space-y-5 max-h-[90dvh] overflow-y-auto">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-full bg-accent/15 border border-accent/40 flex items-center justify-center text-accent-bright">
@@ -600,7 +600,7 @@ export const AuthModal: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsAuthModalOpen(false)}
-            className="w-8 h-8 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-main)] inline-flex items-center justify-center"
+            className="w-10 h-10 sm:w-8 sm:h-8 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-main)] inline-flex items-center justify-center"
             aria-label="Close account dialog"
           >
             <X className="w-4 h-4" />
@@ -732,7 +732,7 @@ export const ToastBanner: React.FC = () => {
 
   return (
     <div
-      className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-5 sm:bottom-5 z-50 max-w-sm mx-auto sm:mx-0 px-4 py-3 rounded-xl bg-[var(--bg-secondary)]/95 border border-accent/60 text-[var(--text-main)] shadow-[0_12px_32px_rgba(var(--accent-rgb),0.25)] flex items-center gap-2.5 text-sm backdrop-blur-md"
+      className="fixed bottom-[max(1rem,env(safe-area-inset-bottom))] left-4 right-4 sm:left-auto sm:right-5 sm:bottom-5 z-50 max-w-sm mx-auto sm:mx-0 px-4 py-3 rounded-xl bg-[var(--bg-secondary)]/95 border border-accent/60 text-[var(--text-main)] shadow-[0_12px_32px_rgba(var(--accent-rgb),0.25)] flex items-center gap-2.5 text-sm backdrop-blur-md"
       role="status"
       aria-live="polite"
     >

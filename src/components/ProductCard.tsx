@@ -138,9 +138,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
             }}
             aria-label={`View ${product.name} full screen`}
             title="Full screen product preview"
-            className="absolute bottom-2.5 right-2.5 sm:bottom-3 sm:right-3 w-8 h-8 rounded-lg bg-black/65 backdrop-blur-md border border-white/20 text-white/90 hover:border-accent hover:text-white flex items-center justify-center transition-colors"
+            className="absolute bottom-2.5 right-2.5 sm:bottom-3 sm:right-3 w-10 h-10 sm:w-8 sm:h-8 rounded-lg bg-black/65 backdrop-blur-md border border-white/20 text-white/90 hover:border-accent hover:text-white flex items-center justify-center transition-colors"
           >
-            <Maximize2 className="w-3.5 h-3.5" />
+            <Maximize2 className="w-4 h-4 sm:w-3.5 sm:h-3.5" />
           </button>
         )}
       </div>
@@ -205,7 +205,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                           : `Select ${color.name} colour (${colorCount} available)`
                       }
                       aria-pressed={selected}
-                      className={`relative w-6 h-6 sm:w-5 sm:h-5 rounded-full overflow-hidden transition-transform ${
+                      className={`relative w-7 h-7 sm:w-5 sm:h-5 rounded-full overflow-hidden transition-transform ${
                         selected
                           ? 'ring-2 ring-accent ring-offset-2 ring-offset-[var(--bg-card)] scale-110'
                           : 'ring-1 ring-black/20 dark:ring-white/25 hover:scale-105'
@@ -261,7 +261,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               <div className="flex items-center gap-1.5" role="group" aria-label="Available ink colours">
                 <span className="text-[11px] text-[var(--text-muted)] shrink-0">Ink:</span>
                 {inkColors.length > 1 ? (
-                  <div className="flex items-center gap-1.5">
+                  <div className="flex items-center gap-2 sm:gap-1.5">
                     {inkColors.map((ink) => {
                       const selected = ink.id === activeInk?.id;
                       return (
@@ -272,7 +272,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                           title={`${ink.name} Ink`}
                           aria-label={`Select ${ink.name} ink colour`}
                           aria-pressed={selected}
-                          className={`w-5 h-5 sm:w-4 sm:h-4 rounded-full transition-transform ${
+                          className={`w-6 h-6 sm:w-4 sm:h-4 rounded-full transition-transform ${
                             selected
                               ? 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--bg-card)] scale-110'
                               : 'ring-1 ring-black/20 dark:ring-white/25 hover:scale-105 opacity-80 hover:opacity-100'
@@ -316,7 +316,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                   navigate('product', { productSlug: product.slug });
                 }}
                 aria-label={`View ${product.name} information and specifications`}
-                className="min-h-[40px] px-2.5 py-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-main)] hover:border-accent hover:text-accent dark:hover:text-accent-bright hover:bg-accent/10 inline-flex items-center gap-1 transition-colors whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className="min-h-[44px] sm:min-h-[40px] px-3 sm:px-2.5 py-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-xs font-semibold text-[var(--text-main)] hover:border-accent hover:text-accent dark:hover:text-accent-bright hover:bg-accent/10 inline-flex items-center gap-1 transition-colors whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
               >
                 <Eye className="w-3.5 h-3.5 shrink-0" />
                 <span>View</span>
@@ -334,7 +334,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
                     : `Add ${product.name} to cart`
                 }
                 title={!canQuickAdd ? 'Out of Stock' : 'Add to Cart'}
-                className={`min-h-[40px] min-w-[80px] sm:min-w-[84px] px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                className={`min-h-[44px] sm:min-h-[40px] min-w-[84px] px-3.5 sm:px-4 py-2 rounded-xl text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-all whitespace-nowrap shrink-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
                   !canQuickAdd
                     ? 'bg-black/10 dark:bg-white/10 text-[var(--text-muted)] border border-[var(--border-subtle)] cursor-not-allowed'
                     : justAdded

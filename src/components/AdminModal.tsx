@@ -822,7 +822,7 @@ export const AdminModal: React.FC = () => {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-2.5 sm:p-4"
+      className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4"
       role="dialog"
       aria-modal="true"
       aria-label="Admin Control Panel"
@@ -835,20 +835,20 @@ export const AdminModal: React.FC = () => {
       <div
         className={`relative z-10 w-full ${
           isAdmin ? 'max-w-4xl' : 'max-w-md'
-        } rounded-2xl border border-accent/50 bg-white dark:bg-[var(--bg-input)] p-3.5 sm:p-6 shadow-2xl space-y-4 max-h-[94dvh] flex flex-col`}
+        } rounded-t-2xl sm:rounded-2xl border border-accent/50 bg-white dark:bg-[var(--bg-input)] p-3.5 sm:p-6 pb-[max(0.875rem,env(safe-area-inset-bottom))] shadow-2xl space-y-3.5 sm:space-y-4 max-h-[95dvh] sm:max-h-[92dvh] flex flex-col`}
       >
         {/* Modal Header */}
-        <div className="flex items-center justify-between gap-3 pb-3 border-b border-[var(--border-subtle)] shrink-0">
+        <div className="flex items-center justify-between gap-2.5 pb-3 border-b border-[var(--border-subtle)] shrink-0">
           <div className="flex items-center gap-2.5 min-w-0">
             <div className="w-9 h-9 rounded-full bg-accent/15 border border-accent/45 flex items-center justify-center text-accent-bright shrink-0">
               <ShieldCheck className="w-4 h-4" />
             </div>
             <div className="min-w-0">
-              <h2 className="font-display text-lg font-bold text-[var(--text-main)] truncate">
+              <h2 className="font-display text-base sm:text-lg font-bold text-[var(--text-main)] truncate">
                 {isAdmin ? 'Admin Control Panel' : 'Admin Portal'}
               </h2>
               {isAdmin && (
-                <p className="text-xs text-[var(--text-muted)] truncate">
+                <p className="text-[11px] sm:text-xs text-[var(--text-muted)] truncate">
                   {isFirebaseAdmin ? 'Live Cloud Sync Connected' : 'Local Admin Session'}
                 </p>
               )}
@@ -860,16 +860,16 @@ export const AdminModal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => void logoutAdmin()}
-                className="px-3 py-1.5 rounded-xl bg-accent/15 border border-accent/40 text-xs font-semibold text-accent-bright hover:bg-accent/25 inline-flex items-center gap-1.5 transition-colors"
+                className="min-h-[40px] px-3 py-1.5 rounded-xl bg-accent/15 border border-accent/40 text-xs font-semibold text-accent-bright hover:bg-accent/25 inline-flex items-center gap-1.5 transition-colors whitespace-nowrap"
               >
-                <LogOut className="w-3.5 h-3.5" />
+                <LogOut className="w-3.5 h-3.5 shrink-0" />
                 <span>Sign Out</span>
               </button>
             )}
             <button
               type="button"
               onClick={() => setIsAdminModalOpen(false)}
-              className="w-8 h-8 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:border-accent inline-flex items-center justify-center"
+              className="w-10 h-10 sm:w-9 sm:h-9 rounded-full border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:border-accent inline-flex items-center justify-center shrink-0"
               aria-label="Close admin panel"
             >
               <X className="w-4 h-4" />
@@ -994,73 +994,75 @@ export const AdminModal: React.FC = () => {
             )}
 
             {/* Navigation Tabs */}
-            <div className="grid grid-cols-2 p-1 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] shrink-0">
+            <div className="grid grid-cols-2 p-1 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] shrink-0 gap-1">
               <button
                 type="button"
                 onClick={() => setActiveTab('orders')}
-                className={`py-2 px-3 rounded-lg text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors ${
+                className={`min-h-[44px] py-2 px-2 sm:px-3 rounded-lg text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 sm:gap-2 transition-colors whitespace-nowrap ${
                   activeTab === 'orders'
                     ? 'bg-accent text-[var(--accent-cta-text)] shadow-[0_0_12px_rgba(var(--accent-rgb),0.4)]'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-main)]'
                 }`}
               >
                 <Package className="w-4 h-4 shrink-0" />
-                <span>Order Management ({adminOrders.length})</span>
+                <span className="sm:hidden">Orders ({adminOrders.length})</span>
+                <span className="hidden sm:inline">Order Management ({adminOrders.length})</span>
               </button>
               <button
                 type="button"
                 onClick={() => setActiveTab('products')}
-                className={`py-2 px-3 rounded-lg text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors ${
+                className={`min-h-[44px] py-2 px-2 sm:px-3 rounded-lg text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 sm:gap-2 transition-colors whitespace-nowrap ${
                   activeTab === 'products'
                     ? 'bg-accent text-[var(--accent-cta-text)] shadow-[0_0_12px_rgba(var(--accent-rgb),0.4)]'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-main)]'
                 }`}
               >
                 <FolderPlus className="w-4 h-4 shrink-0" />
-                <span>Set Category &amp; Product ({products.length})</span>
+                <span className="sm:hidden">Products ({products.length})</span>
+                <span className="hidden sm:inline">Set Category &amp; Product ({products.length})</span>
               </button>
             </div>
 
             {activeTab === 'orders' ? (
               <>
                 {/* Quick Summary Stats (Top of Search Order) */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 shrink-0">
-                  <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3.5 py-2.5">
+                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-2.5 shrink-0">
+                  <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 sm:px-3.5 sm:py-2.5">
                     <p className="text-[11px] text-[var(--text-muted)]">Total Orders</p>
-                    <p className="font-display text-lg font-bold font-mono-num text-[var(--text-main)]">
+                    <p className="font-display text-base sm:text-lg font-bold font-mono-num text-[var(--text-main)]">
                       {counts.total}
                     </p>
                   </div>
-                  <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3.5 py-2.5">
+                  <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 sm:px-3.5 sm:py-2.5">
                     <p className="text-[11px] text-[var(--text-muted)]">Preparing Order</p>
-                    <p className="font-display text-lg font-bold font-mono-num text-amber-500">
+                    <p className="font-display text-base sm:text-lg font-bold font-mono-num text-amber-500">
                       {counts.preparing}
                     </p>
                   </div>
-                  <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3.5 py-2.5">
+                  <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 sm:px-3.5 sm:py-2.5">
                     <p className="text-[11px] text-[var(--text-muted)]">Shipped</p>
-                    <p className="font-display text-lg font-bold font-mono-num text-accent-bright">
+                    <p className="font-display text-base sm:text-lg font-bold font-mono-num text-accent-bright">
                       {counts.shipped}
                     </p>
                   </div>
-                  <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3.5 py-2.5">
+                  <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 sm:px-3.5 sm:py-2.5">
                     <p className="text-[11px] text-[var(--text-muted)]">Delivered</p>
-                    <p className="font-display text-lg font-bold font-mono-num text-emerald-500">
+                    <p className="font-display text-base sm:text-lg font-bold font-mono-num text-emerald-500">
                       {counts.delivered}
                     </p>
                   </div>
-                  <div className="col-span-2 sm:col-span-1 rounded-xl border border-accent/55 bg-accent/15 px-3.5 py-2.5 shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)]">
+                  <div className="col-span-2 sm:col-span-1 rounded-xl border border-accent/55 bg-accent/15 px-3 py-2 sm:px-3.5 sm:py-2.5 shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)] flex sm:block items-center justify-between gap-2">
                     <p className="text-[11px] font-semibold text-accent dark:text-accent-bright">
                       All Orders Subtotal
                     </p>
-                    <p className="font-display text-lg font-extrabold font-mono-num text-[var(--text-main)]">
+                    <p className="font-display text-base sm:text-lg font-extrabold font-mono-num text-[var(--text-main)]">
                       ৳{allOrdersSubtotal.toLocaleString('en-US')}
                     </p>
                   </div>
                 </div>
 
                 {/* Search & Filter */}
-                <div className="flex flex-col sm:flex-row gap-2.5 shrink-0">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-2.5 shrink-0">
                   <div className="relative flex-1">
                     <Search className="w-4 h-4 text-[var(--text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
@@ -1068,15 +1070,15 @@ export const AdminModal: React.FC = () => {
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       placeholder="Search order #1, customer name, phone, or location..."
-                      className="w-full pl-9 pr-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs sm:text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                      className="w-full min-h-[42px] pl-9 pr-3 py-2 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs sm:text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
                     />
                   </div>
 
-                  <div className="flex flex-wrap items-center gap-1.5">
+                  <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar sm:flex-wrap pb-0.5 sm:pb-0">
                     <button
                       type="button"
                       onClick={() => setStageFilter('all')}
-                      className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                      className={`min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold border whitespace-nowrap shrink-0 transition-colors ${
                         stageFilter === 'all'
                           ? 'border-accent bg-accent/15 text-accent-bright'
                           : 'border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-main)]'
@@ -1089,7 +1091,7 @@ export const AdminModal: React.FC = () => {
                         key={st.index}
                         type="button"
                         onClick={() => setStageFilter(st.index)}
-                        className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border transition-colors ${
+                        className={`min-h-[38px] px-3 py-1.5 rounded-lg text-xs font-semibold border whitespace-nowrap shrink-0 transition-colors ${
                           stageFilter === st.index
                             ? 'border-accent bg-accent/15 text-accent-bright'
                             : 'border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-main)]'
@@ -1188,49 +1190,49 @@ export const AdminModal: React.FC = () => {
                               {confirmingDelete ? (
                                 <div className="flex flex-col items-end gap-1">
                                   <div className="flex items-center gap-1.5">
-                                    <button
-                                      type="button"
-                                      disabled={deletingOrderId === order.orderId}
-                                      onClick={async () => {
-                                        setDeletingOrderId(order.orderId);
-                                        try {
-                                          await deleteOrder(order.orderId);
-                                        } finally {
-                                          setDeletingOrderId(null);
-                                          setConfirmDeleteOrderId(null);
-                                        }
-                                      }}
-                                      className="px-2.5 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 disabled:opacity-60 transition-colors"
-                                    >
-                                      {deletingOrderId === order.orderId
-                                        ? 'Restoring & Deleting...'
-                                        : 'Confirm Delete'}
-                                    </button>
-                                    <button
-                                      type="button"
-                                      disabled={deletingOrderId === order.orderId}
-                                      onClick={() => setConfirmDeleteOrderId(null)}
-                                      className="px-2 py-1.5 rounded-lg border border-[var(--border-subtle)] text-xs text-[var(--text-secondary)] hover:text-[var(--text-main)] disabled:opacity-60"
-                                    >
-                                      Cancel
-                                    </button>
+                                      <button
+                                        type="button"
+                                        disabled={deletingOrderId === order.orderId}
+                                        onClick={async () => {
+                                          setDeletingOrderId(order.orderId);
+                                          try {
+                                            await deleteOrder(order.orderId);
+                                          } finally {
+                                            setDeletingOrderId(null);
+                                            setConfirmDeleteOrderId(null);
+                                          }
+                                        }}
+                                        className="min-h-[38px] px-2.5 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700 disabled:opacity-60 transition-colors"
+                                      >
+                                        {deletingOrderId === order.orderId
+                                          ? 'Restoring & Deleting...'
+                                          : 'Confirm Delete'}
+                                      </button>
+                                      <button
+                                        type="button"
+                                        disabled={deletingOrderId === order.orderId}
+                                        onClick={() => setConfirmDeleteOrderId(null)}
+                                        className="min-h-[38px] px-2.5 py-1.5 rounded-lg border border-[var(--border-subtle)] text-xs text-[var(--text-secondary)] hover:text-[var(--text-main)] disabled:opacity-60"
+                                      >
+                                        Cancel
+                                      </button>
+                                    </div>
+                                    <span className="text-[10px] text-[var(--text-muted)]">
+                                      Deletes order &amp; restores ordered stock
+                                    </span>
                                   </div>
-                                  <span className="text-[10px] text-[var(--text-muted)]">
-                                    Deletes order &amp; restores ordered stock
-                                  </span>
-                                </div>
-                              ) : (
-                                <button
-                                  type="button"
-                                  onClick={() => setConfirmDeleteOrderId(order.orderId)}
-                                  className="px-2.5 py-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 text-rose-500 hover:bg-rose-600 hover:text-white text-xs font-semibold inline-flex items-center gap-1 transition-colors"
-                                  aria-label={`Delete order ${order.orderId}`}
-                                  title="Delete Order & Restore Stock"
-                                >
-                                  <Trash2 className="w-3.5 h-3.5" />
-                                  <span>Delete</span>
-                                </button>
-                              )}
+                                ) : (
+                                  <button
+                                    type="button"
+                                    onClick={() => setConfirmDeleteOrderId(order.orderId)}
+                                    className="min-h-[38px] px-2.5 py-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 text-rose-500 hover:bg-rose-600 hover:text-white text-xs font-semibold inline-flex items-center gap-1 transition-colors"
+                                    aria-label={`Delete order ${order.orderId}`}
+                                    title="Delete Order & Restore Stock"
+                                  >
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <span>Delete</span>
+                                  </button>
+                                )}
                             </div>
                           </div>
 
@@ -1251,7 +1253,7 @@ export const AdminModal: React.FC = () => {
                             </div>
                           </div>
 
-                          {/* Highlighted Ordered Items: Image, Item Name, Colour, Ink Colour, Subtotal */}
+                          {/* Highlighted Ordered Items: Image, Item Name, Ink Colour, Body Colour, Subtotal */}
                           {parsedItems.length === 0 ? (
                             <div className="space-y-2 rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-secondary)] px-3 py-2.5">
                               <p className="text-xs text-[var(--text-secondary)]">
@@ -1284,10 +1286,10 @@ export const AdminModal: React.FC = () => {
                                     return (
                                       <div
                                         key={item.key}
-                                        className="rounded-xl border border-accent/40 bg-[var(--bg-secondary)] p-2.5 flex items-center gap-3 shadow-[0_4px_14px_-6px_rgba(var(--accent-rgb),0.25)]"
+                                        className="rounded-xl border border-accent/40 bg-[var(--bg-secondary)] p-2.5 flex items-start sm:items-center gap-2.5 sm:gap-3 shadow-[0_4px_14px_-6px_rgba(var(--accent-rgb),0.25)]"
                                       >
                                         {/* Highlighted Product Image */}
-                                        <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-xl overflow-hidden border-2 border-accent/70 bg-[#080506] shadow-[0_0_14px_rgba(var(--accent-rgb),0.3)] shrink-0 flex items-center justify-center">
+                                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl overflow-hidden border-2 border-accent/70 bg-[#080506] shadow-[0_0_14px_rgba(var(--accent-rgb),0.3)] shrink-0 flex items-center justify-center">
                                           {item.image ? (
                                             <SafeImage
                                               src={item.image}
@@ -1299,13 +1301,13 @@ export const AdminModal: React.FC = () => {
                                           )}
                                         </div>
 
-                                        {/* Highlighted Item Name, Colour, Ink Colour & Price Breakdown */}
+                                        {/* Highlighted Item Name, Ink Colour, Body Colour & Price Breakdown */}
                                         <div className="flex-1 min-w-0 space-y-1.5">
-                                          <div className="flex flex-wrap items-center justify-between gap-2">
-                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-accent/15 border border-accent/45 text-xs sm:text-sm font-bold text-[var(--text-main)]">
+                                          <div className="flex flex-wrap items-center justify-between gap-1.5 sm:gap-2">
+                                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-lg bg-accent/15 border border-accent/45 text-xs sm:text-sm font-bold text-[var(--text-main)] max-w-full">
                                               <span className="truncate">{item.name}</span>
                                             </span>
-                                            <div className="flex items-center gap-1.5 shrink-0">
+                                            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
                                               {typeof unitPrice === 'number' &&
                                                 typeof lineTotal === 'number' && (
                                                   <span className="px-2 py-0.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[11px] font-bold font-mono-num text-[var(--text-main)]">
@@ -1320,6 +1322,19 @@ export const AdminModal: React.FC = () => {
                                           </div>
 
                                           <div className="flex flex-wrap items-center gap-1.5">
+                                            {!hideInk && (
+                                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-violet-500/60 bg-violet-500/15 text-violet-900 dark:text-violet-200 text-xs font-bold">
+                                                <Droplets className="w-3 h-3 shrink-0" />
+                                                <span
+                                                  className="w-3 h-3 rounded-full border border-white/75 dark:border-white/35 shrink-0"
+                                                  style={{
+                                                    backgroundColor: item.inkColorHex || '#111827',
+                                                  }}
+                                                />
+                                                <span>Ink: {item.inkColorName}</span>
+                                              </span>
+                                            )}
+
                                             {item.bodyColorName && (
                                               <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-sky-500/60 bg-sky-500/15 text-sky-900 dark:text-sky-200 text-xs font-bold">
                                                 <span
@@ -1333,19 +1348,6 @@ export const AdminModal: React.FC = () => {
                                                     ? `Colour: ${item.bodyColorName}`
                                                     : `Body: ${item.bodyColorName}`}
                                                 </span>
-                                              </span>
-                                            )}
-
-                                            {!hideInk && (
-                                              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-violet-500/60 bg-violet-500/15 text-violet-900 dark:text-violet-200 text-xs font-bold">
-                                                <Droplets className="w-3 h-3 shrink-0" />
-                                                <span
-                                                  className="w-3 h-3 rounded-full border border-white/75 dark:border-white/35 shrink-0"
-                                                  style={{
-                                                    backgroundColor: item.inkColorHex || '#111827',
-                                                  }}
-                                                />
-                                                <span>Ink: {item.inkColorName}</span>
                                               </span>
                                             )}
                                           </div>
@@ -1386,7 +1388,7 @@ export const AdminModal: React.FC = () => {
                                     type="button"
                                     onClick={() => void updateOrderStage(order.orderId, stage.index)}
                                     aria-pressed={active}
-                                    className={`px-2.5 py-2 rounded-xl text-xs font-semibold border inline-flex items-center justify-center gap-1.5 transition-all ${
+                                    className={`min-h-[44px] sm:min-h-[38px] px-2.5 py-2 rounded-xl text-xs font-semibold border inline-flex items-center justify-center gap-1.5 transition-all ${
                                       active
                                         ? stage.index === 4
                                           ? 'bg-emerald-600 border-emerald-500 text-white shadow-[0_0_14px_rgba(16,185,129,0.4)]'
@@ -1751,18 +1753,18 @@ export const AdminModal: React.FC = () => {
                     </div>
                   </section>
 
-                  {/* Step 02: Pricing, Specs & Default Ink */}
+                  {/* Step 02: Pricing & Pen Specs */}
                   <section className="space-y-4 pt-5 border-t border-[var(--border-subtle)]">
                     <div className="px-3.5 py-2.5 rounded-xl border border-accent/45 bg-accent/10 space-y-0.5">
                       <h4 className="font-display text-sm font-bold text-accent dark:text-accent-bright">
                         {isOtherMode
                           ? '02. Pricing & Stock Overview'
-                          : '02. Pricing, Pen Specs & Default Ink'}
+                          : '02. Pricing & Pen Specs'}
                       </h4>
                       <p className="text-xs text-[var(--text-secondary)]">
                         {isOtherMode
                           ? 'Set your selling price and an optional original price to highlight a discount.'
-                          : 'Set selling price, tip & ink specifications, and default ink colours inherited by new body colours.'}
+                          : 'Set selling price, optional original price, and tip & ink specifications.'}
                       </p>
                     </div>
 
@@ -1785,7 +1787,7 @@ export const AdminModal: React.FC = () => {
                             setProdPrice(e.target.value);
                             if (prodFormError) setProdFormError('');
                           }}
-                          className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-accent/35 text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                          className="w-full min-h-[44px] sm:min-h-0 px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-accent/35 text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                         />
                       </div>
 
@@ -1804,7 +1806,7 @@ export const AdminModal: React.FC = () => {
                           value={prodOriginalPrice}
                           onChange={(e) => setProdOriginalPrice(e.target.value)}
                           placeholder="Leave blank if no discount"
-                          className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-accent/35 text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                          className="w-full min-h-[44px] sm:min-h-0 px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-accent/35 text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
                         />
                         {discountInfo && (
                           <p
@@ -1825,7 +1827,7 @@ export const AdminModal: React.FC = () => {
                         <span className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright">
                           Total Stock
                         </span>
-                        <div className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-secondary)] border border-accent/30 text-sm font-mono-num font-bold text-[var(--text-main)] flex items-center justify-between gap-2">
+                        <div className="w-full min-h-[44px] sm:min-h-0 px-3.5 py-2.5 rounded-xl bg-[var(--bg-secondary)] border border-accent/30 text-sm font-mono-num font-bold text-[var(--text-main)] flex items-center justify-between gap-2">
                           <span>{autoTotalStock.toLocaleString('en-US')} pcs</span>
                           <span className="text-[11px] font-sans font-normal text-[var(--text-muted)]">
                             Auto-summed
@@ -1835,219 +1837,77 @@ export const AdminModal: React.FC = () => {
                     </div>
 
                     {!isOtherMode && (
-                      <>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          <div className="space-y-1.5">
-                            <label
-                              htmlFor="admin-product-tip"
-                              className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright"
-                            >
-                              Tip / Nib Size
-                            </label>
-                            <input
-                              id="admin-product-tip"
-                              type="text"
-                              value={prodTipSize}
-                              onChange={(e) => setProdTipSize(e.target.value)}
-                              placeholder="e.g. 0.5 mm Needle Tip"
-                              className="w-full px-3.5 py-2 rounded-xl bg-[var(--bg-input)] border border-accent/35 text-sm text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-                            />
-                            <div className="flex flex-wrap gap-1">
-                              {TIP_SIZE_PRESETS.map((preset) => (
-                                <button
-                                  key={preset}
-                                  type="button"
-                                  onClick={() => setProdTipSize(preset)}
-                                  className={`px-2 py-0.5 rounded-md border text-[11px] whitespace-nowrap shrink-0 transition-colors ${
-                                    prodTipSize === preset
-                                      ? 'border-accent bg-accent/15 text-accent dark:text-accent-bright font-semibold'
-                                      : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:border-accent/60 hover:text-[var(--text-main)]'
-                                  }`}
-                                >
-                                  {preset}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-
-                          <div className="space-y-1.5">
-                            <label
-                              htmlFor="admin-product-ink-type"
-                              className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright"
-                            >
-                              Ink / Lead Type
-                            </label>
-                            <input
-                              id="admin-product-ink-type"
-                              type="text"
-                              value={prodInkType}
-                              onChange={(e) => setProdInkType(e.target.value)}
-                              placeholder="e.g. Smooth Gel Ink"
-                              className="w-full px-3.5 py-2 rounded-xl bg-[var(--bg-input)] border border-accent/35 text-sm text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-                            />
-                            <div className="flex flex-wrap gap-1">
-                              {INK_TYPE_PRESETS.map((preset) => (
-                                <button
-                                  key={preset}
-                                  type="button"
-                                  onClick={() => setProdInkType(preset)}
-                                  className={`px-2 py-0.5 rounded-md border text-[11px] whitespace-nowrap shrink-0 transition-colors ${
-                                    prodInkType === preset
-                                      ? 'border-accent bg-accent/15 text-accent dark:text-accent-bright font-semibold'
-                                      : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:border-accent/60 hover:text-[var(--text-main)]'
-                                  }`}
-                                >
-                                  {preset}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Default Ink Colours */}
-                        <div className="p-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] space-y-3">
-                          <div className="flex flex-wrap items-start justify-between gap-2">
-                            <div className="space-y-0.5">
-                              <div className="flex items-center gap-1.5 text-xs">
-                                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 font-bold text-accent dark:text-accent-bright">
-                                  <Droplets className="w-3.5 h-3.5 shrink-0" />
-                                  <span>
-                                    Default Ink Colours <span className="text-rose-500">*</span>
-                                  </span>
-                                </span>
-                                <span className="text-[var(--text-muted)] font-normal font-mono-num">
-                                  · {prodInkColors.length} selected
-                                </span>
-                              </div>
-                              <p className="text-[11px] text-[var(--text-muted)]">
-                                New body colours below copy these inks automatically. You can still customize inks per body colour.
-                              </p>
-                            </div>
-
-                            {colorDrafts.length > 0 && (
-                              <button
-                                type="button"
-                                onClick={handleApplyDefaultInksToAllBodies}
-                                className="px-2.5 py-1.5 rounded-lg border border-accent/45 bg-accent/10 text-[11px] font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 transition-colors whitespace-nowrap shrink-0"
-                                title="Replace ink choices on every body colour below with these defaults"
-                              >
-                                Apply to All Body Colours
-                              </button>
-                            )}
-                          </div>
-
-                          {/* Multi-Toggle Ink Presets */}
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="space-y-1.5">
+                          <label
+                            htmlFor="admin-product-tip"
+                            className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright"
+                          >
+                            Tip / Nib Size
+                          </label>
+                          <input
+                            id="admin-product-tip"
+                            type="text"
+                            value={prodTipSize}
+                            onChange={(e) => setProdTipSize(e.target.value)}
+                            placeholder="e.g. 0.5 mm Needle Tip"
+                            className="w-full min-h-[42px] px-3.5 py-2 rounded-xl bg-[var(--bg-input)] border border-accent/35 text-sm text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                          />
                           <div className="flex flex-wrap gap-1.5">
-                            {INK_COLOR_PRESETS.map((ink) => {
-                              const selected = prodInkColors.some(
-                                (item) => item.name.trim().toLowerCase() === ink.name.toLowerCase()
-                              );
-                              return (
-                                <button
-                                  key={ink.name}
-                                  type="button"
-                                  aria-pressed={selected}
-                                  onClick={() => handleToggleInkColorPreset(ink)}
-                                  className={`min-h-[34px] px-2.5 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-all ${
-                                    selected
-                                      ? 'border-accent bg-accent/15 text-[var(--text-main)] font-semibold'
-                                      : 'border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
-                                  }`}
-                                >
-                                  <span
-                                    className="w-3 h-3 rounded-full border border-black/20 dark:border-white/25 shrink-0 flex items-center justify-center"
-                                    style={{ backgroundColor: ink.hex }}
-                                  >
-                                    {selected && (
-                                      <Check className="w-2 h-2 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.85)]" />
-                                    )}
-                                  </span>
-                                  <span>{ink.name}</span>
-                                </button>
-                              );
-                            })}
-                          </div>
-
-                          {/* Selected Custom Inks (if any non-preset added) */}
-                          {prodInkColors.some(
-                            (sel) =>
-                              !INK_COLOR_PRESETS.some(
-                                (p) => p.name.toLowerCase() === sel.name.trim().toLowerCase()
-                              )
-                          ) && (
-                            <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                              <span className="text-[11px] text-[var(--text-muted)]">
-                                Custom inks:
-                              </span>
-                              {prodInkColors
-                                .filter(
-                                  (sel) =>
-                                    !INK_COLOR_PRESETS.some(
-                                      (p) => p.name.toLowerCase() === sel.name.trim().toLowerCase()
-                                    )
-                                )
-                                .map((ink) => (
-                                  <span
-                                    key={ink.id}
-                                    className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-accent/45 bg-accent/10 text-xs font-medium text-[var(--text-main)]"
-                                  >
-                                    <span
-                                      className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/30 shrink-0"
-                                      style={{ backgroundColor: ink.hex }}
-                                    />
-                                    <span>{ink.name}</span>
-                                    {prodInkColors.length > 1 && (
-                                      <button
-                                        type="button"
-                                        onClick={() => handleRemoveSelectedInkColor(ink.id)}
-                                        className="text-[var(--text-muted)] hover:text-rose-500"
-                                        aria-label={`Remove ${ink.name} ink`}
-                                      >
-                                        <X className="w-3 h-3" />
-                                      </button>
-                                    )}
-                                  </span>
-                                ))}
-                            </div>
-                          )}
-
-                          {/* Custom Ink Adder */}
-                          <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
-                            <input
-                              type="color"
-                              value={customInkHex}
-                              onChange={(e) => setCustomInkHex(e.target.value)}
-                              aria-label="Custom ink colour picker"
-                              className="w-9 h-9 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
-                            />
-                            <input
-                              type="text"
-                              value={customInkName}
-                              onChange={(e) => setCustomInkName(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  handleAddCustomInkColor();
-                                }
-                              }}
-                              placeholder="Or add a custom ink (e.g. Blue-Black)"
-                              className="flex-1 min-w-[140px] px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] focus:outline-none focus:border-accent"
-                            />
-                            <button
-                              type="button"
-                              onClick={handleAddCustomInkColor}
-                              className="min-h-[36px] px-3 py-2 rounded-lg border border-accent/55 bg-accent/10 text-xs font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 inline-flex items-center gap-1 whitespace-nowrap shrink-0 transition-colors"
-                            >
-                              <Plus className="w-3.5 h-3.5" />
-                              <span>Add Ink</span>
-                            </button>
+                            {TIP_SIZE_PRESETS.map((preset) => (
+                              <button
+                                key={preset}
+                                type="button"
+                                onClick={() => setProdTipSize(preset)}
+                                className={`min-h-[32px] sm:min-h-0 px-2.5 py-1 sm:px-2 sm:py-0.5 rounded-md border text-[11px] whitespace-nowrap shrink-0 transition-colors ${
+                                  prodTipSize === preset
+                                    ? 'border-accent bg-accent/15 text-accent dark:text-accent-bright font-semibold'
+                                    : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:border-accent/60 hover:text-[var(--text-main)]'
+                                }`}
+                              >
+                                {preset}
+                              </button>
+                            ))}
                           </div>
                         </div>
-                      </>
+
+                        <div className="space-y-1.5">
+                          <label
+                            htmlFor="admin-product-ink-type"
+                            className="inline-flex items-center px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright"
+                          >
+                            Ink / Lead Type
+                          </label>
+                          <input
+                            id="admin-product-ink-type"
+                            type="text"
+                            value={prodInkType}
+                            onChange={(e) => setProdInkType(e.target.value)}
+                            placeholder="e.g. Smooth Gel Ink"
+                            className="w-full min-h-[42px] px-3.5 py-2 rounded-xl bg-[var(--bg-input)] border border-accent/35 text-sm text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                          />
+                          <div className="flex flex-wrap gap-1.5">
+                            {INK_TYPE_PRESETS.map((preset) => (
+                              <button
+                                key={preset}
+                                type="button"
+                                onClick={() => setProdInkType(preset)}
+                                className={`min-h-[32px] sm:min-h-0 px-2.5 py-1 sm:px-2 sm:py-0.5 rounded-md border text-[11px] whitespace-nowrap shrink-0 transition-colors ${
+                                  prodInkType === preset
+                                    ? 'border-accent bg-accent/15 text-accent dark:text-accent-bright font-semibold'
+                                    : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:border-accent/60 hover:text-[var(--text-main)]'
+                                }`}
+                              >
+                                {preset}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
                     )}
                   </section>
 
-                  {/* Step 03: Colour Variants, Photos & Stock */}
+                  {/* Step 03: Ink Colours, Body Colours, Photos & Stock */}
                   <section className="space-y-3.5 pt-5 border-t border-[var(--border-subtle)]">
                     <div className="px-3.5 py-2.5 rounded-xl border border-accent/45 bg-accent/10 flex flex-wrap items-center justify-between gap-2">
                       <div className="space-y-0.5">
@@ -2055,7 +1915,7 @@ export const AdminModal: React.FC = () => {
                           <h4 className="font-display text-sm font-bold text-accent dark:text-accent-bright">
                             {isOtherMode
                               ? '03. Colour Variants, Photos & Stock'
-                              : '03. Body Colours, Photos & Stock'}
+                              : '03. Ink Colours, Body Colours, Photos & Stock'}
                           </h4>
                           <span className="text-xs font-mono-num text-[var(--text-secondary)]">
                             {colorDrafts.filter((c) => c.inStock).length}/{colorDrafts.length} in stock ·{' '}
@@ -2063,20 +1923,165 @@ export const AdminModal: React.FC = () => {
                           </span>
                         </div>
                         <p className="text-xs text-[var(--text-secondary)]">
-                          Add each {isOtherMode ? 'product colour' : 'pen body colour'}, set available units, and upload a photo or paste an image URL.
+                          {isOtherMode
+                            ? 'Add each product colour, set available units, and upload a photo or paste an image URL.'
+                            : 'Choose ink colours first, then add each pen body colour, available units, and photo.'}
                         </p>
                       </div>
 
                       <button
                         type="button"
                         onClick={handleAddColorDraft}
-                        className="px-3 py-2 rounded-xl border border-accent/55 bg-accent/10 text-xs font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors"
+                        className="min-h-[40px] sm:min-h-0 px-3 py-2 rounded-xl border border-accent/55 bg-accent/10 text-xs font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors"
                       >
                         <Plus className="w-3.5 h-3.5" />
                         <span>{isOtherMode ? 'Add Colour' : 'Add Body Colour'}</span>
                       </button>
                     </div>
 
+                    {/* Default Ink Colours (Positioned BEFORE Body Colours & Stock) */}
+                    {!isOtherMode && (
+                      <div className="p-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] space-y-3">
+                        <div className="flex flex-wrap items-start justify-between gap-2">
+                          <div className="space-y-0.5">
+                            <div className="flex items-center gap-1.5 text-xs">
+                              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 font-bold text-accent dark:text-accent-bright">
+                                <Droplets className="w-3.5 h-3.5 shrink-0" />
+                                <span>
+                                  Default Ink Colours <span className="text-rose-500">*</span>
+                                </span>
+                              </span>
+                              <span className="text-[var(--text-muted)] font-normal font-mono-num">
+                                · {prodInkColors.length} selected
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-[var(--text-muted)]">
+                              New body colours copy these inks automatically, or tap &ldquo;Apply to All Body Colours&rdquo; to sync variants below.
+                            </p>
+                          </div>
+
+                          {colorDrafts.length > 0 && (
+                            <button
+                              type="button"
+                              onClick={handleApplyDefaultInksToAllBodies}
+                              className="min-h-[38px] sm:min-h-0 px-3 py-1.5 rounded-lg border border-accent/45 bg-accent/10 text-[11px] font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 transition-colors whitespace-nowrap shrink-0"
+                              title="Replace ink choices on every body colour below with these defaults"
+                            >
+                              Apply to All Body Colours
+                            </button>
+                          )}
+                        </div>
+
+                        {/* Multi-Toggle Ink Presets */}
+                        <div className="flex flex-wrap gap-1.5">
+                          {INK_COLOR_PRESETS.map((ink) => {
+                            const selected = prodInkColors.some(
+                              (item) => item.name.trim().toLowerCase() === ink.name.toLowerCase()
+                            );
+                            return (
+                              <button
+                                key={ink.name}
+                                type="button"
+                                aria-pressed={selected}
+                                onClick={() => handleToggleInkColorPreset(ink)}
+                                className={`min-h-[38px] sm:min-h-[34px] px-2.5 py-1.5 rounded-lg border text-xs font-medium inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-all ${
+                                  selected
+                                    ? 'border-accent bg-accent/15 text-[var(--text-main)] font-semibold'
+                                    : 'border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
+                                }`}
+                              >
+                                <span
+                                  className="w-3 h-3 rounded-full border border-black/20 dark:border-white/25 shrink-0 flex items-center justify-center"
+                                  style={{ backgroundColor: ink.hex }}
+                                >
+                                  {selected && (
+                                    <Check className="w-2 h-2 text-white drop-shadow-[0_1px_1px_rgba(0,0,0,0.85)]" />
+                                  )}
+                                </span>
+                                <span>{ink.name}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+
+                        {/* Selected Custom Inks (if any non-preset added) */}
+                        {prodInkColors.some(
+                          (sel) =>
+                            !INK_COLOR_PRESETS.some(
+                              (p) => p.name.toLowerCase() === sel.name.trim().toLowerCase()
+                            )
+                        ) && (
+                          <div className="flex flex-wrap items-center gap-1.5 text-xs">
+                            <span className="text-[11px] text-[var(--text-muted)]">
+                              Custom inks:
+                            </span>
+                            {prodInkColors
+                              .filter(
+                                (sel) =>
+                                  !INK_COLOR_PRESETS.some(
+                                    (p) => p.name.toLowerCase() === sel.name.trim().toLowerCase()
+                                  )
+                              )
+                              .map((ink) => (
+                                <span
+                                  key={ink.id}
+                                  className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-accent/45 bg-accent/10 text-xs font-medium text-[var(--text-main)]"
+                                >
+                                  <span
+                                    className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/30 shrink-0"
+                                    style={{ backgroundColor: ink.hex }}
+                                  />
+                                  <span>{ink.name}</span>
+                                  {prodInkColors.length > 1 && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleRemoveSelectedInkColor(ink.id)}
+                                      className="text-[var(--text-muted)] hover:text-rose-500 p-0.5"
+                                      aria-label={`Remove ${ink.name} ink`}
+                                    >
+                                      <X className="w-3 h-3" />
+                                    </button>
+                                  )}
+                                </span>
+                              ))}
+                          </div>
+                        )}
+
+                        {/* Custom Ink Adder */}
+                        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2">
+                          <input
+                            type="color"
+                            value={customInkHex}
+                            onChange={(e) => setCustomInkHex(e.target.value)}
+                            aria-label="Custom ink colour picker"
+                            className="w-10 h-10 sm:w-9 sm:h-9 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
+                          />
+                          <input
+                            type="text"
+                            value={customInkName}
+                            onChange={(e) => setCustomInkName(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter') {
+                                e.preventDefault();
+                                handleAddCustomInkColor();
+                              }
+                            }}
+                            placeholder="Or add a custom ink (e.g. Blue-Black)"
+                            className="flex-1 min-w-[140px] min-h-[42px] sm:min-h-0 px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-xs text-[var(--text-main)] focus:outline-none focus:border-accent"
+                          />
+                          <button
+                            type="button"
+                            onClick={handleAddCustomInkColor}
+                            className="min-h-[42px] sm:min-h-[36px] px-3 py-2 rounded-lg border border-accent/55 bg-accent/10 text-xs font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 inline-flex items-center gap-1 whitespace-nowrap shrink-0 transition-colors"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                            <span>Add Ink</span>
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Body Colour Variants */}
                     <div className="space-y-3">
                       {colorDrafts.map((col, idx) => {
                         const colorOutOfStock = !col.inStock;
@@ -2094,7 +2099,7 @@ export const AdminModal: React.FC = () => {
                             <div className="flex flex-wrap items-center justify-between gap-2">
                               <div className="flex items-center gap-2 text-xs">
                                 <span
-                                  className="w-3 h-3 rounded-full border border-black/25 dark:border-white/30 shrink-0"
+                                  className="w-3.5 h-3.5 rounded-full border border-black/25 dark:border-white/30 shrink-0"
                                   style={{ backgroundColor: col.hex }}
                                 />
                                 <span className="font-semibold text-[var(--text-main)]">
@@ -2141,7 +2146,7 @@ export const AdminModal: React.FC = () => {
                                       });
                                     }
                                   }}
-                                  className={`px-2.5 py-1 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors ${
+                                  className={`min-h-[38px] sm:min-h-0 px-3 py-1.5 sm:px-2.5 sm:py-1 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors ${
                                     colorOutOfStock
                                       ? 'border-rose-500/60 bg-rose-500/15 text-rose-600 dark:text-rose-400 hover:bg-rose-500/25'
                                       : 'border-emerald-500/45 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20'
@@ -2155,7 +2160,7 @@ export const AdminModal: React.FC = () => {
                                   <button
                                     type="button"
                                     onClick={() => handleRemoveColorDraft(col.id)}
-                                    className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-rose-500 hover:border-rose-500/50 transition-colors shrink-0"
+                                    className="inline-flex items-center justify-center w-10 h-10 sm:w-8 sm:h-8 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-muted)] hover:text-rose-500 hover:border-rose-500/50 transition-colors shrink-0"
                                     aria-label={`Remove variant ${idx + 1}`}
                                     title="Remove this colour variant"
                                   >
@@ -2165,209 +2170,9 @@ export const AdminModal: React.FC = () => {
                               </div>
                             </div>
 
-                            {/* Variant Main Controls: Photo Thumb + Colour Name + Hex + Quick Swatches + Qty */}
-                            <div className="flex flex-col sm:flex-row sm:items-start gap-3">
-                              {/* Photo Preview */}
-                              <div className="shrink-0">
-                                {col.image ? (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const variantSlides: LightboxSlide[] = colorDrafts
-                                        .filter((draft) => Boolean(draft.image))
-                                        .map((draft, slideIdx) => ({
-                                          src: draft.image,
-                                          label: draft.name.trim() || `Variant ${slideIdx + 1}`,
-                                          colorHex: draft.hex,
-                                        }));
-                                      const startIdx = Math.max(
-                                        0,
-                                        variantSlides.findIndex((s) => s.src === col.image)
-                                      );
-                                      setLightboxState({
-                                        title: prodName.trim() || col.name.trim() || 'Product Photo',
-                                        slides:
-                                          variantSlides.length > 0
-                                            ? variantSlides
-                                            : [
-                                                {
-                                                  src: col.image,
-                                                  label: col.name.trim() || `Variant ${idx + 1}`,
-                                                  colorHex: col.hex,
-                                                },
-                                              ],
-                                        initialIndex: startIdx,
-                                      });
-                                    }}
-                                    title="Click to inspect photo full screen"
-                                    aria-label={`View ${col.name || `variant ${idx + 1}`} photo full screen`}
-                                    className="group relative w-20 h-16 rounded-xl overflow-hidden border border-accent/45 hover:border-accent bg-[#0B0809] flex items-center justify-center transition-all"
-                                  >
-                                    <SafeImage
-                                      src={col.image}
-                                      alt={col.name || `Variant ${idx + 1}`}
-                                      className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${
-                                        colorOutOfStock ? 'opacity-45 grayscale-[30%]' : ''
-                                      }`}
-                                    />
-                                    <span className="absolute bottom-1 right-1 w-5 h-5 rounded bg-black/75 border border-white/25 text-white flex items-center justify-center shadow">
-                                      <Maximize2 className="w-3 h-3" />
-                                    </span>
-                                  </button>
-                                ) : (
-                                  <div className="w-20 h-16 rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-input)] flex flex-col items-center justify-center gap-0.5 text-[var(--text-muted)]">
-                                    <ImageIcon className="w-4 h-4" />
-                                    <span className="text-[10px]">No photo</span>
-                                  </div>
-                                )}
-                              </div>
-
-                              {/* Name, Picker, Quick Swatches, Qty */}
-                              <div className="flex-1 space-y-2.5 min-w-0">
-                                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
-                                  <div className="sm:col-span-8 space-y-1">
-                                    <label className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-[11px] font-bold text-accent dark:text-accent-bright">
-                                      <span>{isOtherMode ? 'Colour Name' : 'Body Colour Name'}</span>
-                                      <span className="text-rose-500">*</span>
-                                    </label>
-                                    <div className="flex items-center gap-2">
-                                      <input
-                                        type="color"
-                                        value={col.hex}
-                                        onChange={(e) =>
-                                          handleUpdateColorDraft(col.id, { hex: e.target.value })
-                                        }
-                                        aria-label={`Colour picker for variant ${idx + 1}`}
-                                        className="w-9 h-9 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
-                                      />
-                                      <input
-                                        type="text"
-                                        value={col.name}
-                                        onChange={(e) => {
-                                          handleUpdateColorDraft(col.id, { name: e.target.value });
-                                          if (prodFormError) setProdFormError('');
-                                        }}
-                                        placeholder={
-                                          isOtherMode
-                                            ? 'e.g. Navy Blue, Classic Black'
-                                            : 'e.g. Matte Black, Pastel Pink'
-                                        }
-                                        className="flex-1 min-w-0 px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-accent/35 text-xs sm:text-sm text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-                                      />
-                                    </div>
-                                  </div>
-
-                                  <div className="sm:col-span-4 space-y-1">
-                                    <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-[11px] font-bold text-accent dark:text-accent-bright">
-                                      Stock Quantity
-                                    </label>
-                                    <input
-                                      type="number"
-                                      min={0}
-                                      value={col.stockCount}
-                                      onChange={(e) => {
-                                        const raw = e.target.value;
-                                        if (raw === '') {
-                                          handleUpdateColorDraft(col.id, { stockCount: '' });
-                                          return;
-                                        }
-                                        const parsedQty = Math.max(
-                                          0,
-                                          Math.round(Number(raw) || 0)
-                                        );
-                                        handleUpdateColorDraft(col.id, {
-                                          stockCount: String(parsedQty),
-                                          inStock: parsedQty > 0,
-                                          prevStockCount:
-                                            parsedQty > 0
-                                              ? String(parsedQty)
-                                              : col.prevStockCount,
-                                        });
-                                      }}
-                                      aria-label={`Stock quantity for ${col.name || `variant ${idx + 1}`}`}
-                                      className="w-full px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-accent/35 text-xs sm:text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-                                    />
-                                  </div>
-                                </div>
-
-                                {/* 1-Click Quick Body Colour Presets */}
-                                <div className="flex flex-wrap items-center gap-1.5">
-                                  <span className="text-[11px] text-[var(--text-muted)] mr-0.5">
-                                    Quick pick:
-                                  </span>
-                                  {BODY_COLOR_PRESETS.map((preset) => {
-                                    const active =
-                                      col.name.trim().toLowerCase() === preset.name.toLowerCase();
-                                    return (
-                                      <button
-                                        key={preset.name}
-                                        type="button"
-                                        onClick={() =>
-                                          handleUpdateColorDraft(col.id, {
-                                            name: preset.name,
-                                            hex: preset.hex,
-                                          })
-                                        }
-                                        title={`Use ${preset.name} (${preset.hex})`}
-                                        aria-label={`Set colour to ${preset.name}`}
-                                        className={`w-5 h-5 rounded-full border transition-transform hover:scale-110 shrink-0 ${
-                                          active
-                                            ? 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--bg-secondary)] border-white/60'
-                                            : 'border-black/25 dark:border-white/30'
-                                        }`}
-                                        style={{ backgroundColor: preset.hex }}
-                                      />
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            </div>
-
-                            {/* Photo URL & Upload Row */}
-                            <div className="space-y-1.5">
-                              <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-[11px] font-bold text-accent dark:text-accent-bright">
-                                Product Photo (Upload or Image URL)
-                              </label>
-                              <div className="flex flex-wrap items-center gap-2 min-w-0">
-                                <input
-                                  type="text"
-                                  value={col.image}
-                                  onChange={(e) =>
-                                    handleUpdateColorDraft(col.id, { image: e.target.value })
-                                  }
-                                  placeholder="Paste https:// image URL or click Upload Photo"
-                                  className="flex-1 min-w-[160px] px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-accent/35 text-xs text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-                                />
-
-                                <label className="px-3.5 py-2 rounded-lg border border-accent/60 bg-accent/10 hover:bg-accent/20 text-xs font-semibold text-[var(--text-main)] cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors">
-                                  <ImagePlus className="w-4 h-4 text-accent-bright" />
-                                  <span>{col.image ? 'Replace Photo' : 'Upload Photo'}</span>
-                                  <input
-                                    type="file"
-                                    accept="image/*"
-                                    className="hidden"
-                                    onChange={(e) =>
-                                      handleColorImageUpload(col.id, e.target.files?.[0])
-                                    }
-                                  />
-                                </label>
-
-                                {col.image && (
-                                  <button
-                                    type="button"
-                                    onClick={() => handleUpdateColorDraft(col.id, { image: '' })}
-                                    className="px-2.5 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-xs text-[var(--text-muted)] hover:text-rose-500 hover:border-rose-500/45 whitespace-nowrap shrink-0 transition-colors"
-                                    title="Remove attached photo"
-                                  >
-                                    Clear
-                                  </button>
-                                )}
-                              </div>
-                            </div>
-
-                            {/* Per-Body Ink Colours (Compact Summary + Expandable Multi-Select) */}
+                            {/* Per-Body Ink Colours (Switched BEFORE Body Colour Name) */}
                             {!isOtherMode && (
-                              <div className="pt-2.5 border-t border-[var(--border-subtle)] space-y-2.5">
+                              <div className="pb-2.5 border-b border-[var(--border-subtle)] space-y-2.5">
                                 <div className="flex flex-wrap items-center justify-between gap-2">
                                   <div className="flex flex-wrap items-center gap-2 text-xs min-w-0">
                                     <span className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-[11px] font-bold text-accent dark:text-accent-bright">
@@ -2397,7 +2202,7 @@ export const AdminModal: React.FC = () => {
                                         [col.id]: !prev[col.id],
                                       }))
                                     }
-                                    className="px-2.5 py-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[11px] font-semibold text-[var(--text-secondary)] hover:border-accent hover:text-[var(--text-main)] inline-flex items-center gap-1 whitespace-nowrap shrink-0 transition-colors"
+                                    className="min-h-[38px] sm:min-h-0 px-3 py-1.5 sm:px-2.5 sm:py-1 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[11px] font-semibold text-[var(--text-secondary)] hover:border-accent hover:text-[var(--text-main)] inline-flex items-center gap-1 whitespace-nowrap shrink-0 transition-colors"
                                   >
                                     <span>{isInkEditorOpen ? 'Done' : 'Customize Inks'}</span>
                                     {isInkEditorOpen ? (
@@ -2422,7 +2227,7 @@ export const AdminModal: React.FC = () => {
                                             inkColors: prodInkColors.map((i) => ({ ...i })),
                                           })
                                         }
-                                        className="text-[11px] font-semibold text-accent dark:text-accent-bright hover:underline whitespace-nowrap shrink-0"
+                                        className="min-h-[34px] sm:min-h-0 text-[11px] font-semibold text-accent dark:text-accent-bright hover:underline whitespace-nowrap shrink-0"
                                       >
                                         Reset to Default Inks
                                       </button>
@@ -2441,7 +2246,7 @@ export const AdminModal: React.FC = () => {
                                             type="button"
                                             aria-pressed={selected}
                                             onClick={() => handleToggleVariantInkColor(col.id, ink)}
-                                            className={`min-h-[30px] px-2 py-1 rounded-lg border text-[11px] font-medium inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-all ${
+                                            className={`min-h-[36px] sm:min-h-[30px] px-2.5 py-1 sm:px-2 rounded-lg border text-[11px] font-medium inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-all ${
                                               selected
                                                 ? 'border-accent bg-accent/15 text-[var(--text-main)] font-semibold'
                                                 : 'border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
@@ -2494,7 +2299,7 @@ export const AdminModal: React.FC = () => {
                                                   onClick={() =>
                                                     handleRemoveVariantInkColor(col.id, ink.id)
                                                   }
-                                                  className="text-[var(--text-muted)] hover:text-rose-500"
+                                                  className="text-[var(--text-muted)] hover:text-rose-500 p-0.5"
                                                   aria-label={`Remove ${ink.name} ink`}
                                                 >
                                                   <X className="w-3 h-3" />
@@ -2519,7 +2324,7 @@ export const AdminModal: React.FC = () => {
                                           }))
                                         }
                                         aria-label={`Custom ink colour picker for ${col.name || `Variant ${idx + 1}`}`}
-                                        className="w-8 h-8 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
+                                        className="w-10 h-10 sm:w-8 sm:h-8 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
                                       />
                                       <input
                                         type="text"
@@ -2540,12 +2345,12 @@ export const AdminModal: React.FC = () => {
                                           }
                                         }}
                                         placeholder={`Add custom ink for ${col.name || 'this body'}...`}
-                                        className="flex-1 min-w-[130px] px-2.5 py-1.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-[11px] text-[var(--text-main)] focus:outline-none focus:border-accent"
+                                        className="flex-1 min-w-[130px] min-h-[40px] sm:min-h-0 px-2.5 py-1.5 rounded-lg bg-[var(--bg-input)] border border-[var(--border-subtle)] text-[11px] text-[var(--text-main)] focus:outline-none focus:border-accent"
                                       />
                                       <button
                                         type="button"
                                         onClick={() => handleAddCustomVariantInkColor(col.id)}
-                                        className="min-h-[30px] px-2.5 py-1 rounded-lg border border-accent/55 bg-accent/10 text-[11px] font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 inline-flex items-center gap-1 whitespace-nowrap shrink-0"
+                                        className="min-h-[40px] sm:min-h-[30px] px-3 py-1.5 sm:px-2.5 sm:py-1 rounded-lg border border-accent/55 bg-accent/10 text-[11px] font-semibold text-accent dark:text-accent-bright hover:bg-accent/20 inline-flex items-center gap-1 whitespace-nowrap shrink-0"
                                       >
                                         <Plus className="w-3 h-3" />
                                         <span>Add</span>
@@ -2555,6 +2360,206 @@ export const AdminModal: React.FC = () => {
                                 )}
                               </div>
                             )}
+
+                            {/* Variant Main Controls: Photo Thumb + Body Colour Name + Hex + Quick Swatches + Qty */}
+                            <div className="flex flex-col sm:flex-row sm:items-start gap-3">
+                              {/* Photo Preview */}
+                              <div className="shrink-0">
+                                {col.image ? (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const variantSlides: LightboxSlide[] = colorDrafts
+                                        .filter((draft) => Boolean(draft.image))
+                                        .map((draft, slideIdx) => ({
+                                          src: draft.image,
+                                          label: draft.name.trim() || `Variant ${slideIdx + 1}`,
+                                          colorHex: draft.hex,
+                                        }));
+                                      const startIdx = Math.max(
+                                        0,
+                                        variantSlides.findIndex((s) => s.src === col.image)
+                                      );
+                                      setLightboxState({
+                                        title: prodName.trim() || col.name.trim() || 'Product Photo',
+                                        slides:
+                                          variantSlides.length > 0
+                                            ? variantSlides
+                                            : [
+                                                {
+                                                  src: col.image,
+                                                  label: col.name.trim() || `Variant ${idx + 1}`,
+                                                  colorHex: col.hex,
+                                                },
+                                              ],
+                                        initialIndex: startIdx,
+                                      });
+                                    }}
+                                    title="Click to inspect photo full screen"
+                                    aria-label={`View ${col.name || `variant ${idx + 1}`} photo full screen`}
+                                    className="group relative w-24 h-20 sm:w-20 sm:h-16 rounded-xl overflow-hidden border border-accent/45 hover:border-accent bg-[#0B0809] flex items-center justify-center transition-all"
+                                  >
+                                    <SafeImage
+                                      src={col.image}
+                                      alt={col.name || `Variant ${idx + 1}`}
+                                      className={`w-full h-full object-cover group-hover:scale-105 transition-transform ${
+                                        colorOutOfStock ? 'opacity-45 grayscale-[30%]' : ''
+                                      }`}
+                                    />
+                                    <span className="absolute bottom-1 right-1 w-5 h-5 rounded bg-black/75 border border-white/25 text-white flex items-center justify-center shadow">
+                                      <Maximize2 className="w-3 h-3" />
+                                    </span>
+                                  </button>
+                                ) : (
+                                  <div className="w-24 h-20 sm:w-20 sm:h-16 rounded-xl border border-dashed border-[var(--border-subtle)] bg-[var(--bg-input)] flex flex-col items-center justify-center gap-0.5 text-[var(--text-muted)]">
+                                    <ImageIcon className="w-4 h-4" />
+                                    <span className="text-[10px]">No photo</span>
+                                  </div>
+                                )}
+                              </div>
+
+                              {/* Body Colour Name, Picker, Quick Swatches, Qty */}
+                              <div className="flex-1 space-y-2.5 min-w-0">
+                                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                                  <div className="sm:col-span-8 space-y-1">
+                                    <label className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-[11px] font-bold text-accent dark:text-accent-bright">
+                                      <span>{isOtherMode ? 'Colour Name' : 'Body Colour Name'}</span>
+                                      <span className="text-rose-500">*</span>
+                                    </label>
+                                    <div className="flex items-center gap-2">
+                                      <input
+                                        type="color"
+                                        value={col.hex}
+                                        onChange={(e) =>
+                                          handleUpdateColorDraft(col.id, { hex: e.target.value })
+                                        }
+                                        aria-label={`Colour picker for variant ${idx + 1}`}
+                                        className="w-10 h-10 sm:w-9 sm:h-9 rounded-lg border border-[var(--border-subtle)] bg-transparent cursor-pointer shrink-0"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={col.name}
+                                        onChange={(e) => {
+                                          handleUpdateColorDraft(col.id, { name: e.target.value });
+                                          if (prodFormError) setProdFormError('');
+                                        }}
+                                        placeholder={
+                                          isOtherMode
+                                            ? 'e.g. Navy Blue, Classic Black'
+                                            : 'e.g. Matte Black, Pastel Pink'
+                                        }
+                                        className="flex-1 min-w-0 min-h-[42px] sm:min-h-0 px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-accent/35 text-xs sm:text-sm text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                                      />
+                                    </div>
+                                  </div>
+
+                                  <div className="sm:col-span-4 space-y-1">
+                                    <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-[11px] font-bold text-accent dark:text-accent-bright">
+                                      Stock Quantity
+                                    </label>
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      value={col.stockCount}
+                                      onChange={(e) => {
+                                        const raw = e.target.value;
+                                        if (raw === '') {
+                                          handleUpdateColorDraft(col.id, { stockCount: '' });
+                                          return;
+                                        }
+                                        const parsedQty = Math.max(
+                                          0,
+                                          Math.round(Number(raw) || 0)
+                                        );
+                                        handleUpdateColorDraft(col.id, {
+                                          stockCount: String(parsedQty),
+                                          inStock: parsedQty > 0,
+                                          prevStockCount:
+                                            parsedQty > 0
+                                              ? String(parsedQty)
+                                              : col.prevStockCount,
+                                        });
+                                      }}
+                                      aria-label={`Stock quantity for ${col.name || `variant ${idx + 1}`}`}
+                                      className="w-full min-h-[42px] sm:min-h-0 px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-accent/35 text-xs sm:text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                                    />
+                                  </div>
+                                </div>
+
+                                {/* 1-Click Quick Body Colour Presets */}
+                                <div className="flex flex-wrap items-center gap-2 sm:gap-1.5">
+                                  <span className="text-[11px] text-[var(--text-muted)] mr-0.5">
+                                    Quick pick:
+                                  </span>
+                                  {BODY_COLOR_PRESETS.map((preset) => {
+                                    const active =
+                                      col.name.trim().toLowerCase() === preset.name.toLowerCase();
+                                    return (
+                                      <button
+                                        key={preset.name}
+                                        type="button"
+                                        onClick={() =>
+                                          handleUpdateColorDraft(col.id, {
+                                            name: preset.name,
+                                            hex: preset.hex,
+                                          })
+                                        }
+                                        title={`Use ${preset.name} (${preset.hex})`}
+                                        aria-label={`Set colour to ${preset.name}`}
+                                        className={`w-7 h-7 sm:w-5 sm:h-5 rounded-full border transition-transform hover:scale-110 shrink-0 ${
+                                          active
+                                            ? 'ring-2 ring-accent ring-offset-1 ring-offset-[var(--bg-secondary)] border-white/60'
+                                            : 'border-black/25 dark:border-white/30'
+                                        }`}
+                                        style={{ backgroundColor: preset.hex }}
+                                      />
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Photo URL & Upload Row */}
+                            <div className="space-y-1.5">
+                              <label className="inline-flex items-center px-2 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-[11px] font-bold text-accent dark:text-accent-bright">
+                                Product Photo (Upload or Image URL)
+                              </label>
+                              <div className="flex flex-wrap items-center gap-2 min-w-0">
+                                <input
+                                  type="text"
+                                  value={col.image}
+                                  onChange={(e) =>
+                                    handleUpdateColorDraft(col.id, { image: e.target.value })
+                                  }
+                                  placeholder="Paste https:// image URL or click Upload Photo"
+                                  className="flex-1 min-w-[200px] min-h-[42px] sm:min-h-0 px-3 py-2 rounded-lg bg-[var(--bg-input)] border border-accent/35 text-xs text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                                />
+
+                                <label className="min-h-[42px] sm:min-h-0 px-3.5 py-2 rounded-lg border border-accent/60 bg-accent/10 hover:bg-accent/20 text-xs font-semibold text-[var(--text-main)] cursor-pointer inline-flex items-center gap-1.5 whitespace-nowrap shrink-0 transition-colors">
+                                  <ImagePlus className="w-4 h-4 text-accent-bright" />
+                                  <span>{col.image ? 'Replace Photo' : 'Upload Photo'}</span>
+                                  <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) =>
+                                      handleColorImageUpload(col.id, e.target.files?.[0])
+                                    }
+                                  />
+                                </label>
+
+                                {col.image && (
+                                  <button
+                                    type="button"
+                                    onClick={() => handleUpdateColorDraft(col.id, { image: '' })}
+                                    className="min-h-[42px] sm:min-h-0 px-3 py-2 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-xs text-[var(--text-muted)] hover:text-rose-500 hover:border-rose-500/45 whitespace-nowrap shrink-0 transition-colors"
+                                    title="Remove attached photo"
+                                  >
+                                    Clear
+                                  </button>
+                                )}
+                              </div>
+                            </div>
                           </div>
                         );
                       })}
@@ -2741,13 +2746,13 @@ export const AdminModal: React.FC = () => {
                         </button>
                       )}
                     </div>
-                    <div className="flex flex-wrap gap-1.5">
+                    <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar sm:flex-wrap w-full sm:w-auto pb-0.5 sm:pb-0">
                       {CATALOGUE_CATEGORIES.map((cat) => (
                         <button
                           key={cat.id}
                           type="button"
                           onClick={() => setCatalogListFilter(cat.id)}
-                          className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${
+                          className={`min-h-[38px] sm:min-h-0 px-3 py-1.5 sm:px-2.5 sm:py-1 rounded-lg text-[11px] font-semibold border whitespace-nowrap shrink-0 transition-colors ${
                             catalogListFilter === cat.id
                               ? 'border-accent bg-accent/15 text-accent-bright'
                               : 'border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-main)]'
@@ -2927,7 +2932,7 @@ export const AdminModal: React.FC = () => {
                                               );
                                             }
                                           }}
-                                          className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md border text-[11px] transition-colors ${
+                                          className={`min-h-[34px] sm:min-h-0 inline-flex items-center gap-1.5 px-2 py-1 sm:px-1.5 sm:py-0.5 rounded-md border text-[11px] transition-colors ${
                                             colorSoldOut
                                               ? 'border-rose-500/45 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20'
                                               : colorLowStock
@@ -2942,6 +2947,20 @@ export const AdminModal: React.FC = () => {
                                               : ` · ${comboInks.map((i) => i.name).join(', ')} ink`
                                           }`}
                                         >
+                                          {!otherItem && comboInks.length > 0 && (
+                                            <>
+                                              <span className="inline-flex items-center -space-x-1 shrink-0">
+                                                {comboInks.map((ink) => (
+                                                  <span
+                                                    key={ink.id}
+                                                    className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/30 inline-block"
+                                                    style={{ backgroundColor: ink.hex }}
+                                                  />
+                                                ))}
+                                              </span>
+                                              <span className="text-[var(--text-muted)]">·</span>
+                                            </>
+                                          )}
                                           <span
                                             className={`w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/30 shrink-0 ${
                                               colorSoldOut ? 'opacity-45' : ''
@@ -2962,31 +2981,15 @@ export const AdminModal: React.FC = () => {
                                               Out (0)
                                             </span>
                                           ) : (
-                                            <>
-                                              <span
-                                                className={`text-[10px] font-mono-num ${
-                                                  colorLowStock
-                                                    ? 'font-bold text-amber-700 dark:text-amber-300'
-                                                    : 'text-[var(--text-muted)]'
-                                                }`}
-                                              >
-                                                ({colorCount})
-                                              </span>
-                                              {!otherItem && comboInks.length > 0 && (
-                                                <>
-                                                  <span className="text-[var(--text-muted)]">→</span>
-                                                  <span className="inline-flex items-center -space-x-1">
-                                                    {comboInks.map((ink) => (
-                                                      <span
-                                                        key={ink.id}
-                                                        className="w-2.5 h-2.5 rounded-full border border-black/20 dark:border-white/30 inline-block"
-                                                        style={{ backgroundColor: ink.hex }}
-                                                      />
-                                                    ))}
-                                                  </span>
-                                                </>
-                                              )}
-                                            </>
+                                            <span
+                                              className={`text-[10px] font-mono-num ${
+                                                colorLowStock
+                                                  ? 'font-bold text-amber-700 dark:text-amber-300'
+                                                  : 'text-[var(--text-muted)]'
+                                              }`}
+                                            >
+                                              ({colorCount})
+                                            </span>
                                           )}
                                         </button>
                                       );
@@ -2996,7 +2999,7 @@ export const AdminModal: React.FC = () => {
                               </div>
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                            <div className="flex flex-wrap items-center gap-1.5 shrink-0 pt-1 sm:pt-0">
                               <button
                                 type="button"
                                 role="switch"
@@ -3007,7 +3010,7 @@ export const AdminModal: React.FC = () => {
                                     setProdOutOfStock(!isOutOfStock);
                                   }
                                 }}
-                                className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
+                                className={`min-h-[40px] sm:min-h-0 px-2.5 py-1.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
                                   isOutOfStock
                                     ? 'border-rose-500/60 bg-rose-500/15 text-rose-600 dark:text-rose-400 hover:bg-rose-500/25'
                                     : 'border-emerald-500/45 bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 hover:bg-emerald-500/20'
@@ -3027,7 +3030,7 @@ export const AdminModal: React.FC = () => {
                                 onClick={() =>
                                   isEditingThis ? resetProductForm() : handleStartEditProduct(prod)
                                 }
-                                className={`px-2.5 py-1.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1 transition-colors ${
+                                className={`min-h-[40px] sm:min-h-0 px-3 py-1.5 rounded-lg border text-xs font-semibold inline-flex items-center gap-1 transition-colors ${
                                   isEditingThis
                                     ? 'border-accent bg-accent text-[var(--accent-cta-text)]'
                                     : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-main)] hover:border-accent'
@@ -3047,14 +3050,14 @@ export const AdminModal: React.FC = () => {
                                       if (isEditingThis) resetProductForm();
                                       setConfirmDeleteProductId(null);
                                     }}
-                                    className="px-2.5 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700"
+                                    className="min-h-[40px] sm:min-h-0 px-2.5 py-1.5 rounded-lg bg-rose-600 text-white text-xs font-bold hover:bg-rose-700"
                                   >
                                     Confirm
                                   </button>
                                   <button
                                     type="button"
                                     onClick={() => setConfirmDeleteProductId(null)}
-                                    className="px-2 py-1.5 rounded-lg border border-[var(--border-subtle)] text-xs text-[var(--text-secondary)]"
+                                    className="min-h-[40px] sm:min-h-0 px-2.5 py-1.5 rounded-lg border border-[var(--border-subtle)] text-xs text-[var(--text-secondary)]"
                                   >
                                     Cancel
                                   </button>
@@ -3063,7 +3066,7 @@ export const AdminModal: React.FC = () => {
                                 <button
                                   type="button"
                                   onClick={() => setConfirmDeleteProductId(prod.id)}
-                                  className="px-2.5 py-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 text-rose-500 hover:bg-rose-600 hover:text-white text-xs font-semibold inline-flex items-center gap-1 transition-colors"
+                                  className="min-h-[40px] sm:min-h-0 px-2.5 py-1.5 rounded-lg border border-rose-500/40 bg-rose-500/10 text-rose-500 hover:bg-rose-600 hover:text-white text-xs font-semibold inline-flex items-center gap-1 transition-colors"
                                   aria-label={`Delete ${prod.name}`}
                                 >
                                   <Trash2 className="w-3.5 h-3.5" />

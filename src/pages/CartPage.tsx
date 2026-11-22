@@ -114,57 +114,59 @@ export const CartPage: React.FC = () => {
                   key={item.key}
                   className="rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 sm:p-5 space-y-2"
                 >
-                  <div className="flex flex-col sm:flex-row gap-4 sm:items-center">
-                    <button
-                      type="button"
-                      onClick={() => navigate('product', { productSlug: product.slug })}
-                      className="w-full sm:w-32 aspect-[4/3] rounded-xl overflow-hidden bg-[#050505] shrink-0"
-                    >
-                      <SafeImage src={thumb} alt={product.name} className="w-full h-full object-cover" />
-                    </button>
-
-                    <div className="flex-1 min-w-0 space-y-1.5">
-                      <p className="text-xs text-[var(--text-muted)]">{product.categoryLabel}</p>
+                  <div className="flex flex-col sm:flex-row gap-3.5 sm:gap-4 sm:items-center">
+                    <div className="flex items-start sm:items-center gap-3 sm:gap-4 flex-1 min-w-0">
                       <button
                         type="button"
                         onClick={() => navigate('product', { productSlug: product.slug })}
-                        className="font-display text-base font-bold text-[var(--text-main)] hover:text-accent-bright text-left block"
+                        className="w-24 h-20 sm:w-32 sm:h-auto sm:aspect-[4/3] rounded-xl overflow-hidden bg-[#050505] shrink-0"
                       >
-                        {product.name}
+                        <SafeImage src={thumb} alt={product.name} className="w-full h-full object-cover" />
                       </button>
-                      <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--text-secondary)]">
-                        <span className="inline-flex items-center gap-1.5">
-                          <span
-                            className="w-3.5 h-3.5 rounded-full border border-white/25 inline-block"
-                            style={{ backgroundColor: item.colorHex }}
-                          />
-                          <span>Colour: {item.colorName}</span>
-                        </span>
-                        {!otherItem && item.inkColorName && (
-                          <>
-                            <span aria-hidden="true">·</span>
-                            <span className="inline-flex items-center gap-1">
-                              <span
-                                className="w-3 h-3 rounded-full border border-black/20 dark:border-white/25 inline-block"
-                                style={{ backgroundColor: item.inkColorHex || '#111827' }}
-                              />
-                              <span>{item.inkColorName} Ink</span>
-                            </span>
-                          </>
-                        )}
-                        <span aria-hidden="true">·</span>
-                        <span className="font-mono-num">
-                          ৳{product.priceBdt.toLocaleString('en-US')} each
-                        </span>
+
+                      <div className="flex-1 min-w-0 space-y-1 sm:space-y-1.5">
+                        <p className="text-[11px] sm:text-xs text-[var(--text-muted)]">{product.categoryLabel}</p>
+                        <button
+                          type="button"
+                          onClick={() => navigate('product', { productSlug: product.slug })}
+                          className="font-display text-sm sm:text-base font-bold text-[var(--text-main)] hover:text-accent-bright text-left block leading-snug"
+                        >
+                          {product.name}
+                        </button>
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--text-secondary)]">
+                          <span className="inline-flex items-center gap-1.5">
+                            <span
+                              className="w-3.5 h-3.5 rounded-full border border-white/25 inline-block"
+                              style={{ backgroundColor: item.colorHex }}
+                            />
+                            <span>Colour: {item.colorName}</span>
+                          </span>
+                          {!otherItem && item.inkColorName && (
+                            <>
+                              <span aria-hidden="true">·</span>
+                              <span className="inline-flex items-center gap-1">
+                                <span
+                                  className="w-3 h-3 rounded-full border border-black/20 dark:border-white/25 inline-block"
+                                  style={{ backgroundColor: item.inkColorHex || '#111827' }}
+                                />
+                                <span>{item.inkColorName} Ink</span>
+                              </span>
+                            </>
+                          )}
+                          <span aria-hidden="true">·</span>
+                          <span className="font-mono-num">
+                            ৳{product.priceBdt.toLocaleString('en-US')} each
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="flex sm:flex-col items-center sm:items-end justify-between gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-[var(--border-subtle)]/50">
+                    <div className="flex sm:flex-col items-center sm:items-end justify-between gap-2.5 sm:gap-3 pt-2.5 sm:pt-0 border-t sm:border-t-0 border-[var(--border-subtle)]/50">
                       <div className="inline-flex items-center rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-input)]">
                         <button
                           type="button"
                           onClick={() => updateCartQuantity(item.key, item.quantity - 1)}
-                          className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
+                          className="w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)]"
                           aria-label="Decrease quantity"
                         >
                           <Minus className="w-3.5 h-3.5" />
@@ -176,7 +178,7 @@ export const CartPage: React.FC = () => {
                           type="button"
                           disabled={atColorMax}
                           onClick={() => updateCartQuantity(item.key, item.quantity + 1)}
-                          className="w-10 h-10 sm:w-9 sm:h-9 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)] disabled:opacity-35 disabled:cursor-not-allowed"
+                          className="w-11 h-11 sm:w-9 sm:h-9 flex items-center justify-center text-[var(--text-secondary)] hover:text-[var(--text-main)] disabled:opacity-35 disabled:cursor-not-allowed"
                           aria-label="Increase quantity"
                           title={
                             atColorMax
@@ -221,7 +223,7 @@ export const CartPage: React.FC = () => {
                           }}
                           aria-expanded={isEditing}
                           aria-label={otherItem ? `Edit ${product.name} colour` : `Edit ${product.name} colour or ink`}
-                          className={`min-h-[38px] px-3 py-1.5 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
+                          className={`min-h-[44px] sm:min-h-[38px] px-3 py-1.5 rounded-xl border text-xs font-semibold inline-flex items-center gap-1.5 transition-colors ${
                             isEditing
                               ? 'border-accent bg-accent/15 text-accent dark:text-accent-bright'
                               : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-main)] hover:border-accent'
@@ -236,7 +238,7 @@ export const CartPage: React.FC = () => {
                             if (isEditing) setEditingKey(null);
                             removeFromCart(item.key);
                           }}
-                          className="text-[var(--text-muted)] hover:text-accent-bright p-2"
+                          className="w-11 h-11 sm:w-9 sm:h-9 inline-flex items-center justify-center rounded-xl text-[var(--text-muted)] hover:text-accent-bright"
                           aria-label={`Remove ${product.name}`}
                         >
                           <Trash2 className="w-4 h-4" />
@@ -306,7 +308,7 @@ export const CartPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => navigate('checkout')}
-                className="w-full py-3.5 px-5 rounded-xl text-sm font-semibold cta-glow-red inline-flex items-center justify-center gap-2"
+                className="w-full min-h-[48px] py-3.5 px-5 rounded-xl text-sm font-semibold cta-glow-red inline-flex items-center justify-center gap-2"
               >
                 <span>Proceed to Checkout</span>
                 <ArrowRight className="w-4 h-4" />
@@ -314,7 +316,7 @@ export const CartPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => navigate('shop', { category: 'all' })}
-                className="w-full py-3 px-5 rounded-xl border border-[var(--border-strong)] text-sm font-semibold text-[var(--text-main)] hover:bg-accent/10 transition-colors"
+                className="w-full min-h-[46px] py-3 px-5 rounded-xl border border-[var(--border-strong)] text-sm font-semibold text-[var(--text-main)] hover:bg-accent/10 transition-colors"
               >
                 Order More
               </button>

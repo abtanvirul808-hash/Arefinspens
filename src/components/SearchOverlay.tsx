@@ -412,13 +412,13 @@ export const SearchOverlay: React.FC = () => {
                 : `${product.name} is out of stock`
             }
             title={effectiveInStock ? 'Quick add to cart' : 'Out of Stock'}
-            className={`min-h-[38px] px-2.5 sm:px-3 py-1.5 rounded-lg text-xs font-semibold inline-flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 ${
+            className={`min-h-[44px] sm:min-h-[38px] min-w-[44px] sm:min-w-0 px-3 py-2 sm:py-1.5 rounded-lg text-xs font-semibold inline-flex items-center justify-center gap-1.5 transition-colors whitespace-nowrap shrink-0 ${
               effectiveInStock
                 ? 'cta-glow-red'
                 : 'bg-black/10 dark:bg-white/10 text-[var(--text-muted)] border border-[var(--border-subtle)] cursor-not-allowed'
             }`}
           >
-            <ShoppingBag className="w-3.5 h-3.5 shrink-0" />
+            <ShoppingBag className="w-4 h-4 sm:w-3.5 sm:h-3.5 shrink-0" />
             <span className="hidden sm:inline">{effectiveInStock ? 'Add' : 'Sold Out'}</span>
           </button>
         </div>
@@ -428,7 +428,7 @@ export const SearchOverlay: React.FC = () => {
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-start justify-center p-2.5 sm:p-6 sm:pt-14"
+      className="fixed inset-0 z-50 flex items-start justify-center p-2 sm:p-6 sm:pt-14"
       role="dialog"
       aria-modal="true"
       aria-label="Intelligent product search"
@@ -440,9 +440,9 @@ export const SearchOverlay: React.FC = () => {
       />
 
       {/* Search Command Overlay */}
-      <div className="relative z-10 w-full max-w-2xl rounded-2xl border border-accent/45 bg-white dark:bg-[var(--bg-secondary)] shadow-[0_24px_64px_-12px_rgba(0,0,0,0.75)] flex flex-col max-h-[86dvh] overflow-hidden">
+      <div className="relative z-10 w-full max-w-2xl rounded-2xl border border-accent/45 bg-white dark:bg-[var(--bg-secondary)] shadow-[0_24px_64px_-12px_rgba(0,0,0,0.75)] flex flex-col max-h-[92dvh] sm:max-h-[86dvh] overflow-hidden">
         {/* Top Input Row */}
-        <div className="flex items-center gap-3 px-4 py-3.5 border-b border-[var(--border-subtle)] bg-[var(--bg-input)]">
+        <div className="flex items-center gap-2.5 sm:gap-3 px-3.5 sm:px-4 py-3 sm:py-3.5 border-b border-[var(--border-subtle)] bg-[var(--bg-input)]">
           {isCatalogLoading ? (
             <Loader2 className="w-5 h-5 text-accent animate-spin shrink-0" />
           ) : (
@@ -455,11 +455,11 @@ export const SearchOverlay: React.FC = () => {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={handleInputKeyDown}
-            placeholder="Search pens, brands, ink colours, 0.5mm tips, or notebooks..."
+            placeholder="Search pens, brands, ink, 0.5mm..."
             aria-label="Search Firestore product catalogue"
             autoComplete="off"
             spellCheck={false}
-            className="flex-1 min-w-0 bg-transparent text-sm sm:text-base text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none"
+            className="flex-1 min-w-0 bg-transparent text-base text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none"
           />
 
           {query && (
@@ -469,7 +469,7 @@ export const SearchOverlay: React.FC = () => {
                 setQuery('');
                 inputRef.current?.focus();
               }}
-              className="w-8 h-8 rounded-lg border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:border-accent inline-flex items-center justify-center shrink-0"
+              className="w-10 h-10 sm:w-8 sm:h-8 rounded-lg border border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:border-accent inline-flex items-center justify-center shrink-0"
               aria-label="Clear search query"
             >
               <X className="w-4 h-4" />
@@ -479,15 +479,16 @@ export const SearchOverlay: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsSearchOpen(false)}
-            className="px-2.5 py-1.5 rounded-lg border border-[var(--border-subtle)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:border-accent whitespace-nowrap shrink-0"
+            className="min-h-[40px] sm:min-h-0 px-3 sm:px-2.5 py-1.5 rounded-lg border border-[var(--border-subtle)] text-xs font-semibold text-[var(--text-secondary)] hover:text-[var(--text-main)] hover:border-accent whitespace-nowrap shrink-0"
             aria-label="Close search overlay"
           >
-            Esc
+            <span className="sm:hidden">Close</span>
+            <span className="hidden sm:inline">Esc</span>
           </button>
         </div>
 
         {/* Category & Availability Filter Strip */}
-        <div className="px-4 py-2.5 border-b border-[var(--border-subtle)] bg-[var(--bg-card)]/60 flex items-center justify-between gap-3">
+        <div className="px-3.5 sm:px-4 py-2 border-b border-[var(--border-subtle)] bg-[var(--bg-card)]/60 flex items-center justify-between gap-2 sm:gap-3">
           <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar py-0.5">
             {availableCategories.map((cat) => {
               const active = categoryFilter === cat.id;
@@ -496,7 +497,7 @@ export const SearchOverlay: React.FC = () => {
                   key={cat.id}
                   type="button"
                   onClick={() => setCategoryFilter(cat.id)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 transition-colors ${
+                  className={`min-h-[38px] sm:min-h-0 px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap shrink-0 inline-flex items-center gap-1.5 transition-colors ${
                     active
                       ? 'bg-accent text-[var(--accent-cta-text)]'
                       : 'bg-transparent text-[var(--text-secondary)] hover:bg-accent/10 hover:text-[var(--text-main)] border border-[var(--border-subtle)]'
@@ -513,7 +514,7 @@ export const SearchOverlay: React.FC = () => {
             type="button"
             onClick={() => setInStockOnly((prev) => !prev)}
             aria-pressed={inStockOnly}
-            className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold border whitespace-nowrap shrink-0 transition-colors ${
+            className={`min-h-[38px] sm:min-h-0 px-3 sm:px-2.5 py-1.5 rounded-lg text-xs font-semibold border whitespace-nowrap shrink-0 transition-colors ${
               inStockOnly
                 ? 'border-accent bg-accent/15 text-accent dark:text-accent-bright'
                 : 'border-[var(--border-subtle)] text-[var(--text-secondary)] hover:text-[var(--text-main)]'
@@ -658,7 +659,7 @@ export const SearchOverlay: React.FC = () => {
         </div>
 
         {/* Footer Hints & View All CTA */}
-        <div className="px-4 py-3 border-t border-[var(--border-subtle)] bg-[var(--bg-card)] flex flex-wrap items-center justify-between gap-3">
+        <div className="px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] border-t border-[var(--border-subtle)] bg-[var(--bg-card)] flex flex-wrap items-center justify-between gap-3">
           <div className="hidden sm:flex items-center gap-4 text-[11px] text-[var(--text-muted)]">
             <span className="inline-flex items-center gap-1">
               <kbd className="px-1.5 py-0.5 rounded border border-[var(--border-subtle)] font-mono-num text-[10px]">
@@ -683,7 +684,7 @@ export const SearchOverlay: React.FC = () => {
           <button
             type="button"
             onClick={handleViewAllInCatalogue}
-            className="ml-auto inline-flex items-center gap-1.5 text-xs font-semibold text-accent dark:text-accent-bright hover:underline whitespace-nowrap"
+            className="ml-auto min-h-[38px] sm:min-h-0 inline-flex items-center gap-1.5 text-xs font-semibold text-accent dark:text-accent-bright hover:underline whitespace-nowrap"
           >
             <span>
               {trimmedQuery

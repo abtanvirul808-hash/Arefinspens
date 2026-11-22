@@ -159,13 +159,13 @@ export const ProductDetailsPage: React.FC = () => {
   const activeSlideIndex = Math.max(0, galleryImages.indexOf(activeImage));
 
   return (
-    <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-10 lg:py-14 space-y-10 sm:space-y-16">
+    <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-5 pb-28 sm:py-10 lg:py-14 space-y-8 sm:space-y-16">
       {/* Breadcrumb */}
       <div className="flex flex-wrap items-center gap-2 text-xs sm:text-sm text-[var(--text-muted)]">
         <button
           type="button"
           onClick={() => navigate('shop', { category: 'all' })}
-          className="inline-flex items-center gap-1.5 text-[var(--text-secondary)] hover:text-accent-bright transition-colors"
+          className="min-h-[40px] inline-flex items-center gap-1.5 text-[var(--text-secondary)] hover:text-accent-bright transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Catalogue</span>
@@ -422,7 +422,7 @@ export const ProductDetailsPage: React.FC = () => {
                         type="button"
                         onClick={() => setSelectedInkId(ink.id)}
                         aria-pressed={selected}
-                        className={`min-h-[40px] px-3 py-1.5 rounded-xl border text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-all ${
+                        className={`min-h-[44px] sm:min-h-[40px] px-3.5 sm:px-3 py-1.5 rounded-xl border text-xs sm:text-sm font-medium inline-flex items-center gap-2 transition-all ${
                           selected
                             ? 'border-accent bg-accent/15 text-[var(--text-main)] font-semibold shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)]'
                             : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-accent/60 hover:text-[var(--text-main)]'
@@ -671,6 +671,42 @@ export const ProductDetailsPage: React.FC = () => {
         title={product.name}
         onClose={() => setIsLightboxOpen(false)}
       />
+
+      {/* Mobile Sticky Quick-Buy Bar */}
+      <div className="lg:hidden fixed bottom-0 inset-x-0 z-30 border-t border-accent/35 bg-[var(--bg-header)] backdrop-blur-xl px-4 pt-2.5 pb-[max(0.625rem,env(safe-area-inset-bottom))] shadow-[0_-10px_30px_-10px_rgba(0,0,0,0.45)]">
+        <div className="max-w-7xl mx-auto flex items-center justify-between gap-3">
+          <div className="min-w-0">
+            <p className="font-mono-num text-lg font-extrabold text-accent dark:text-accent-bright leading-tight">
+              ৳{product.priceBdt.toLocaleString('en-US')}
+            </p>
+            <p className="text-[11px] text-[var(--text-secondary)] truncate">
+              {activeColor.name}
+              {!otherItem ? ` · ${activeInk.name} Ink` : ''}
+            </p>
+          </div>
+          <button
+            type="button"
+            disabled={!canPurchase}
+            onClick={() =>
+              addToCart(product, selectedColorId, quantity, true, otherItem ? undefined : activeInk.id)
+            }
+            className={`min-h-[44px] px-5 rounded-xl text-sm font-semibold inline-flex items-center justify-center gap-2 shrink-0 ${
+              canPurchase
+                ? 'cta-glow-red'
+                : 'bg-black/10 dark:bg-white/10 text-[var(--text-muted)] border border-[var(--border-subtle)] cursor-not-allowed'
+            }`}
+          >
+            <ShoppingBag className="w-4 h-4" />
+            <span>
+              {!effectiveProductInStock
+                ? 'Out of Stock'
+                : !isSelectedColorInStock
+                ? 'Out of Stock'
+                : `Add (${quantity})`}
+            </span>
+          </button>
+        </div>
+      </div>
     </div>
   );
 };

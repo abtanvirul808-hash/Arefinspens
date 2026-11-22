@@ -335,7 +335,7 @@ export const CheckoutPage: React.FC = () => {
           <button
             type="button"
             onClick={() => setIsAuthModalOpen(true)}
-            className="px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-[var(--accent-cta-text)] cta-glow-red shrink-0"
+            className="min-h-[44px] px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold text-[var(--accent-cta-text)] cta-glow-red shrink-0"
           >
             Sign In with Google
           </button>
@@ -343,7 +343,7 @@ export const CheckoutPage: React.FC = () => {
       )}
 
       {/* Serial Order ID Bar */}
-      <div className="rounded-2xl border border-accent/45 bg-[var(--bg-card)] px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="rounded-2xl border border-accent/45 bg-[var(--bg-card)] px-4 sm:px-5 py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="space-y-0.5">
           <p className="text-xs text-[var(--text-muted)]">Next Serial Order ID</p>
           <p className="font-display text-lg font-bold font-mono-num text-[var(--text-main)]">
@@ -354,7 +354,7 @@ export const CheckoutPage: React.FC = () => {
           <button
             type="button"
             onClick={handleCopyOrderNumber}
-            className="px-3.5 py-2 rounded-xl border border-[var(--border-subtle)] text-xs font-semibold text-[var(--text-main)] hover:border-accent inline-flex items-center gap-1.5 transition-colors"
+            className="min-h-[44px] sm:min-h-[38px] px-3.5 py-2 rounded-xl border border-[var(--border-subtle)] text-xs font-semibold text-[var(--text-main)] hover:border-accent inline-flex items-center gap-1.5 transition-colors"
           >
             {copiedOrderNum ? (
               <>
@@ -395,7 +395,7 @@ export const CheckoutPage: React.FC = () => {
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   placeholder="e.g. Arefin Rahman"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                  className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
                 />
               </div>
 
@@ -411,7 +411,7 @@ export const CheckoutPage: React.FC = () => {
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
                   placeholder="017XXXXXXXX"
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] font-mono-num focus:outline-none focus:border-accent"
+                  className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] font-mono-num focus:outline-none focus:border-accent"
                 />
               </div>
 
@@ -425,13 +425,13 @@ export const CheckoutPage: React.FC = () => {
                     readOnly
                     value={isCustomerSignedIn ? email : ''}
                     placeholder="Sign in with Google to link your email"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] focus:outline-none cursor-default"
+                    className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-sm text-[var(--text-secondary)] focus:outline-none cursor-default"
                   />
                   {!isCustomerSignedIn && (
                     <button
                       type="button"
                       onClick={() => setIsAuthModalOpen(true)}
-                      className="px-3 py-2.5 rounded-xl border border-accent/55 bg-accent/15 text-xs font-semibold text-accent dark:text-accent-bright whitespace-nowrap shrink-0 hover:bg-accent/25"
+                      className="min-h-[44px] px-3 py-2.5 rounded-xl border border-accent/55 bg-accent/15 text-xs font-semibold text-accent dark:text-accent-bright whitespace-nowrap shrink-0 hover:bg-accent/25"
                     >
                       Sign In
                     </button>
@@ -457,7 +457,7 @@ export const CheckoutPage: React.FC = () => {
                     }
                     if (formError) setFormError('');
                   }}
-                  className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                  className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
                 >
                   <option value="Al Amanah Academy">Al Amanah Academy</option>
                   <option value="Home Delivery">Home Delivery</option>
@@ -480,7 +480,7 @@ export const CheckoutPage: React.FC = () => {
                       setAcademyClass(e.target.value as AcademyClassOption);
                       if (formError) setFormError('');
                     }}
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                    className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
                   >
                     <option value="">Select Class (5, 6, or 7)</option>
                     <option value="5">Class 5</option>
@@ -505,7 +505,7 @@ export const CheckoutPage: React.FC = () => {
                     value={customLocation}
                     onChange={(e) => setCustomLocation(e.target.value)}
                     placeholder="Write your custom location (House, Road, Area, City)"
-                    className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                    className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
                   />
                 </div>
               )}
@@ -660,7 +660,7 @@ export const CheckoutPage: React.FC = () => {
           <button
             type="submit"
             disabled={submittingOrder}
-            className="w-full py-3.5 px-5 rounded-xl text-sm font-semibold cta-glow-red disabled:opacity-60"
+            className="w-full min-h-[48px] py-3.5 px-5 rounded-xl text-sm font-semibold cta-glow-red disabled:opacity-60"
           >
             {submittingOrder ? 'Placing Order...' : `Confirm Order (${orderNumber})`}
           </button>
