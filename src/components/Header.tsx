@@ -71,6 +71,18 @@ export const Header: React.FC = () => {
     return route === target;
   };
 
+  const handleGoHome = (e?: React.MouseEvent) => {
+    e?.preventDefault();
+    setMobileOpen(false);
+    setCatOpen(false);
+    setIsSearchOpen(false);
+    setIsCartDrawerOpen(false);
+    setIsSettingsOpen(false);
+    setIsAdminModalOpen(false);
+    setIsAuthModalOpen(false);
+    navigate('home', { scrollToTop: true });
+  };
+
   return (
     <header
       className={`sticky top-0 z-40 w-full transition-all duration-200 border-b ${
@@ -92,23 +104,22 @@ export const Header: React.FC = () => {
             {mobileOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
           </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              navigate('home');
-              setMobileOpen(false);
-            }}
-            className="flex items-center gap-1.5 sm:gap-2.5 group focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-lg py-1 min-w-0"
+          <a
+            href="#/"
+            onClick={handleGoHome}
+            aria-label="Arefin Mart — Go to Home"
+            title="Go to Home"
+            className="flex items-center gap-1.5 sm:gap-2.5 group cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-lg py-1 min-w-0"
           >
             <BrandMartLogo
               iconClassName="w-7 h-7 sm:w-11 sm:h-10"
               className="transition-transform duration-200 group-hover:scale-105"
             />
             <span className="font-display text-[15px] sm:text-xl font-bold tracking-tight whitespace-nowrap">
-              <span className="text-[var(--text-main)]">Arefin </span>
+              <span className="text-[var(--text-main)] group-hover:text-accent transition-colors">Arefin </span>
               <span className="text-accent">Mart</span>
             </span>
-          </button>
+          </a>
         </div>
 
         {/* Center: Unified Frosted Liquid Glass Navigation Dock */}

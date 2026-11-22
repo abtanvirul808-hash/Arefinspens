@@ -32,17 +32,25 @@ export const Footer: React.FC = () => {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-10">
           {/* Column 1: Brand */}
           <div className="space-y-4">
-            <button
-              type="button"
-              onClick={() => navigate('home')}
-              className="flex items-center gap-2.5 text-left"
+            <a
+              href="#/"
+              onClick={(e) => {
+                e.preventDefault();
+                navigate('home', { scrollToTop: true });
+              }}
+              aria-label="Arefin Mart — Go to Home"
+              title="Go to Home"
+              className="inline-flex items-center gap-2.5 text-left group cursor-pointer rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
-              <BrandMartLogo iconClassName="w-10 h-9" />
+              <BrandMartLogo
+                iconClassName="w-10 h-9"
+                className="transition-transform duration-200 group-hover:scale-105"
+              />
               <span className="font-display text-xl font-bold tracking-tight">
-                <span className="text-white">Arefin </span>
+                <span className="text-white group-hover:text-accent transition-colors">Arefin </span>
                 <span className="text-accent">Mart</span>
               </span>
-            </button>
+            </a>
             <p className="text-sm text-[#B8B8B8] leading-relaxed max-w-xs">
               Curated writing instruments and everyday essentials for students, educators, artists,
               and shoppers across Bangladesh.
