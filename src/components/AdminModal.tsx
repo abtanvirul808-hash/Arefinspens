@@ -39,7 +39,6 @@ import {
   getProductTotalAvailableCount,
   getVariantInkColors,
   isOtherProduct,
-  OTHER_PRODUCT_SUBCATEGORIES,
   PEN_CATEGORIES,
   PEN_CATEGORY_IDS,
 } from '../data/products';
@@ -251,9 +250,6 @@ export const AdminModal: React.FC = () => {
   const productsTabScrollRef = useRef<HTMLDivElement | null>(null);
   const [editingProductId, setEditingProductId] = useState<string | null>(null);
   const [prodCategory, setProdCategory] = useState<Exclude<CategoryId, 'all' | 'all-pens'>>('gel-pens');
-  const [otherSubcategory, setOtherSubcategory] = useState<string>(
-    OTHER_PRODUCT_SUBCATEGORIES[0] || 'Other Products'
-  );
   const [prodName, setProdName] = useState('');
   const [prodBrand, setProdBrand] = useState('Arefin Mart');
   const [prodPrice, setProdPrice] = useState<string>('50');
@@ -545,7 +541,7 @@ export const AdminModal: React.FC = () => {
   }, [prodOriginalPrice, parsedMrpPrice, parsedSellingPrice]);
 
   const selectedCategoryLabel = isOtherMode
-    ? otherSubcategory || 'Other Products'
+    ? 'Other Products'
     : PEN_CATEGORIES.find((c) => c.id === prodCategory)?.label || 'Pen Category';
 
   const readinessIssues = useMemo(() => {
@@ -768,7 +764,6 @@ export const AdminModal: React.FC = () => {
   const resetProductForm = () => {
     setEditingProductId(null);
     setProdFormError('');
-    setOtherSubcategory(OTHER_PRODUCT_SUBCATEGORIES[0] || 'Other Products');
     setProdName('');
     setProdBrand('Arefin Mart');
     setProdPrice('50');
@@ -801,11 +796,6 @@ export const AdminModal: React.FC = () => {
     setEditingProductId(prod.id);
     setProdFormError('');
     setProdCategory(prod.category);
-    if (prod.category === 'other-products') {
-      setOtherSubcategory(
-        prod.categoryLabel?.trim() || OTHER_PRODUCT_SUBCATEGORIES[0] || 'Other Products'
-      );
-    }
     setProdName(prod.name);
     setProdBrand(prod.brand || 'Arefin Mart');
     setProdPrice(String(prod.priceBdt));
@@ -905,7 +895,7 @@ export const AdminModal: React.FC = () => {
           name: prodName,
           brand: prodBrand.trim() || 'Arefin Mart',
           category: 'other-products' as const,
-          categoryLabel: otherSubcategory.trim() || 'Other Products',
+          categoryLabel: 'Other Products',
           priceBdt: parsedPrice,
           originalPriceBdt: parsedOriginal,
           stockCount: autoTotalStock,
@@ -1952,32 +1942,7 @@ export const AdminModal: React.FC = () => {
                     </div>
 
                     {/* Category Selector */}
-                    {isOtherMode ? (
-                      <div className="space-y-1.5">
-                        <label
-                          htmlFor="admin-other-category-select"
-                          className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright"
-                        >
-                          <span>Stationery Subcategory</span>
-                          <span className="text-rose-500">*</span>
-                        </label>
-                        <select
-                          id="admin-other-category-select"
-                          value={otherSubcategory}
-                          onChange={(e) => setOtherSubcategory(e.target.value)}
-                          className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-accent/35 text-sm font-medium text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
-                        >
-                          {!OTHER_PRODUCT_SUBCATEGORIES.includes(otherSubcategory) && (
-                            <option value={otherSubcategory}>{otherSubcategory}</option>
-                          )}
-                          {OTHER_PRODUCT_SUBCATEGORIES.map((subcat) => (
-                            <option key={subcat} value={subcat}>
-                              {subcat}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-                    ) : (
+                    {!isOtherMode && (
                       <div className="space-y-1.5">
                         <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-xs font-bold text-accent dark:text-accent-bright">
                           <span>Pen Category</span>
