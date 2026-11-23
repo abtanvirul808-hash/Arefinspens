@@ -245,6 +245,7 @@ export const AdminModal: React.FC = () => {
   const lastOrdersScrollTopRef = useRef(0);
   const touchStartYRef = useRef<number | null>(null);
   const autoScrollLockUntilRef = useRef(0);
+  const lastScrollDirectionRef = useRef<'down' | 'up'>('up');
 
   // Set Category + Manage/Add/Edit Product form state
   const productsTabScrollRef = useRef<HTMLDivElement | null>(null);
@@ -338,6 +339,8 @@ export const AdminModal: React.FC = () => {
       setIsOrdersHeaderCollapsed(false);
       setExpandedOrderIds({});
       lastOrdersScrollTopRef.current = 0;
+      lastScrollDirectionRef.current = 'up';
+      autoScrollLockUntilRef.current = 0;
       if (ordersScrollRef.current) {
         ordersScrollRef.current.scrollTop = 0;
       }
@@ -376,10 +379,8 @@ export const AdminModal: React.FC = () => {
     });
   }, []);
 
-  const applyScrollContract = useCallback((atTop: boolean) => {
-    if (atTop) {
-      setIsOrdersHeaderCollapsed(false);
-    }
+  const applyScrollContract = useCallback(() => {
+    setIsOrdersHeaderCollapsed(false);
 
     setExpandedOrderIds((prev) => {
       if (Object.keys(prev).length === 0) return prev;
@@ -390,15 +391,18 @@ export const AdminModal: React.FC = () => {
   const triggerOrderScrollDirection = useCallback(
     (direction: 'down' | 'up', force = false) => {
       const now = performance.now();
-      if (!force && now < autoScrollLockUntilRef.current) return;
-      autoScrollLockUntilRef.current = now + 340;
-
-      const container = ordersScrollRef.current;
       if (direction === 'down') {
+        if (!force && lastScrollDirectionRef.current === 'down' && now < autoScrollLockUntilRef.current) {
+          applyScrollExpand();
+          return;
+        }
+        lastScrollDirectionRef.current = 'down';
+        autoScrollLockUntilRef.current = now + 260;
         applyScrollExpand();
       } else {
-        const nearTop = !container || container.scrollTop <= 28;
-        applyScrollContract(nearTop);
+        lastScrollDirectionRef.current = 'up';
+        autoScrollLockUntilRef.current = 0;
+        applyScrollContract();
       }
 
       window.requestAnimationFrame(() => {
@@ -419,28 +423,30 @@ export const AdminModal: React.FC = () => {
     const delta = currentTop - prevTop;
     lastOrdersScrollTopRef.current = currentTop;
 
-    if (performance.now() < autoScrollLockUntilRef.current) {
-      return;
-    }
+    const now = performance.now();
 
-    if (delta > 10 && currentTop > 8) {
+    if (delta > 8 && currentTop > 6) {
       triggerOrderScrollDirection('down');
-    } else if (currentTop <= 6 && prevTop > 6) {
+    } else if (
+      currentTop <= 24 &&
+      currentTop < prevTop &&
+      (lastScrollDirectionRef.current !== 'down' ||
+        now >= autoScrollLockUntilRef.current ||
+        delta < -40)
+    ) {
       triggerOrderScrollDirection('up', true);
-    } else if (delta < -16) {
-      triggerOrderScrollDirection('up');
     }
   }, [triggerOrderScrollDirection]);
 
   const handleOrdersWheel = useCallback(
     (e: React.WheelEvent<HTMLDivElement>) => {
-      if (Math.abs(e.deltaY) < 12) return;
+      if (Math.abs(e.deltaY) < 4) return;
       if (e.deltaY > 0) {
         triggerOrderScrollDirection('down');
       } else {
         const container = ordersScrollRef.current;
-        if (!container || container.scrollTop <= 24 || e.deltaY < -28) {
-          triggerOrderScrollDirection('up');
+        if (!container || container.scrollTop <= 24) {
+          triggerOrderScrollDirection('up', true);
         }
       }
     },
@@ -457,12 +463,15 @@ export const AdminModal: React.FC = () => {
       const currentY = e.touches[0]?.clientY;
       if (typeof currentY !== 'number') return;
       const fingerSwipeDelta = touchStartYRef.current - currentY;
-      if (Math.abs(fingerSwipeDelta) < 18) return;
+      if (Math.abs(fingerSwipeDelta) < 14) return;
 
       if (fingerSwipeDelta > 0) {
         triggerOrderScrollDirection('down');
       } else {
-        triggerOrderScrollDirection('up');
+        const container = ordersScrollRef.current;
+        if (!container || container.scrollTop <= 24) {
+          triggerOrderScrollDirection('up', true);
+        }
       }
       touchStartYRef.current = currentY;
     },
