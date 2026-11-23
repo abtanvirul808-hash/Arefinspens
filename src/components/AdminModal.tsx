@@ -19,6 +19,7 @@ import {
   Maximize2,
   Package,
   Pencil,
+  PenTool,
   Phone,
   Plus,
   RefreshCw,
@@ -119,7 +120,7 @@ function getStageLabel(stageIndex: number): string {
 }
 
 function computeOrderFinancials(
-  order: { itemsSummary: string; totalBdt: number },
+  order: { itemsSummary: string; totalBdt: number; orderItems?: { productId?: string; quantity?: number }[] },
   products: Product[]
 ) {
   const parsedItems = parseOrderSummaryItems(order.itemsSummary, products);
@@ -146,7 +147,17 @@ function computeOrderFinancials(
   const calculatedSubtotal =
     allPricesResolved && summedSubtotal > 0 ? summedSubtotal : order.totalBdt;
   const totalUnitsCount = itemBreakdowns.reduce((sum, b) => sum + b.qtyNum, 0);
-  return { parsedItems, itemBreakdowns, calculatedSubtotal, totalUnitsCount };
+  const totalPenCount =
+    itemBreakdowns.length > 0
+      ? itemBreakdowns.reduce(
+          (sum, b) => sum + (b.matchedProd && isOtherProduct(b.matchedProd) ? 0 : b.qtyNum),
+          0
+        )
+      : (order.orderItems || []).reduce((sum, oi) => {
+          const prod = oi.productId ? products.find((p) => p.id === oi.productId) : undefined;
+          return sum + (prod && isOtherProduct(prod) ? 0 : Math.max(1, oi.quantity || 1));
+        }, 0);
+  return { parsedItems, itemBreakdowns, calculatedSubtotal, totalUnitsCount, totalPenCount };
 }
 
 function compressImageToDataUrl(file: File): Promise<string> {
@@ -1312,6 +1323,7 @@ export const AdminModal: React.FC = () => {
                         itemBreakdowns,
                         calculatedSubtotal,
                         totalUnitsCount,
+                        totalPenCount,
                       } = computeOrderFinancials(order, products);
                       const unitCountDisplay = totalUnitsCount || parsedItems.length;
 
@@ -1376,9 +1388,20 @@ export const AdminModal: React.FC = () => {
                             </div>
 
                             <div
-                              className="flex items-center gap-2.5 sm:gap-3 shrink-0"
+                              className="flex flex-wrap items-center justify-end gap-2 sm:gap-2.5 shrink-0"
                               onClick={(e) => e.stopPropagation()}
                             >
+                              {(totalPenCount > 0 || unitCountDisplay > 0) && (
+                                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-accent/45 bg-accent/10 text-xs font-bold font-mono-num text-accent dark:text-accent-bright whitespace-nowrap">
+                                  <PenTool className="w-3.5 h-3.5 shrink-0" />
+                                  <span>
+                                    {totalPenCount > 0
+                                      ? `Total Pens: ${totalPenCount}`
+                                      : `Total Items: ${unitCountDisplay}`}
+                                  </span>
+                                </div>
+                              )}
+
                               <div className="text-right">
                                 {isOrderExpanded && (
                                   <p className="text-[11px] text-[var(--text-muted)] font-mono-num">
