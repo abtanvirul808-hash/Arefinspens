@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ArrowRight,
   Award,
@@ -10,7 +10,13 @@ import {
   Star,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
-import { HOMEPAGE_CATEGORIES, isOtherProduct } from '../data/products';
+import {
+  formatFeaturedRemainingTime,
+  HOMEPAGE_CATEGORIES,
+  isOtherProduct,
+  isProductCurrentlyFeatured,
+  sortFeaturedProducts,
+} from '../data/products';
 import { PRODUCT_IMAGES } from '../data/productImages';
 import { SAMPLE_TESTIMONIALS } from '../data/storeConfig';
 import { CategoryVectorIcon, SparkleAccentIcon } from '../components/BrandIcons';
@@ -20,7 +26,37 @@ import { FadeUp } from '../components/FadeUp';
 
 export const HomePage: React.FC = () => {
   const { navigate, products } = useStore();
-  const featuredProducts = products.filter((p) => p.featured).slice(0, 8);
+  const [nowMs, setNowMs] = useState(() => Date.now());
+
+  const hasTimedFeatured = products.some(
+    (p) =>
+      p.featured &&
+      typeof p.featuredUntilMs === 'number' &&
+      Number.isFinite(p.featuredUntilMs) &&
+      p.featuredUntilMs > nowMs
+  );
+
+  const hasSoonExpiringFeatured = products.some(
+    (p) =>
+      p.featured &&
+      typeof p.featuredUntilMs === 'number' &&
+      Number.isFinite(p.featuredUntilMs) &&
+      p.featuredUntilMs > nowMs &&
+      p.featuredUntilMs - nowMs <= 3600000
+  );
+
+  useEffect(() => {
+    if (!hasTimedFeatured) return;
+    const intervalMs = hasSoonExpiringFeatured ? 1000 : 30000;
+    const timer = window.setInterval(() => {
+      setNowMs(Date.now());
+    }, intervalMs);
+    return () => window.clearInterval(timer);
+  }, [hasTimedFeatured, hasSoonExpiringFeatured]);
+
+  const featuredProducts = sortFeaturedProducts(
+    products.filter((p) => isProductCurrentlyFeatured(p, nowMs))
+  ).slice(0, 8);
   const otherProductsCount = products.filter((p) => isOtherProduct(p)).length;
 
   const scrollToCategories = () => {
@@ -187,7 +223,17 @@ export const HomePage: React.FC = () => {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 sm:gap-6">
                 {featuredProducts.map((product) => (
-                  <ProductCard key={product.id} product={product} />
+                  <ProductCard
+                    key={product.id}
+                    product={product}
+                    featuredTimeLeft={
+                      typeof product.featuredUntilMs === 'number' &&
+                      Number.isFinite(product.featuredUntilMs) &&
+                      product.featuredUntilMs > nowMs
+                        ? formatFeaturedRemainingTime(product.featuredUntilMs, nowMs)
+                        : undefined
+                    }
+                  />
                 ))}
               </div>
 

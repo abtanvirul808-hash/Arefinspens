@@ -20,6 +20,7 @@ import {
   getProductTotalAvailableCount,
   getVariantInkColors,
   isOtherProduct,
+  isProductCurrentlyFeatured,
 } from '../data/products';
 import { ImageLightboxModal, LightboxSlide } from '../components/ImageLightboxModal';
 import { ProductCard } from '../components/ProductCard';
@@ -138,7 +139,9 @@ export const ProductDetailsPage: React.FC = () => {
   };
 
   const relatedProducts = products.filter(
-    (p) => p.id !== product.id && (p.category === product.category || p.featured)
+    (p) =>
+      p.id !== product.id &&
+      (p.category === product.category || isProductCurrentlyFeatured(p))
   ).slice(0, 4);
 
   const galleryImages = Array.from(

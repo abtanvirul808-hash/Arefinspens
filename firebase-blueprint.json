@@ -34,6 +34,14 @@
           "description": "Total units of this product ordered across customer orders."
         },
         "featured": { "type": "boolean" },
+        "featuredUntilMs": {
+          "type": "integer",
+          "description": "Optional Unix epoch timestamp in milliseconds until which this product remains displayed in Featured Products on the homepage."
+        },
+        "featuredOrder": {
+          "type": "integer",
+          "description": "Optional display serial number (1, 2, 3, 4...) controlling position order inside Featured Products on the homepage."
+        },
         "isNew": { "type": "boolean" },
         "inStock": { "type": "boolean" },
         "stockCount": {

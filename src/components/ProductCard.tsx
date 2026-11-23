@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, Eye, Heart, Maximize2, ShoppingBag, Star } from 'lucide-react';
+import { Check, Clock, Eye, Heart, Maximize2, ShoppingBag, Star } from 'lucide-react';
 import { Product } from '../types';
 import { useStore } from '../context/StoreContext';
 import {
@@ -13,9 +13,10 @@ import { SafeImage } from './SafeImage';
 
 interface ProductCardProps {
   product: Product;
+  featuredTimeLeft?: string;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({ product, featuredTimeLeft }) => {
   const { navigate, addToCart, toggleWishlist, isWishlisted } = useStore();
   const otherItem = isOtherProduct(product);
   const [selectedColorId, setSelectedColorId] = useState(
@@ -292,6 +293,13 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product }) => {
               <span className="text-[11px] font-medium text-[var(--text-secondary)] truncate">
                 {activeInk?.name || 'Black'} Ink
               </span>
+            </div>
+          )}
+
+          {featuredTimeLeft && (
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border border-accent/40 bg-accent/10 text-[11px] font-semibold font-mono-num text-accent dark:text-accent-bright w-fit">
+              <Clock className="w-3 h-3 shrink-0" />
+              <span>Featured ends in {featuredTimeLeft}</span>
             </div>
           )}
 

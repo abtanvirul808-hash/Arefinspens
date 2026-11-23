@@ -58,7 +58,7 @@ service cloud.firestore {
       data.keys().hasOnly([
         'id', 'slug', 'name', 'brand', 'category', 'categoryLabel',
         'shortDescription', 'description', 'priceBdt', 'originalPriceBdt',
-        'rating', 'reviewCount', 'popularityScore', 'orderCount', 'featured', 'isNew',
+        'rating', 'reviewCount', 'popularityScore', 'orderCount', 'featured', 'featuredUntilMs', 'featuredOrder', 'isNew',
         'inStock', 'stockCount', 'images', 'colors', 'specs', 'sampleReviews',
         'createdAt', 'updatedAt'
       ]) &&
@@ -77,6 +77,8 @@ service cloud.firestore {
       data.popularityScore is int && data.popularityScore >= 0 && data.popularityScore <= 1000 &&
       (!('orderCount' in data) || (data.orderCount is int && data.orderCount >= 0 && data.orderCount <= 10000000)) &&
       (!('featured' in data) || data.featured is bool) &&
+      (!('featuredUntilMs' in data) || (data.featuredUntilMs is int && data.featuredUntilMs >= 0 && data.featuredUntilMs <= 9999999999999)) &&
+      (!('featuredOrder' in data) || (data.featuredOrder is int && data.featuredOrder >= 1 && data.featuredOrder <= 10000)) &&
       (!('isNew' in data) || data.isNew is bool) &&
       data.inStock is bool &&
       data.stockCount is int && data.stockCount >= 0 && data.stockCount <= 1000000 &&

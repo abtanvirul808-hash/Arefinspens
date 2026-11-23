@@ -87,6 +87,8 @@ export interface Product {
   createdAtMs?: number;
   isNew?: boolean;
   featured?: boolean;
+  featuredUntilMs?: number;
+  featuredOrder?: number;
   inStock: boolean;
   stockCount: number;
   images: string[];

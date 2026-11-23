@@ -1,10 +1,14 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
+  ArrowDown,
+  ArrowUp,
+  CalendarClock,
   Check,
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Clock,
   Cloud,
   Copy,
   Download,
@@ -14,6 +18,7 @@ import {
   FolderPlus,
   Image as ImageIcon,
   ImagePlus,
+  ListOrdered,
   LogOut,
   MapPin,
   Maximize2,
@@ -34,13 +39,16 @@ import {
 import { useStore } from '../context/StoreContext';
 import {
   CATALOGUE_CATEGORIES,
+  formatFeaturedRemainingTime,
   getColorAvailableCount,
   getProductInkColors,
   getProductTotalAvailableCount,
   getVariantInkColors,
   isOtherProduct,
+  isProductCurrentlyFeatured,
   PEN_CATEGORIES,
   PEN_CATEGORY_IDS,
+  sortFeaturedProducts,
 } from '../data/products';
 import { formatLiveSyncError } from '../firebase';
 import { CategoryId, InkColorOption, Product } from '../types';
@@ -116,6 +124,54 @@ interface ColorDraft {
 function getStageLabel(stageIndex: number): string {
   if (stageIndex === 0) return 'Order Placed';
   return ADMIN_STAGE_OPTIONS.find((s) => s.index === stageIndex)?.label || 'Order Confirmed';
+}
+
+const FEATURED_DURATION_PRESETS: { label: string; hours: number }[] = [
+  { label: '+1 Hour', hours: 1 },
+  { label: '+12 Hours', hours: 12 },
+  { label: '+24 Hours', hours: 24 },
+  { label: '+3 Days', hours: 72 },
+  { label: '+7 Days', hours: 168 },
+  { label: '+30 Days', hours: 720 },
+];
+
+function toDateTimeLocalValue(epochMs?: number): string {
+  if (typeof epochMs !== 'number' || !Number.isFinite(epochMs) || epochMs <= 0) {
+    return '';
+  }
+  const d = new Date(epochMs);
+  if (Number.isNaN(d.getTime())) return '';
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(
+    d.getHours()
+  )}:${pad(d.getMinutes())}`;
+}
+
+function parseDateTimeLocalValue(val: string): number | undefined {
+  const trimmed = val.trim();
+  if (!trimmed) return undefined;
+  const match = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})$/.exec(trimmed);
+  if (match) {
+    const year = Number(match[1]);
+    const month = Number(match[2]) - 1;
+    const day = Number(match[3]);
+    const hour = Number(match[4]);
+    const minute = Number(match[5]);
+    const ms = new Date(year, month, day, hour, minute, 0, 0).getTime();
+    return Number.isFinite(ms) && ms > 0 ? ms : undefined;
+  }
+  const fallbackMs = new Date(trimmed).getTime();
+  return Number.isFinite(fallbackMs) && fallbackMs > 0 ? Math.round(fallbackMs) : undefined;
+}
+
+function formatFeaturedEndDateTime(epochMs: number): string {
+  return new Date(epochMs).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 function computeOrderFinancials(
@@ -217,6 +273,7 @@ export const AdminModal: React.FC = () => {
     updateAdminProduct,
     toggleProductOutOfStock,
     toggleProductColorStock,
+    updateFeaturedProductsOrder,
     deleteAdminProduct,
     showToast,
   } = useStore();
@@ -263,6 +320,10 @@ export const AdminModal: React.FC = () => {
   const [customInkHex, setCustomInkHex] = useState('#1D4ED8');
   const [prodShortDesc, setProdShortDesc] = useState('');
   const [prodFeatured, setProdFeatured] = useState(false);
+  const [prodFeaturedUntil, setProdFeaturedUntil] = useState('');
+  const [prodFeaturedOrder, setProdFeaturedOrder] = useState('');
+  const [reorderingFeatured, setReorderingFeatured] = useState(false);
+  const [adminNowMs, setAdminNowMs] = useState(() => Date.now());
   const [prodOutOfStock, setProdOutOfStock] = useState(false);
   const [colorDrafts, setColorDrafts] = useState<ColorDraft[]>([
     {
@@ -341,6 +402,16 @@ export const AdminModal: React.FC = () => {
         ordersScrollRef.current.scrollTop = 0;
       }
     }
+  }, [isAdminModalOpen, activeTab]);
+
+  // Keep featured duration countdowns fresh while Products tab is open
+  useEffect(() => {
+    if (!isAdminModalOpen || activeTab !== 'products') return;
+    setAdminNowMs(Date.now());
+    const timer = window.setInterval(() => {
+      setAdminNowMs(Date.now());
+    }, 15000);
+    return () => window.clearInterval(timer);
   }, [isAdminModalOpen, activeTab]);
 
   const applyScrollExpand = useCallback(() => {
@@ -487,6 +558,11 @@ export const AdminModal: React.FC = () => {
         const total = getProductTotalAvailableCount(p);
         return p.inStock && total > 0 && total < LOW_STOCK_THRESHOLD;
       }).length,
+    [products]
+  );
+
+  const featuredOrderedProducts = useMemo(
+    () => sortFeaturedProducts(products.filter((p) => Boolean(p.featured))),
     [products]
   );
 
@@ -775,6 +851,8 @@ export const AdminModal: React.FC = () => {
     setCustomInkHex('#1D4ED8');
     setProdShortDesc('');
     setProdFeatured(false);
+    setProdFeaturedUntil('');
+    setProdFeaturedOrder('');
     setProdOutOfStock(false);
     setComboCustomInkByDraft({});
     setExpandedInkDraftIds({});
@@ -810,6 +888,13 @@ export const AdminModal: React.FC = () => {
     setCustomInkHex('#1D4ED8');
     setProdShortDesc(prod.shortDescription);
     setProdFeatured(Boolean(prod.featured));
+    setProdFeaturedUntil(prod.featured ? toDateTimeLocalValue(prod.featuredUntilMs) : '');
+    setProdFeaturedOrder(
+      prod.featured && typeof prod.featuredOrder === 'number' && prod.featuredOrder >= 1
+        ? String(Math.round(prod.featuredOrder))
+        : ''
+    );
+    setAdminNowMs(Date.now());
     setProdOutOfStock(!prod.inStock);
     setComboCustomInkByDraft({});
     setExpandedInkDraftIds({});
@@ -880,6 +965,35 @@ export const AdminModal: React.FC = () => {
     e.preventDefault();
     const parsedPrice = Number(prodPrice);
     const parsedOriginal = prodOriginalPrice.trim() ? Number(prodOriginalPrice) : undefined;
+    const parsedFeaturedUntilMs = prodFeatured
+      ? parseDateTimeLocalValue(prodFeaturedUntil)
+      : undefined;
+
+    if (prodFeatured && prodFeaturedUntil.trim() && !parsedFeaturedUntilMs) {
+      setProdFormError('Please enter a valid featured end date and time.');
+      return;
+    }
+    if (prodFeatured && parsedFeaturedUntilMs && parsedFeaturedUntilMs <= Date.now()) {
+      setProdFormError(
+        'Featured end date & time must be in the future, or clear it to feature without a time limit.'
+      );
+      return;
+    }
+
+    const rawOrderTrimmed = prodFeaturedOrder.trim();
+    const parsedFeaturedOrderNum = Number(rawOrderTrimmed);
+    if (
+      prodFeatured &&
+      rawOrderTrimmed &&
+      (!Number.isFinite(parsedFeaturedOrderNum) || parsedFeaturedOrderNum < 1)
+    ) {
+      setProdFormError('Featured serial position must be 1 or greater (1 = Top).');
+      return;
+    }
+    const parsedFeaturedOrder =
+      prodFeatured && rawOrderTrimmed
+        ? Math.min(10000, Math.round(parsedFeaturedOrderNum))
+        : undefined;
 
     const mergedInkMap = new Map<string, InkColorOption>();
     for (const ink of [...prodInkColors, ...colorDrafts.flatMap((c) => c.inkColors)]) {
@@ -907,6 +1021,8 @@ export const AdminModal: React.FC = () => {
           inkColorHex: '',
           inkColors: [],
           featured: prodFeatured,
+          featuredUntilMs: parsedFeaturedUntilMs,
+          featuredOrder: parsedFeaturedOrder,
           images: colorDrafts.map((c) => c.image).filter(Boolean),
           colors: colorDrafts.map((c) => {
             const qty = c.inStock ? Math.max(0, Math.round(Number(c.stockCount) || 0)) : 0;
@@ -935,6 +1051,8 @@ export const AdminModal: React.FC = () => {
           inkColorHex: mergedInks[0]?.hex || '#111827',
           inkColors: mergedInks,
           featured: prodFeatured,
+          featuredUntilMs: parsedFeaturedUntilMs,
+          featuredOrder: parsedFeaturedOrder,
           images: colorDrafts.map((c) => c.image).filter(Boolean),
           colors: colorDrafts.map((c) => {
             const qty = c.inStock ? Math.max(0, Math.round(Number(c.stockCount) || 0)) : 0;
@@ -964,6 +1082,21 @@ export const AdminModal: React.FC = () => {
           )
         );
         return;
+      }
+
+      if (prodFeatured && parsedFeaturedOrder && result.product?.id) {
+        const otherFeaturedIds = featuredOrderedProducts
+          .filter((p) => p.id !== result.product!.id)
+          .map((p) => p.id);
+        if (otherFeaturedIds.length > 0) {
+          const insertAt = Math.max(
+            0,
+            Math.min(otherFeaturedIds.length, parsedFeaturedOrder - 1)
+          );
+          const nextOrderedIds = [...otherFeaturedIds];
+          nextOrderedIds.splice(insertAt, 0, result.product.id);
+          await updateFeaturedProductsOrder(nextOrderedIds);
+        }
       }
 
       const savedCategory = prodCategory;
@@ -2881,7 +3014,15 @@ export const AdminModal: React.FC = () => {
                         <input
                           type="checkbox"
                           checked={prodFeatured}
-                          onChange={(e) => setProdFeatured(e.target.checked)}
+                          onChange={(e) => {
+                            const checked = e.target.checked;
+                            setProdFeatured(checked);
+                            if (!checked) {
+                              setProdFeaturedUntil('');
+                              setProdFeaturedOrder('');
+                            }
+                            if (prodFormError) setProdFormError('');
+                          }}
                           className="mt-0.5 w-4 h-4 accent-accent rounded shrink-0"
                         />
                         <div className="space-y-0.5">
@@ -2889,7 +3030,7 @@ export const AdminModal: React.FC = () => {
                             Feature on Homepage
                           </span>
                           <span className="block text-[11px] text-[var(--text-muted)]">
-                            Displays this item inside the Featured Pens &amp; Supplies showcase.
+                            Displays this item inside the Featured Products section on the homepage.
                           </span>
                         </div>
                       </label>
@@ -2934,6 +3075,219 @@ export const AdminModal: React.FC = () => {
                         </span>
                       </button>
                     </div>
+
+                    {prodFeatured && (() => {
+                      const parsedUntil = parseDateTimeLocalValue(prodFeaturedUntil);
+                      const isExpiredSelection = Boolean(parsedUntil && parsedUntil <= adminNowMs);
+                      const remainingLabel =
+                        parsedUntil && parsedUntil > adminNowMs
+                          ? formatFeaturedRemainingTime(parsedUntil, adminNowMs)
+                          : null;
+                      const maxQuickSerial = Math.max(4, featuredOrderedProducts.length + 1);
+                      const quickSerialOptions = Array.from(
+                        { length: Math.min(8, maxQuickSerial) },
+                        (_, idx) => idx + 1
+                      );
+
+                      return (
+                        <div className="rounded-xl border border-accent/45 bg-accent/[0.06] p-3.5 sm:p-4 space-y-4">
+                          {/* Serial Order Position (1, 2, 3, 4...) */}
+                          <div className="space-y-2 pb-3.5 border-b border-accent/25">
+                            <div className="flex flex-wrap items-start justify-between gap-2">
+                              <div className="space-y-0.5">
+                                <label
+                                  htmlFor="admin-featured-order"
+                                  className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-accent dark:text-accent-bright"
+                                >
+                                  <ListOrdered className="w-4 h-4 shrink-0" />
+                                  <span>Featured Serial Position (1 = Top)</span>
+                                </label>
+                                <p className="text-[11px] sm:text-xs text-[var(--text-secondary)]">
+                                  Choose which slot (1, 2, 3, 4...) this product takes in Featured Products on Homepage.
+                                </p>
+                              </div>
+
+                              <span className="inline-flex items-center px-2.5 py-1 rounded-lg border border-accent/55 bg-accent/15 text-[11px] font-bold font-mono-num text-accent dark:text-accent-bright shrink-0">
+                                {prodFeaturedOrder.trim()
+                                  ? `Serial #${prodFeaturedOrder.trim()}${
+                                      prodFeaturedOrder.trim() === '1' ? ' (Top)' : ''
+                                    }`
+                                  : 'Auto Order'}
+                              </span>
+                            </div>
+
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setProdFeaturedOrder('');
+                                  if (prodFormError) setProdFormError('');
+                                }}
+                                className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors ${
+                                  !prodFeaturedOrder.trim()
+                                    ? 'border-accent bg-accent text-[var(--accent-cta-text)] font-bold'
+                                    : 'border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-accent hover:text-[var(--text-main)]'
+                                }`}
+                              >
+                                Auto
+                              </button>
+                              {quickSerialOptions.map((serialNum) => {
+                                const isSel = prodFeaturedOrder.trim() === String(serialNum);
+                                return (
+                                  <button
+                                    key={serialNum}
+                                    type="button"
+                                    onClick={() => {
+                                      setProdFeaturedOrder(String(serialNum));
+                                      if (prodFormError) setProdFormError('');
+                                    }}
+                                    className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-mono-num transition-colors ${
+                                      isSel
+                                        ? 'border-accent bg-accent text-[var(--accent-cta-text)] font-bold'
+                                        : 'border-[var(--border-subtle)] bg-[var(--bg-card)] font-semibold text-[var(--text-secondary)] hover:border-accent hover:text-[var(--text-main)]'
+                                    }`}
+                                  >
+                                    #{serialNum}
+                                    {serialNum === 1 ? ' Top' : ''}
+                                  </button>
+                                );
+                              })}
+                              <input
+                                id="admin-featured-order"
+                                type="number"
+                                min={1}
+                                max={10000}
+                                step={1}
+                                value={prodFeaturedOrder}
+                                onChange={(e) => {
+                                  setProdFeaturedOrder(e.target.value);
+                                  if (prodFormError) setProdFormError('');
+                                }}
+                                placeholder="Serial (1, 2, 3...)"
+                                className="w-32 min-h-[34px] px-2.5 py-1 rounded-lg bg-[var(--bg-input)] border border-accent/40 text-xs font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent"
+                              />
+                            </div>
+                          </div>
+
+                          {/* Featured Date & Time Limit */}
+                          <div className="space-y-3">
+                          <div className="flex flex-wrap items-start justify-between gap-2">
+                            <div className="space-y-0.5">
+                              <label
+                                htmlFor="admin-featured-until"
+                                className="inline-flex items-center gap-1.5 text-xs sm:text-sm font-bold text-accent dark:text-accent-bright"
+                              >
+                                <CalendarClock className="w-4 h-4 shrink-0" />
+                                <span>Featured Display Time (Homepage Date &amp; Time)</span>
+                              </label>
+                              <p className="text-[11px] sm:text-xs text-[var(--text-secondary)]">
+                                Choose the date and time until this product stays in Featured Products on the Homepage.
+                              </p>
+                            </div>
+
+                            <span
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[11px] font-bold font-mono-num shrink-0 ${
+                                isExpiredSelection
+                                  ? 'border-rose-500/55 bg-rose-500/15 text-rose-600 dark:text-rose-400'
+                                  : remainingLabel
+                                  ? 'border-accent/55 bg-accent/15 text-accent dark:text-accent-bright'
+                                  : 'border-emerald-500/45 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300'
+                              }`}
+                            >
+                              <Clock className="w-3 h-3 shrink-0" />
+                              <span>
+                                {isExpiredSelection
+                                  ? 'Expired Date'
+                                  : remainingLabel
+                                  ? `Shows for ${remainingLabel}`
+                                  : 'Always (No Limit)'}
+                              </span>
+                            </span>
+                          </div>
+
+                          {/* Quick Duration Presets */}
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setProdFeaturedUntil('');
+                                setAdminNowMs(Date.now());
+                                if (prodFormError) setProdFormError('');
+                              }}
+                              className={`px-2.5 py-1.5 rounded-lg border text-[11px] font-semibold transition-colors ${
+                                !prodFeaturedUntil.trim()
+                                  ? 'border-accent bg-accent text-[var(--accent-cta-text)] font-bold'
+                                  : 'border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-accent hover:text-[var(--text-main)]'
+                              }`}
+                            >
+                              Always
+                            </button>
+                            {FEATURED_DURATION_PRESETS.map((preset) => (
+                              <button
+                                key={preset.label}
+                                type="button"
+                                onClick={() => {
+                                  const now = Date.now();
+                                  setAdminNowMs(now);
+                                  setProdFeaturedUntil(
+                                    toDateTimeLocalValue(now + preset.hours * 3600 * 1000)
+                                  );
+                                  if (prodFormError) setProdFormError('');
+                                }}
+                                className="px-2.5 py-1.5 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[11px] font-semibold text-[var(--text-secondary)] hover:border-accent hover:text-[var(--text-main)] transition-colors"
+                              >
+                                {preset.label}
+                              </button>
+                            ))}
+                          </div>
+
+                          {/* Exact Date & Time Picker */}
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                            <input
+                              id="admin-featured-until"
+                              type="datetime-local"
+                              value={prodFeaturedUntil}
+                              min={toDateTimeLocalValue(adminNowMs)}
+                              onChange={(e) => {
+                                setProdFeaturedUntil(e.target.value);
+                                setAdminNowMs(Date.now());
+                                if (prodFormError) setProdFormError('');
+                              }}
+                              className="flex-1 min-h-[42px] px-3 py-2 rounded-xl bg-[var(--bg-input)] border border-accent/40 text-xs sm:text-sm font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent focus:ring-2 focus:ring-accent/20"
+                            />
+                            {prodFeaturedUntil.trim() && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setProdFeaturedUntil('');
+                                  if (prodFormError) setProdFormError('');
+                                }}
+                                className="min-h-[42px] px-3 py-2 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] text-xs font-semibold text-[var(--text-secondary)] hover:border-rose-500/50 hover:text-rose-500 transition-colors shrink-0"
+                              >
+                                Clear Limit
+                              </button>
+                            )}
+                          </div>
+
+                          <p
+                            className={`text-[11px] leading-relaxed ${
+                              isExpiredSelection
+                                ? 'text-rose-600 dark:text-rose-400 font-semibold'
+                                : 'text-[var(--text-secondary)]'
+                            }`}
+                          >
+                            {isExpiredSelection
+                              ? 'Selected date & time is in the past. Pick a future date & time or click Always.'
+                              : parsedUntil
+                              ? `Will show in Featured Products on Homepage for ${remainingLabel} (until ${formatFeaturedEndDateTime(
+                                  parsedUntil
+                                )}).`
+                              : 'No expiry set — this product will remain in Featured Products on Homepage until turned off.'}
+                          </p>
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {/* Live Publish Preview Bar */}
                     <div className="p-3.5 rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
@@ -3014,6 +3368,147 @@ export const AdminModal: React.FC = () => {
                     </button>
                   </section>
                 </form>
+
+                {/* Homepage Featured Products Serial Order (1, 2, 3, 4...) */}
+                {featuredOrderedProducts.length > 0 && (
+                  <div className="rounded-xl border border-accent/45 bg-[var(--bg-card)] p-3.5 sm:p-4 space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2">
+                          <ListOrdered className="w-4 h-4 text-accent-bright shrink-0" />
+                          <h3 className="font-display text-xs sm:text-sm font-bold text-[var(--text-main)]">
+                            Homepage Featured Products Order (Serial 1, 2, 3, 4...)
+                          </h3>
+                        </div>
+                        <p className="text-[11px] text-[var(--text-secondary)]">
+                          Choose which product appears at #1 (Top), #2, #3, #4... inside Featured Products on the Homepage.
+                        </p>
+                      </div>
+                      <span className="px-2.5 py-0.5 rounded-md bg-accent/15 border border-accent/45 text-[11px] font-bold font-mono-num text-accent dark:text-accent-bright">
+                        {featuredOrderedProducts.length}{' '}
+                        {featuredOrderedProducts.length === 1 ? 'featured' : 'featured'}
+                      </span>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      {featuredOrderedProducts.map((fProd, idx) => {
+                        const serial = idx + 1;
+                        const activeNow = isProductCurrentlyFeatured(fProd, adminNowMs);
+                        const hasExpiry =
+                          typeof fProd.featuredUntilMs === 'number' &&
+                          Number.isFinite(fProd.featuredUntilMs) &&
+                          fProd.featuredUntilMs > 0;
+
+                        const moveFeaturedToIndex = async (targetIdx: number) => {
+                          if (reorderingFeatured || targetIdx === idx) return;
+                          const nextList = featuredOrderedProducts.map((p) => p.id);
+                          const [movedId] = nextList.splice(idx, 1);
+                          nextList.splice(targetIdx, 0, movedId);
+                          setReorderingFeatured(true);
+                          try {
+                            await updateFeaturedProductsOrder(nextList);
+                          } finally {
+                            setReorderingFeatured(false);
+                          }
+                        };
+
+                        return (
+                          <div
+                            key={fProd.id}
+                            className={`rounded-xl border px-2.5 py-2 flex flex-wrap sm:flex-nowrap items-center justify-between gap-2 ${
+                              serial === 1
+                                ? 'border-accent/60 bg-accent/[0.08]'
+                                : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)]'
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0 flex-1">
+                              <span
+                                className={`px-2 py-1 rounded-lg border text-xs font-extrabold font-mono-num shrink-0 ${
+                                  serial === 1
+                                    ? 'border-accent bg-accent text-[var(--accent-cta-text)]'
+                                    : 'border-accent/45 bg-accent/15 text-accent dark:text-accent-bright'
+                                }`}
+                              >
+                                #{serial}
+                                {serial === 1 ? ' Top' : ''}
+                              </span>
+
+                              <div className="w-9 h-9 rounded-lg overflow-hidden bg-[#080506] border border-[var(--border-subtle)] shrink-0">
+                                <SafeImage
+                                  src={fProd.colors[0]?.image || fProd.images[0]}
+                                  alt={fProd.name}
+                                  className="w-full h-full object-cover"
+                                />
+                              </div>
+
+                              <div className="min-w-0">
+                                <p className="text-xs sm:text-sm font-bold text-[var(--text-main)] truncate">
+                                  {fProd.name}
+                                </p>
+                                <p className="text-[11px] text-[var(--text-muted)] truncate">
+                                  {activeNow
+                                    ? hasExpiry
+                                      ? `${formatFeaturedRemainingTime(
+                                          fProd.featuredUntilMs!,
+                                          adminNowMs
+                                        )} left`
+                                      : 'Always featured'
+                                    : 'Expired (not visible on Homepage)'}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-1.5 shrink-0">
+                              <select
+                                aria-label={`Set featured serial for ${fProd.name}`}
+                                disabled={reorderingFeatured}
+                                value={serial}
+                                onChange={(e) => {
+                                  const nextSerial = Number(e.target.value);
+                                  if (Number.isFinite(nextSerial) && nextSerial >= 1) {
+                                    void moveFeaturedToIndex(nextSerial - 1);
+                                  }
+                                }}
+                                className="min-h-[34px] px-2 py-1 rounded-lg bg-[var(--bg-input)] border border-accent/40 text-xs font-bold font-mono-num text-[var(--text-main)] focus:outline-none focus:border-accent disabled:opacity-50"
+                              >
+                                {featuredOrderedProducts.map((_, optIdx) => (
+                                  <option key={optIdx + 1} value={optIdx + 1}>
+                                    #{optIdx + 1}
+                                    {optIdx === 0 ? ' (Top)' : ''}
+                                  </option>
+                                ))}
+                              </select>
+
+                              <button
+                                type="button"
+                                disabled={reorderingFeatured || idx === 0}
+                                onClick={() => void moveFeaturedToIndex(idx - 1)}
+                                aria-label={`Move ${fProd.name} up in featured order`}
+                                title="Move Up"
+                                className="w-8 h-8 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-accent hover:text-[var(--text-main)] disabled:opacity-35 disabled:cursor-not-allowed inline-flex items-center justify-center transition-colors"
+                              >
+                                <ArrowUp className="w-3.5 h-3.5" />
+                              </button>
+                              <button
+                                type="button"
+                                disabled={
+                                  reorderingFeatured ||
+                                  idx === featuredOrderedProducts.length - 1
+                                }
+                                onClick={() => void moveFeaturedToIndex(idx + 1)}
+                                aria-label={`Move ${fProd.name} down in featured order`}
+                                title="Move Down"
+                                className="w-8 h-8 rounded-lg border border-[var(--border-subtle)] bg-[var(--bg-card)] text-[var(--text-secondary)] hover:border-accent hover:text-[var(--text-main)] disabled:opacity-35 disabled:cursor-not-allowed inline-flex items-center justify-center transition-colors"
+                              >
+                                <ArrowDown className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
 
                 {/* Manage Existing Catalogue Products */}
                 <div className="space-y-3">
@@ -3146,6 +3641,43 @@ export const AdminModal: React.FC = () => {
                                   <span className="px-2 py-0.5 rounded-md text-[10px] font-semibold bg-accent/10 border border-accent/30 text-accent-bright">
                                     {prod.categoryLabel}
                                   </span>
+                                  {prod.featured && (() => {
+                                    const activeNow = isProductCurrentlyFeatured(prod, adminNowMs);
+                                    const hasExpiry =
+                                      typeof prod.featuredUntilMs === 'number' &&
+                                      Number.isFinite(prod.featuredUntilMs) &&
+                                      prod.featuredUntilMs > 0;
+                                    return (
+                                      <span
+                                        title={
+                                          hasExpiry
+                                            ? `Featured until ${formatFeaturedEndDateTime(prod.featuredUntilMs!)}`
+                                            : 'Featured on Homepage (no expiry)'
+                                        }
+                                        className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-md text-[10px] font-bold border ${
+                                          activeNow
+                                            ? 'bg-violet-500/15 border-violet-500/45 text-violet-700 dark:text-violet-300'
+                                            : 'bg-amber-500/15 border-amber-500/45 text-amber-700 dark:text-amber-300'
+                                        }`}
+                                      >
+                                        <Clock className="w-2.5 h-2.5 shrink-0" />
+                                        <span>
+                                          {typeof prod.featuredOrder === 'number' &&
+                                          prod.featuredOrder >= 1
+                                            ? `#${prod.featuredOrder} · `
+                                            : ''}
+                                          {activeNow
+                                            ? hasExpiry
+                                              ? `Featured · ${formatFeaturedRemainingTime(
+                                                  prod.featuredUntilMs!,
+                                                  adminNowMs
+                                                )} left`
+                                              : 'Featured · Always'
+                                            : 'Featured Expired'}
+                                        </span>
+                                      </span>
+                                    );
+                                  })()}
                                   {isOutOfStock && (
                                     <span className="px-2 py-0.5 rounded-md text-[10px] font-bold bg-rose-500/15 border border-rose-500/45 text-rose-500">
                                       Out of Stock

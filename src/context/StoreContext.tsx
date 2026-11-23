@@ -13,6 +13,7 @@ import {
   setDoc,
   updateDoc,
   where,
+  writeBatch,
 } from 'firebase/firestore';
 import {
   CartItem,
@@ -32,6 +33,7 @@ import {
   getVariantInkColors,
   isOtherProduct,
   PRODUCTS,
+  sortFeaturedProducts,
 } from '../data/products';
 import {
   auth,
@@ -78,6 +80,8 @@ export interface NewProductInput {
   inkColors?: InkColorOption[];
   bodyMaterial?: string;
   featured?: boolean;
+  featuredUntilMs?: number;
+  featuredOrder?: number;
   images: string[];
   colors: NewProductColorInput[];
 }
@@ -145,6 +149,7 @@ interface StoreContextValue {
   ) => Promise<{ ok: boolean; error?: string; product?: Product }>;
   toggleProductOutOfStock: (productId: string) => Promise<void>;
   toggleProductColorStock: (productId: string, colorId: string) => Promise<void>;
+  updateFeaturedProductsOrder: (orderedProductIds: string[]) => Promise<void>;
   deleteAdminProduct: (productId: string) => Promise<void>;
 
   orders: TrackedOrder[];
@@ -374,6 +379,24 @@ function serializeProductForFirestore(
   };
 
   if (
+    product.featured &&
+    typeof product.featuredUntilMs === 'number' &&
+    Number.isFinite(product.featuredUntilMs) &&
+    product.featuredUntilMs > 0
+  ) {
+    payload.featuredUntilMs = Math.round(product.featuredUntilMs);
+  }
+
+  if (
+    product.featured &&
+    typeof product.featuredOrder === 'number' &&
+    Number.isFinite(product.featuredOrder) &&
+    product.featuredOrder >= 1
+  ) {
+    payload.featuredOrder = Math.min(10000, Math.round(product.featuredOrder));
+  }
+
+  if (
     typeof product.originalPriceBdt === 'number' &&
     Number.isFinite(product.originalPriceBdt) &&
     product.originalPriceBdt > product.priceBdt
@@ -599,6 +622,18 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             orderCount:
               typeof data.orderCount === 'number' && Number.isFinite(data.orderCount)
                 ? Math.max(0, Math.round(data.orderCount))
+                : undefined,
+            featuredUntilMs:
+              typeof data.featuredUntilMs === 'number' &&
+              Number.isFinite(data.featuredUntilMs) &&
+              data.featuredUntilMs > 0
+                ? Math.round(data.featuredUntilMs)
+                : undefined,
+            featuredOrder:
+              typeof data.featuredOrder === 'number' &&
+              Number.isFinite(data.featuredOrder) &&
+              data.featuredOrder >= 1
+                ? Math.min(10000, Math.round(data.featuredOrder))
                 : undefined,
             createdAtMs: extractTimestampMs(data.createdAt),
           };
@@ -1990,6 +2025,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       orderCount: 0,
       createdAtMs: Date.now(),
       featured: Boolean(input.featured),
+      featuredUntilMs:
+        input.featured &&
+        typeof input.featuredUntilMs === 'number' &&
+        Number.isFinite(input.featuredUntilMs) &&
+        input.featuredUntilMs > 0
+          ? Math.round(input.featuredUntilMs)
+          : undefined,
+      featuredOrder:
+        input.featured &&
+        typeof input.featuredOrder === 'number' &&
+        Number.isFinite(input.featuredOrder) &&
+        input.featuredOrder >= 1
+          ? Math.min(10000, Math.round(input.featuredOrder))
+          : undefined,
       isNew: true,
       inStock: !input.outOfStock && hasAnyColorInStock,
       stockCount: input.outOfStock ? 0 : totalColorStock,
@@ -2143,6 +2192,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           ? Math.round(input.originalPriceBdt)
           : undefined,
       featured: Boolean(input.featured),
+      featuredUntilMs:
+        input.featured &&
+        typeof input.featuredUntilMs === 'number' &&
+        Number.isFinite(input.featuredUntilMs) &&
+        input.featuredUntilMs > 0
+          ? Math.round(input.featuredUntilMs)
+          : undefined,
+      featuredOrder:
+        input.featured &&
+        typeof input.featuredOrder === 'number' &&
+        Number.isFinite(input.featuredOrder) &&
+        input.featuredOrder >= 1
+          ? Math.min(10000, Math.round(input.featuredOrder))
+          : undefined,
       inStock: nextInStock,
       stockCount: totalColorStock,
       images: mergedImages.length > 0 ? mergedImages : existing.images,
@@ -2363,6 +2426,45 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     );
   };
 
+  const updateFeaturedProductsOrder = async (orderedProductIds: string[]) => {
+    if (!isAdmin) return;
+    const cleanIds = Array.from(new Set(orderedProductIds.filter(Boolean)));
+    if (cleanIds.length === 0) return;
+
+    if (isFirebaseAdmin) {
+      try {
+        await ensureCatalogSeeded();
+        const batch = writeBatch(db);
+        let writeCount = 0;
+        cleanIds.forEach((pid, idx) => {
+          const prod = products.find((p) => p.id === pid);
+          const nextSerial = idx + 1;
+          if (prod && prod.featuredOrder === nextSerial) return;
+          batch.update(doc(db, 'products', pid), {
+            featuredOrder: nextSerial,
+            updatedAt: serverTimestamp(),
+          });
+          writeCount += 1;
+        });
+        if (writeCount > 0) {
+          await batch.commit();
+          showToast('Featured product serial order updated');
+        }
+      } catch (err) {
+        showToast(formatLiveSyncError(err));
+      }
+      return;
+    }
+
+    cleanIds.forEach((pid, idx) => {
+      const prod = products.find((p) => p.id === pid);
+      if (!prod) return;
+      persistLocalProductFallback({ ...prod, featuredOrder: idx + 1 });
+    });
+    setCatalogDraftAt(new Date().toISOString());
+    showToast('Featured product serial order updated (local)');
+  };
+
   const deleteAdminProduct = async (productId: string) => {
     if (!isAdmin) return;
 
@@ -2548,6 +2650,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         updateAdminProduct,
         toggleProductOutOfStock,
         toggleProductColorStock,
+        updateFeaturedProductsOrder,
         deleteAdminProduct,
         orders,
         adminOrders,

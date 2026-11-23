@@ -238,3 +238,60 @@ export function getProductTotalAvailableCount(product: Product): number {
     0
   );
 }
+
+export function isProductCurrentlyFeatured(
+  product: Pick<Product, 'featured' | 'featuredUntilMs'>,
+  nowMs: number = Date.now()
+): boolean {
+  if (!product.featured) return false;
+  if (
+    typeof product.featuredUntilMs === 'number' &&
+    Number.isFinite(product.featuredUntilMs) &&
+    product.featuredUntilMs > 0
+  ) {
+    return nowMs < product.featuredUntilMs;
+  }
+  return true;
+}
+
+export function formatFeaturedRemainingTime(
+  featuredUntilMs: number,
+  nowMs: number = Date.now()
+): string {
+  const diffMs = featuredUntilMs - nowMs;
+  if (!Number.isFinite(diffMs) || diffMs <= 0) {
+    return 'Expired';
+  }
+  const totalSeconds = Math.floor(diffMs / 1000);
+  const days = Math.floor(totalSeconds / 86400);
+  const hours = Math.floor((totalSeconds % 86400) / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+
+  if (days > 0) {
+    return hours > 0 ? `${days}d ${hours}h` : `${days}d ${minutes}m`;
+  }
+  if (hours > 0) {
+    return minutes > 0 ? `${hours}h ${minutes}m` : `${hours}h`;
+  }
+  if (minutes > 0) {
+    return `${minutes}m ${seconds}s`;
+  }
+  return `${Math.max(1, seconds)}s`;
+}
+
+export function sortFeaturedProducts<T extends Pick<Product, 'featuredOrder'>>(
+  list: T[]
+): T[] {
+  return [...list].sort((a, b) => {
+    const aOrder =
+      typeof a.featuredOrder === 'number' && Number.isFinite(a.featuredOrder) && a.featuredOrder >= 1
+        ? Math.round(a.featuredOrder)
+        : Number.MAX_SAFE_INTEGER;
+    const bOrder =
+      typeof b.featuredOrder === 'number' && Number.isFinite(b.featuredOrder) && b.featuredOrder >= 1
+        ? Math.round(b.featuredOrder)
+        : Number.MAX_SAFE_INTEGER;
+    return aOrder - bOrder;
+  });
+}
