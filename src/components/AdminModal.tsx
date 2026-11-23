@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertTriangle,
   Check,
@@ -227,6 +227,13 @@ export const AdminModal: React.FC = () => {
   const [stageFilter, setStageFilter] = useState<number | 'all'>('all');
   const [confirmDeleteOrderId, setConfirmDeleteOrderId] = useState<string | null>(null);
   const [deletingOrderId, setDeletingOrderId] = useState<string | null>(null);
+  const [expandedOrderIds, setExpandedOrderIds] = useState<Record<string, boolean>>({});
+  const [isOrdersHeaderCollapsed, setIsOrdersHeaderCollapsed] = useState(false);
+
+  const ordersScrollRef = useRef<HTMLDivElement | null>(null);
+  const lastOrdersScrollTopRef = useRef(0);
+  const touchStartYRef = useRef<number | null>(null);
+  const autoScrollLockUntilRef = useRef(0);
 
   // Set Category + Manage/Add/Edit Product form state
   const productsTabScrollRef = useRef<HTMLDivElement | null>(null);
@@ -313,6 +320,150 @@ export const AdminModal: React.FC = () => {
       ),
     [filteredOrders, products]
   );
+
+  // Reset scroll-expand state cleanly whenever opening Order Management
+  useEffect(() => {
+    if (isAdminModalOpen && activeTab === 'orders') {
+      setIsOrdersHeaderCollapsed(false);
+      setExpandedOrderIds({});
+      lastOrdersScrollTopRef.current = 0;
+      if (ordersScrollRef.current) {
+        ordersScrollRef.current.scrollTop = 0;
+      }
+    }
+  }, [isAdminModalOpen, activeTab]);
+
+  const applyScrollExpand = useCallback(() => {
+    const container = ordersScrollRef.current;
+    if (!container) return;
+
+    setIsOrdersHeaderCollapsed(true);
+
+    const containerRect = container.getBoundingClientRect();
+    const cards = container.querySelectorAll<HTMLElement>('[data-order-card-id]');
+    const isScrollable = container.scrollHeight > container.clientHeight + 10;
+
+    setExpandedOrderIds((prev) => {
+      const next = { ...prev };
+      let changed = false;
+
+      cards.forEach((card) => {
+        const orderId = card.dataset.orderCardId;
+        if (!orderId) return;
+        const rect = card.getBoundingClientRect();
+        const inReadingZone =
+          !isScrollable ||
+          (rect.bottom > containerRect.top + 8 &&
+            rect.top < containerRect.bottom - 24);
+        if (inReadingZone && !next[orderId]) {
+          next[orderId] = true;
+          changed = true;
+        }
+      });
+
+      return changed ? next : prev;
+    });
+  }, []);
+
+  const applyScrollContract = useCallback((atTop: boolean) => {
+    if (atTop) {
+      setIsOrdersHeaderCollapsed(false);
+    }
+
+    setExpandedOrderIds((prev) => {
+      if (Object.keys(prev).length === 0) return prev;
+      return {};
+    });
+  }, []);
+
+  const triggerOrderScrollDirection = useCallback(
+    (direction: 'down' | 'up', force = false) => {
+      const now = performance.now();
+      if (!force && now < autoScrollLockUntilRef.current) return;
+      autoScrollLockUntilRef.current = now + 340;
+
+      const container = ordersScrollRef.current;
+      if (direction === 'down') {
+        applyScrollExpand();
+      } else {
+        const nearTop = !container || container.scrollTop <= 28;
+        applyScrollContract(nearTop);
+      }
+
+      window.requestAnimationFrame(() => {
+        if (ordersScrollRef.current) {
+          lastOrdersScrollTopRef.current = ordersScrollRef.current.scrollTop;
+        }
+      });
+    },
+    [applyScrollContract, applyScrollExpand]
+  );
+
+  const handleOrdersScroll = useCallback(() => {
+    const container = ordersScrollRef.current;
+    if (!container) return;
+
+    const currentTop = container.scrollTop;
+    const prevTop = lastOrdersScrollTopRef.current;
+    const delta = currentTop - prevTop;
+    lastOrdersScrollTopRef.current = currentTop;
+
+    if (performance.now() < autoScrollLockUntilRef.current) {
+      return;
+    }
+
+    if (delta > 10 && currentTop > 8) {
+      triggerOrderScrollDirection('down');
+    } else if (currentTop <= 6 && prevTop > 6) {
+      triggerOrderScrollDirection('up', true);
+    } else if (delta < -16) {
+      triggerOrderScrollDirection('up');
+    }
+  }, [triggerOrderScrollDirection]);
+
+  const handleOrdersWheel = useCallback(
+    (e: React.WheelEvent<HTMLDivElement>) => {
+      if (Math.abs(e.deltaY) < 12) return;
+      if (e.deltaY > 0) {
+        triggerOrderScrollDirection('down');
+      } else {
+        const container = ordersScrollRef.current;
+        if (!container || container.scrollTop <= 24 || e.deltaY < -28) {
+          triggerOrderScrollDirection('up');
+        }
+      }
+    },
+    [triggerOrderScrollDirection]
+  );
+
+  const handleOrdersTouchStart = useCallback((e: React.TouchEvent<HTMLDivElement>) => {
+    touchStartYRef.current = e.touches[0]?.clientY ?? null;
+  }, []);
+
+  const handleOrdersTouchMove = useCallback(
+    (e: React.TouchEvent<HTMLDivElement>) => {
+      if (touchStartYRef.current === null) return;
+      const currentY = e.touches[0]?.clientY;
+      if (typeof currentY !== 'number') return;
+      const fingerSwipeDelta = touchStartYRef.current - currentY;
+      if (Math.abs(fingerSwipeDelta) < 18) return;
+
+      if (fingerSwipeDelta > 0) {
+        triggerOrderScrollDirection('down');
+      } else {
+        triggerOrderScrollDirection('up');
+      }
+      touchStartYRef.current = currentY;
+    },
+    [triggerOrderScrollDirection]
+  );
+
+  const toggleSingleOrderExpanded = useCallback((orderId: string) => {
+    setExpandedOrderIds((prev) => ({
+      ...prev,
+      [orderId]: !prev[orderId],
+    }));
+  }, []);
 
   const lowStockCount = useMemo(
     () =>
@@ -1024,40 +1175,55 @@ export const AdminModal: React.FC = () => {
             </div>
 
             {activeTab === 'orders' ? (
-              <>
-                {/* Quick Summary Stats (Top of Search Order) */}
-                <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-2.5 shrink-0">
-                  <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 sm:px-3.5 sm:py-2.5">
-                    <p className="text-[11px] text-[var(--text-muted)]">Total Orders</p>
-                    <p className="font-display text-base sm:text-lg font-bold font-mono-num text-[var(--text-main)]">
-                      {counts.total}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 sm:px-3.5 sm:py-2.5">
-                    <p className="text-[11px] text-[var(--text-muted)]">Preparing Order</p>
-                    <p className="font-display text-base sm:text-lg font-bold font-mono-num text-amber-500">
-                      {counts.preparing}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 sm:px-3.5 sm:py-2.5">
-                    <p className="text-[11px] text-[var(--text-muted)]">Shipped</p>
-                    <p className="font-display text-base sm:text-lg font-bold font-mono-num text-accent-bright">
-                      {counts.shipped}
-                    </p>
-                  </div>
-                  <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 sm:px-3.5 sm:py-2.5">
-                    <p className="text-[11px] text-[var(--text-muted)]">Delivered</p>
-                    <p className="font-display text-base sm:text-lg font-bold font-mono-num text-emerald-500">
-                      {counts.delivered}
-                    </p>
-                  </div>
-                  <div className="col-span-2 sm:col-span-1 rounded-xl border border-accent/55 bg-accent/15 px-3 py-2 sm:px-3.5 sm:py-2.5 shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)] flex sm:block items-center justify-between gap-2">
-                    <p className="text-[11px] font-semibold text-accent dark:text-accent-bright">
-                      All Orders Subtotal
-                    </p>
-                    <p className="font-display text-base sm:text-lg font-extrabold font-mono-num text-[var(--text-main)]">
-                      ৳{allOrdersSubtotal.toLocaleString('en-US')}
-                    </p>
+              <div
+                onWheel={handleOrdersWheel}
+                onTouchStart={handleOrdersTouchStart}
+                onTouchMove={handleOrdersTouchMove}
+                className="flex-1 min-h-0 flex flex-col space-y-3 sm:space-y-3.5"
+              >
+                {/* Quick Summary Stats (Smoothly Contracts/Expands on Scroll) */}
+                <div
+                  className={`grid transition-[grid-template-rows,opacity,transform,margin] duration-[360ms] ease-[cubic-bezier(0.22,1,0.36,1)] shrink-0 ${
+                    isOrdersHeaderCollapsed
+                      ? 'grid-rows-[0fr] opacity-0 -translate-y-1.5 pointer-events-none !mt-0'
+                      : 'grid-rows-[1fr] opacity-100 translate-y-0'
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 sm:gap-2.5 pb-0.5">
+                      <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 sm:px-3.5 sm:py-2.5">
+                        <p className="text-[11px] text-[var(--text-muted)]">Total Orders</p>
+                        <p className="font-display text-base sm:text-lg font-bold font-mono-num text-[var(--text-main)]">
+                          {counts.total}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 sm:px-3.5 sm:py-2.5">
+                        <p className="text-[11px] text-[var(--text-muted)]">Preparing Order</p>
+                        <p className="font-display text-base sm:text-lg font-bold font-mono-num text-amber-500">
+                          {counts.preparing}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 sm:px-3.5 sm:py-2.5">
+                        <p className="text-[11px] text-[var(--text-muted)]">Shipped</p>
+                        <p className="font-display text-base sm:text-lg font-bold font-mono-num text-accent-bright">
+                          {counts.shipped}
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] px-3 py-2 sm:px-3.5 sm:py-2.5">
+                        <p className="text-[11px] text-[var(--text-muted)]">Delivered</p>
+                        <p className="font-display text-base sm:text-lg font-bold font-mono-num text-emerald-500">
+                          {counts.delivered}
+                        </p>
+                      </div>
+                      <div className="col-span-2 sm:col-span-1 rounded-xl border border-accent/55 bg-accent/15 px-3 py-2 sm:px-3.5 sm:py-2.5 shadow-[0_0_12px_rgba(var(--accent-rgb),0.22)] flex sm:block items-center justify-between gap-2">
+                        <p className="text-[11px] font-semibold text-accent dark:text-accent-bright">
+                          All Orders Subtotal
+                        </p>
+                        <p className="font-display text-base sm:text-lg font-extrabold font-mono-num text-[var(--text-main)]">
+                          ৳{allOrdersSubtotal.toLocaleString('en-US')}
+                        </p>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -1110,7 +1276,7 @@ export const AdminModal: React.FC = () => {
                       ? `All Orders Subtotal (${filteredOrders.length} ${filteredOrders.length === 1 ? 'order' : 'orders'})`
                       : `Matching Orders Subtotal (${filteredOrders.length} of ${adminOrders.length} orders)`}
                   </span>
-                  <div className="flex flex-wrap items-center gap-3">
+                  <div className="flex flex-wrap items-center gap-2 sm:gap-3">
                     {filteredOrders.length !== adminOrders.length && (
                       <span className="text-[11px] text-[var(--text-secondary)] font-mono-num">
                         All Orders: ৳{allOrdersSubtotal.toLocaleString('en-US')}
@@ -1122,8 +1288,13 @@ export const AdminModal: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Order List */}
-                <div className="flex-1 overflow-y-auto overflow-x-hidden space-y-3 pr-1">
+                {/* Order List (Scroll-driven auto-expand & auto-contract) */}
+                <div
+                  ref={ordersScrollRef}
+                  onScroll={handleOrdersScroll}
+                  style={{ overflowAnchor: 'none' }}
+                  className="flex-1 overflow-y-auto overflow-x-hidden space-y-2.5 sm:space-y-3 pr-1 overscroll-contain"
+                >
                   {filteredOrders.length === 0 ? (
                     <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-8 text-center text-sm text-[var(--text-secondary)]">
                       {!isFirebaseAdmin
@@ -1135,20 +1306,40 @@ export const AdminModal: React.FC = () => {
                       const stageLabel = getStageLabel(order.currentStageIndex);
                       const isDelivered = order.currentStageIndex === 4;
                       const confirmingDelete = confirmDeleteOrderId === order.orderId;
+                      const isOrderExpanded = Boolean(expandedOrderIds[order.orderId]);
                       const {
                         parsedItems,
                         itemBreakdowns,
                         calculatedSubtotal,
                         totalUnitsCount,
                       } = computeOrderFinancials(order, products);
+                      const unitCountDisplay = totalUnitsCount || parsedItems.length;
 
                       return (
                         <div
                           key={order.orderId}
-                          className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 space-y-3"
+                          data-order-card-id={order.orderId}
+                          className={`rounded-xl border bg-[var(--bg-card)] p-3.5 sm:p-4 transition-[border-color,box-shadow,background-color] duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                            isOrderExpanded
+                              ? 'border-accent/55 shadow-[0_12px_28px_-14px_rgba(var(--accent-rgb),0.32)]'
+                              : 'border-[var(--border-subtle)] hover:border-accent/45'
+                          }`}
                         >
-                          <div className="flex flex-wrap items-start justify-between gap-2">
-                            <div className="space-y-1 min-w-0">
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            aria-expanded={isOrderExpanded}
+                            aria-label={`${isOrderExpanded ? 'Contract' : 'Expand'} order ${order.orderId}`}
+                            onClick={() => toggleSingleOrderExpanded(order.orderId)}
+                            onKeyDown={(e) => {
+                              if (e.key === 'Enter' || e.key === ' ') {
+                                e.preventDefault();
+                                toggleSingleOrderExpanded(order.orderId);
+                              }
+                            }}
+                            className="flex flex-wrap items-start justify-between gap-2 cursor-pointer select-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent rounded-lg"
+                          >
+                            <div className="space-y-1 min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="font-display text-base font-bold font-mono-num text-[var(--text-main)]">
                                   {order.orderId}
@@ -1169,18 +1360,31 @@ export const AdminModal: React.FC = () => {
                               <p className="text-sm font-semibold text-[var(--text-main)]">
                                 {order.customerName}
                               </p>
-                              {order.userEmail && (
+                              {order.userEmail && isOrderExpanded && (
                                 <p className="text-xs text-[var(--text-muted)] break-all">
                                   {order.userEmail}
                                 </p>
                               )}
+                              {!isOrderExpanded && (
+                                <p className="text-[11px] sm:text-xs text-[var(--text-secondary)] truncate">
+                                  <span className="font-mono-num">{order.phone}</span> · {order.address}
+                                  {unitCountDisplay > 0
+                                    ? ` · ${unitCountDisplay} ${unitCountDisplay === 1 ? 'item' : 'items'}`
+                                    : ''}
+                                </p>
+                              )}
                             </div>
 
-                            <div className="flex items-center gap-3 shrink-0">
+                            <div
+                              className="flex items-center gap-2.5 sm:gap-3 shrink-0"
+                              onClick={(e) => e.stopPropagation()}
+                            >
                               <div className="text-right">
-                                <p className="text-[11px] text-[var(--text-muted)] font-mono-num">
-                                  Subtotal: ৳{calculatedSubtotal.toLocaleString('en-US')}
-                                </p>
+                                {isOrderExpanded && (
+                                  <p className="text-[11px] text-[var(--text-muted)] font-mono-num">
+                                    Subtotal: ৳{calculatedSubtotal.toLocaleString('en-US')}
+                                  </p>
+                                )}
                                 <p className="text-sm sm:text-base font-bold font-mono-num text-accent dark:text-accent-bright">
                                   ৳{order.totalBdt.toLocaleString('en-US')}
                                 </p>
@@ -1230,14 +1434,46 @@ export const AdminModal: React.FC = () => {
                                     title="Delete Order & Restore Stock"
                                   >
                                     <Trash2 className="w-3.5 h-3.5" />
-                                    <span>Delete</span>
+                                    <span className="hidden sm:inline">Delete</span>
                                   </button>
                                 )}
+
+                              <button
+                                type="button"
+                                onClick={() => toggleSingleOrderExpanded(order.orderId)}
+                                aria-expanded={isOrderExpanded}
+                                aria-label={
+                                  isOrderExpanded
+                                    ? `Contract order ${order.orderId}`
+                                    : `Expand order ${order.orderId}`
+                                }
+                                className={`w-9 h-9 rounded-lg border inline-flex items-center justify-center transition-colors ${
+                                  isOrderExpanded
+                                    ? 'border-accent bg-accent/15 text-accent-bright'
+                                    : 'border-[var(--border-subtle)] bg-[var(--bg-secondary)] text-[var(--text-secondary)] hover:border-accent hover:text-[var(--text-main)]'
+                                }`}
+                              >
+                                <ChevronDown
+                                  className={`w-4 h-4 transition-transform duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                                    isOrderExpanded ? 'rotate-180' : 'rotate-0'
+                                  }`}
+                                />
+                              </button>
                             </div>
                           </div>
 
-                          {/* Bold & Highlighted Phone Number and Location */}
-                          <div className="flex flex-wrap items-center gap-2">
+                          {/* Smooth Expand / Contract Order Body */}
+                          <div
+                            className={`grid transition-[grid-template-rows,opacity] duration-[360ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${
+                              isOrderExpanded
+                                ? 'grid-rows-[1fr] opacity-100'
+                                : 'grid-rows-[0fr] opacity-0 pointer-events-none'
+                            }`}
+                          >
+                            <div className="overflow-hidden">
+                              <div className="pt-3 mt-3 border-t border-[var(--border-subtle)]/70 space-y-3">
+                                {/* Bold & Highlighted Phone Number and Location */}
+                                <div className="flex flex-wrap items-center gap-2">
                             <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-rose-500/60 bg-rose-500/15 text-rose-700 dark:text-rose-400">
                               <Phone className="w-3.5 h-3.5 shrink-0" />
                               <span className="text-xs sm:text-sm font-bold font-mono-num tracking-wide">
@@ -1411,12 +1647,15 @@ export const AdminModal: React.FC = () => {
                               })}
                             </div>
                           </div>
+                              </div>
+                            </div>
+                          </div>
                         </div>
                       );
                     })
                   )}
                 </div>
-              </>
+              </div>
             ) : (
               /* Set Category & Manage Products Tab */
               <div
