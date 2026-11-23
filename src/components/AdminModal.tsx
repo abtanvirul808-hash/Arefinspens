@@ -1547,18 +1547,75 @@ export const AdminModal: React.FC = () => {
                                         key={item.key}
                                         className="rounded-xl border border-accent/40 bg-[var(--bg-secondary)] p-2.5 flex items-start sm:items-center gap-2.5 sm:gap-3 shadow-[0_4px_14px_-6px_rgba(var(--accent-rgb),0.25)]"
                                       >
-                                        {/* Highlighted Product Image */}
-                                        <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl overflow-hidden border-2 border-accent/70 bg-[#080506] shadow-[0_0_14px_rgba(var(--accent-rgb),0.3)] shrink-0 flex items-center justify-center">
-                                          {item.image ? (
+                                        {/* Highlighted Product Image (click to expand full-screen) */}
+                                        {item.image ? (
+                                          <button
+                                            type="button"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              const imageBreakdowns = itemBreakdowns.filter(
+                                                (bd) => Boolean(bd.item.image)
+                                              );
+                                              const orderSlides: LightboxSlide[] = [];
+                                              let clickedSlideIndex = 0;
+                                              imageBreakdowns.forEach((bd) => {
+                                                if (!bd.item.image) return;
+                                                if (bd.item.key === item.key) {
+                                                  clickedSlideIndex = orderSlides.length;
+                                                }
+                                                const bdOther = Boolean(
+                                                  bd.matchedProd && isOtherProduct(bd.matchedProd)
+                                                );
+                                                const details = [
+                                                  bd.item.bodyColorName
+                                                    ? `${bdOther ? 'Colour' : 'Body'}: ${bd.item.bodyColorName}`
+                                                    : null,
+                                                  !bdOther && bd.item.inkColorName
+                                                    ? `Ink: ${bd.item.inkColorName}`
+                                                    : null,
+                                                  `Qty × ${bd.item.quantity}`,
+                                                ]
+                                                  .filter(Boolean)
+                                                  .join(' · ');
+                                                orderSlides.push({
+                                                  src: bd.item.image,
+                                                  label:
+                                                    imageBreakdowns.length > 1
+                                                      ? `${bd.item.name}${details ? ` (${details})` : ''}`
+                                                      : details || undefined,
+                                                  colorHex: bd.item.bodyColorHex,
+                                                });
+                                              });
+                                              if (orderSlides.length === 0) return;
+                                              setLightboxState({
+                                                title:
+                                                  orderSlides.length > 1
+                                                    ? `Order #${order.orderId} — Ordered Items`
+                                                    : item.name,
+                                                slides: orderSlides,
+                                                initialIndex: clickedSlideIndex,
+                                              });
+                                            }}
+                                            title="Click to expand image"
+                                            aria-label={`Expand ${item.name} photo`}
+                                            className="group relative w-12 h-12 sm:w-16 sm:h-16 rounded-xl overflow-hidden border-2 border-accent/70 hover:border-accent-bright bg-[#080506] shadow-[0_0_14px_rgba(var(--accent-rgb),0.3)] shrink-0 flex items-center justify-center cursor-pointer transition-colors"
+                                          >
                                             <SafeImage
                                               src={item.image}
                                               alt={`${item.name}${item.bodyColorName ? ` — ${item.bodyColorName}` : ''}`}
-                                              className="w-full h-full object-cover"
+                                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
                                             />
-                                          ) : (
+                                            <span className="pointer-events-none absolute inset-0 flex items-center justify-center bg-black/45 opacity-0 group-hover:opacity-100 group-focus-visible:opacity-100 group-active:opacity-100 transition-opacity duration-200 ease-out">
+                                              <span className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-black/75 border border-white/30 text-white flex items-center justify-center shadow-md translate-y-2 scale-90 group-hover:translate-y-0 group-hover:scale-100 group-focus-visible:translate-y-0 group-focus-visible:scale-100 group-active:translate-y-0 group-active:scale-100 transition-all duration-200 ease-out">
+                                                <Maximize2 className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                                              </span>
+                                            </span>
+                                          </button>
+                                        ) : (
+                                          <div className="w-12 h-12 sm:w-16 sm:h-16 rounded-xl overflow-hidden border-2 border-accent/70 bg-[#080506] shadow-[0_0_14px_rgba(var(--accent-rgb),0.3)] shrink-0 flex items-center justify-center">
                                             <Package className="w-6 h-6 text-accent-bright" />
-                                          )}
-                                        </div>
+                                          </div>
+                                        )}
 
                                         {/* Highlighted Item Name, Ink Colour, Body Colour & Price Breakdown */}
                                         <div className="flex-1 min-w-0 space-y-1.5">
