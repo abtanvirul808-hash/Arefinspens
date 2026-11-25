@@ -140,7 +140,13 @@ export const CataloguePage: React.FC = () => {
     sorted.sort((a, b) => {
       if (sortBy === 'price-asc') return a.priceBdt - b.priceBdt;
       if (sortBy === 'price-desc') return b.priceBdt - a.priceBdt;
-      if (sortBy === 'rating') return b.rating - a.rating;
+      if (sortBy === 'rating') {
+        const ratingDiff = (b.rating || 0) - (a.rating || 0);
+        if (ratingDiff !== 0) return ratingDiff;
+        const reviewDiff = (b.reviewCount || 0) - (a.reviewCount || 0);
+        if (reviewDiff !== 0) return reviewDiff;
+        return (b.orderCount ?? 0) - (a.orderCount ?? 0);
+      }
       if (sortBy === 'newest') {
         const timeDiff = (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0);
         if (timeDiff !== 0) return timeDiff;
@@ -148,13 +154,15 @@ export const CataloguePage: React.FC = () => {
         if (newDiff !== 0) return newDiff;
         return (b.orderCount ?? 0) - (a.orderCount ?? 0);
       }
-      // Popularity: sort by which pen is ordered most, then fallback popularityScore / rating / newest
+      // Popularity: sort by which pen has the most / highest customer rating, then rating count, orders, and newest
+      const ratingDiff = (b.rating || 0) - (a.rating || 0);
+      if (ratingDiff !== 0) return ratingDiff;
+      const reviewDiff = (b.reviewCount || 0) - (a.reviewCount || 0);
+      if (reviewDiff !== 0) return reviewDiff;
       const orderDiff = (b.orderCount ?? 0) - (a.orderCount ?? 0);
       if (orderDiff !== 0) return orderDiff;
       const popDiff = (b.popularityScore || 0) - (a.popularityScore || 0);
       if (popDiff !== 0) return popDiff;
-      const ratingDiff = (b.rating || 0) - (a.rating || 0);
-      if (ratingDiff !== 0) return ratingDiff;
       return (b.createdAtMs ?? 0) - (a.createdAtMs ?? 0);
     });
 
@@ -383,8 +391,8 @@ export const CataloguePage: React.FC = () => {
         <div className="grid grid-cols-3 gap-1.5">
           {[
             { label: 'All', val: 0 },
-            { label: '4.8+', val: 4.8 },
-            { label: '4.9+', val: 4.9 },
+            { label: '4.0+', val: 4.0 },
+            { label: '4.5+', val: 4.5 },
           ].map((opt) => (
             <button
               key={opt.label}

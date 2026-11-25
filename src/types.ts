@@ -69,6 +69,17 @@ export interface ProductReviewSample {
   comment: string;
 }
 
+export interface ProductRating {
+  id: string;
+  productId: string;
+  userId: string;
+  customerName: string;
+  rating: number;
+  comment?: string;
+  createdAtMs?: number;
+  updatedAtMs?: number;
+}
+
 export interface Product {
   id: string;
   slug: string;

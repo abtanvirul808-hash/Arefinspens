@@ -24,6 +24,7 @@ import {
   OrderLineItem,
   PageRoute,
   Product,
+  ProductRating,
   StorePreferences,
   TrackedOrder,
 } from '../types';
@@ -151,6 +152,14 @@ interface StoreContextValue {
   toggleProductColorStock: (productId: string, colorId: string) => Promise<void>;
   updateFeaturedProductsOrder: (orderedProductIds: string[]) => Promise<void>;
   deleteAdminProduct: (productId: string) => Promise<void>;
+
+  productRatings: ProductRating[];
+  submitProductRating: (
+    productId: string,
+    rating: number,
+    comment?: string
+  ) => Promise<{ ok: boolean; error?: string }>;
+  deleteProductRating: (ratingId: string) => Promise<{ ok: boolean; error?: string }>;
 
   orders: TrackedOrder[];
   adminOrders: TrackedOrder[];
@@ -360,7 +369,9 @@ function serializeProductForFirestore(
     shortDescription: product.shortDescription.trim().slice(0, 400),
     description: (product.description || product.shortDescription).trim().slice(0, 2000),
     priceBdt: Math.max(1, Number(product.priceBdt) || 1),
-    rating: Math.min(5, Math.max(0, Number(product.rating) || 4.9)),
+    rating: Number.isFinite(Number(product.rating))
+      ? Math.min(5, Math.max(0, Number(product.rating)))
+      : 0,
     reviewCount: Math.max(0, Math.round(Number(product.reviewCount) || 0)),
     popularityScore: Math.min(1000, Math.max(0, Math.round(Number(product.popularityScore) || 50))),
     orderCount: Math.max(0, Math.round(Number(product.orderCount) || 0)),
@@ -519,6 +530,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [cloudAdminAllowed, setCloudAdminAllowed] = useState<boolean>(false);
 
   const [cloudProducts, setCloudProducts] = useState<Product[] | null>(null);
+  const [cloudRatings, setCloudRatings] = useState<ProductRating[]>([]);
   const [catalogSeeded, setCatalogSeeded] = useState<boolean>(false);
   const [cloudLastOrderNumber, setCloudLastOrderNumber] = useState<number>(0);
   const [cloudOrders, setCloudOrders] = useState<TrackedOrder[]>([]);
@@ -639,6 +651,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           };
         });
         list.sort((a, b) => {
+          const ratingDiff = (b.rating || 0) - (a.rating || 0);
+          if (ratingDiff !== 0) return ratingDiff;
+          const reviewDiff = (b.reviewCount || 0) - (a.reviewCount || 0);
+          if (reviewDiff !== 0) return reviewDiff;
           const orderDiff = (b.orderCount ?? 0) - (a.orderCount ?? 0);
           if (orderDiff !== 0) return orderDiff;
           const popDiff = (b.popularityScore || 0) - (a.popularityScore || 0);
@@ -656,10 +672,39 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     );
 
+    const unsubRatings = onSnapshot(
+      collection(db, 'productRatings'),
+      (snapshot) => {
+        const list: ProductRating[] = snapshot.docs.map((d) => {
+          const data = d.data() as Record<string, unknown>;
+          return {
+            id: typeof data.id === 'string' && data.id ? data.id : d.id,
+            productId: String(data.productId || ''),
+            userId: String(data.userId || ''),
+            customerName: String(data.customerName || 'Verified Customer'),
+            rating: Math.min(5, Math.max(1, Math.round(Number(data.rating) || 5))),
+            comment: typeof data.comment === 'string' && data.comment.trim() ? data.comment.trim() : undefined,
+            createdAtMs: extractTimestampMs(data.createdAt),
+            updatedAtMs: extractTimestampMs(data.updatedAt),
+          };
+        });
+        list.sort((a, b) => (b.updatedAtMs ?? b.createdAtMs ?? 0) - (a.updatedAtMs ?? a.createdAtMs ?? 0));
+        setCloudRatings(list);
+      },
+      (error) => {
+        try {
+          handleFirestoreError(error, OperationType.GET, 'productRatings');
+        } catch {
+          // Handled safely
+        }
+      }
+    );
+
     return () => {
       unsubMeta();
       unsubCounter();
       unsubProducts();
+      unsubRatings();
     };
   }, []);
 
@@ -1257,23 +1302,54 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   // so storefront products never disappear.
   const isCloudCatalogActive = Boolean(cloudProducts !== null && cloudProducts.length > 0);
 
+  const ratingsStatsByProduct = useMemo(() => {
+    const map = new Map<string, { sum: number; count: number }>();
+    for (const r of cloudRatings) {
+      if (!r.productId) continue;
+      const prev = map.get(r.productId) || { sum: 0, count: 0 };
+      map.set(r.productId, { sum: prev.sum + r.rating, count: prev.count + 1 });
+    }
+    return map;
+  }, [cloudRatings]);
+
   const products = useMemo(() => {
-    if (isCloudCatalogActive && cloudProducts !== null) {
-      return cloudProducts;
-    }
+    const rawList: Product[] = (() => {
+      if (isCloudCatalogActive && cloudProducts !== null) {
+        return cloudProducts;
+      }
 
-    const baseProducts = liveCatalog?.products?.length ? liveCatalog.products : PRODUCTS;
-    const deletedSet = new Set(deletedProductIds);
-    const seen = new Set<string>();
-    const merged: Product[] = [];
+      const baseProducts = liveCatalog?.products?.length ? liveCatalog.products : PRODUCTS;
+      const deletedSet = new Set(deletedProductIds);
+      const seen = new Set<string>();
+      const merged: Product[] = [];
 
-    for (const item of [...customProducts, ...baseProducts]) {
-      if (deletedSet.has(item.id) || seen.has(item.id)) continue;
-      seen.add(item.id);
-      merged.push(productOverrides[item.id] || item);
-    }
+      for (const item of [...customProducts, ...baseProducts]) {
+        if (deletedSet.has(item.id) || seen.has(item.id)) continue;
+        seen.add(item.id);
+        merged.push(productOverrides[item.id] || item);
+      }
 
-    return merged;
+      return merged;
+    })();
+
+    return rawList.map((item) => {
+      const liveStats = ratingsStatsByProduct.get(item.id);
+      if (liveStats && liveStats.count > 0) {
+        return {
+          ...item,
+          rating: Number((liveStats.sum / liveStats.count).toFixed(1)),
+          reviewCount: liveStats.count,
+        };
+      }
+      if (!Array.isArray(item.sampleReviews) || item.sampleReviews.length === 0) {
+        return {
+          ...item,
+          rating: 0,
+          reviewCount: 0,
+        };
+      }
+      return item;
+    });
   }, [
     isCloudCatalogActive,
     cloudProducts,
@@ -1281,6 +1357,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     customProducts,
     deletedProductIds,
     productOverrides,
+    ratingsStatsByProduct,
   ]);
 
   const hasUnpublishedProductChanges = Boolean(
@@ -2019,8 +2096,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         input.originalPriceBdt && input.originalPriceBdt > input.priceBdt
           ? Math.round(input.originalPriceBdt)
           : undefined,
-      rating: 4.9,
-      reviewCount: 1,
+      rating: 0,
+      reviewCount: 0,
       popularityScore: 95,
       orderCount: 0,
       createdAtMs: Date.now(),
@@ -2490,6 +2567,87 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     showToast('Product deleted locally');
   };
 
+  const submitProductRating = async (
+    productId: string,
+    rating: number,
+    comment?: string
+  ): Promise<{ ok: boolean; error?: string }> => {
+    if (!firebaseUser || !firebaseUser.emailVerified) {
+      return { ok: false, error: 'Please sign in with Google to rate this product.' };
+    }
+    const cleanRating = Math.min(5, Math.max(1, Math.round(Number(rating) || 0)));
+    if (!Number.isFinite(cleanRating) || cleanRating < 1 || cleanRating > 5) {
+      return { ok: false, error: 'Please select a star rating from 1 to 5.' };
+    }
+    const targetProduct = products.find((p) => p.id === productId);
+    if (!targetProduct) {
+      return { ok: false, error: 'Product could not be found.' };
+    }
+
+    const cleanName = (
+      firebaseUser.displayName ||
+      firebaseUser.email?.split('@')[0] ||
+      'Verified Customer'
+    )
+      .trim()
+      .slice(0, 80);
+    const cleanComment = (comment || '').trim().slice(0, 400);
+    const ratingId = `${productId}__${firebaseUser.uid}`;
+    const ratingRef = doc(db, 'productRatings', ratingId);
+
+    try {
+      const existingSnap = await getDoc(ratingRef);
+      if (existingSnap.exists()) {
+        await updateDoc(ratingRef, {
+          customerName: cleanName,
+          rating: cleanRating,
+          comment: cleanComment,
+          updatedAt: serverTimestamp(),
+        });
+        showToast(`Updated your ${cleanRating}★ rating for ${targetProduct.name}`);
+      } else {
+        const createPayload: Record<string, unknown> = {
+          id: ratingId,
+          productId,
+          userId: firebaseUser.uid,
+          customerName: cleanName,
+          rating: cleanRating,
+          createdAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        };
+        if (cleanComment) {
+          createPayload.comment = cleanComment;
+        }
+        await setDoc(ratingRef, createPayload);
+        showToast(`Submitted your ${cleanRating}★ rating for ${targetProduct.name}`);
+      }
+      return { ok: true };
+    } catch (err) {
+      const message = formatLiveSyncError(err, 'Could not save your rating right now.');
+      showToast(message);
+      return { ok: false, error: message };
+    }
+  };
+
+  const deleteProductRating = async (ratingId: string): Promise<{ ok: boolean; error?: string }> => {
+    if (!firebaseUser || !firebaseUser.emailVerified) {
+      return { ok: false, error: 'Please sign in with Google first.' };
+    }
+    const target = cloudRatings.find((r) => r.id === ratingId);
+    if (target && target.userId !== firebaseUser.uid && !isFirebaseAdmin) {
+      return { ok: false, error: 'You can only remove your own rating.' };
+    }
+    try {
+      await deleteDoc(doc(db, 'productRatings', ratingId));
+      showToast('Rating removed');
+      return { ok: true };
+    } catch (err) {
+      const message = formatLiveSyncError(err, 'Could not remove rating right now.');
+      showToast(message);
+      return { ok: false, error: message };
+    }
+  };
+
   const loginCustomerWithGoogle = async (phone?: string) => {
     try {
       const cred = await signInWithPopup(auth, googleProvider);
@@ -2652,6 +2810,9 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         toggleProductColorStock,
         updateFeaturedProductsOrder,
         deleteAdminProduct,
+        productRatings: cloudRatings,
+        submitProductRating,
+        deleteProductRating,
         orders,
         adminOrders,
         nextOrderId,

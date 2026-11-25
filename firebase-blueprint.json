@@ -139,12 +139,40 @@
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["updatedAt"]
+    },
+    "ProductRating": {
+      "title": "ProductRating",
+      "description": "Authenticated customer star rating (1-5) and optional public review comment for a storefront product, storing no PII.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "productId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "userId": { "type": "string", "minLength": 1, "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "customerName": { "type": "string", "minLength": 1, "maxLength": 80 },
+        "rating": { "type": "integer", "minimum": 1, "maximum": 5 },
+        "comment": { "type": "string", "maxLength": 400 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "productId",
+        "userId",
+        "customerName",
+        "rating",
+        "createdAt",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
     "/products/{productId}": {
       "schema": { "$ref": "#/entities/Product" },
       "description": "Live storefront product catalogue readable by all visitors and managed by admins."
+    },
+    "/productRatings/{ratingId}": {
+      "schema": { "$ref": "#/entities/ProductRating" },
+      "description": "Publicly readable customer star ratings & optional reviews; verified signed-in customers may create, update, or delete only their own composite-keyed rating ({productId}__{uid})."
     },
     "/orders/{orderId}": {
       "schema": { "$ref": "#/entities/Order" },

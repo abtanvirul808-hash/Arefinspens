@@ -153,8 +153,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, featuredTimeL
           <div className="flex items-center justify-between gap-2 text-xs text-[var(--text-muted)]">
             <span className="truncate">{product.categoryLabel}</span>
             <span className="inline-flex items-center gap-1 shrink-0 text-[var(--text-secondary)] font-mono-num">
-              <Star className="w-3.5 h-3.5 text-accent-bright fill-accent-bright" />
-              <span>{product.rating.toFixed(1)}</span>
+              <Star
+                className={`w-3.5 h-3.5 ${
+                  product.reviewCount > 0 && product.rating > 0
+                    ? 'text-accent-bright fill-accent-bright'
+                    : 'text-[var(--text-muted)]'
+                }`}
+              />
+              {product.reviewCount > 0 && product.rating > 0 ? (
+                <>
+                  <span>{product.rating.toFixed(1)}</span>
+                  <span className="text-[11px] text-[var(--text-muted)]">
+                    ({product.reviewCount})
+                  </span>
+                </>
+              ) : (
+                <span className="text-[11px] text-[var(--text-muted)]">No ratings</span>
+              )}
             </span>
           </div>
 

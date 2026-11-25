@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   ArrowLeft,
   Check,
@@ -10,6 +10,7 @@ import {
   ShieldCheck,
   ShoppingBag,
   Star,
+  Trash2,
   Truck,
   XCircle,
 } from 'lucide-react';
@@ -35,6 +36,13 @@ export const ProductDetailsPage: React.FC = () => {
     toggleWishlist,
     isWishlisted,
     products,
+    productRatings,
+    submitProductRating,
+    deleteProductRating,
+    demoUser,
+    isCustomerSignedIn,
+    isFirebaseAdmin,
+    loginCustomerWithGoogle,
   } = useStore();
 
   const product =
@@ -54,6 +62,25 @@ export const ProductDetailsPage: React.FC = () => {
   const [imageFading, setImageFading] = useState<boolean>(false);
   const [isLightboxOpen, setIsLightboxOpen] = useState<boolean>(false);
 
+  const liveProductReviews = product
+    ? productRatings.filter((r) => r.productId === product.id)
+    : [];
+  const myExistingRating =
+    product && demoUser?.uid
+      ? liveProductReviews.find((r) => r.userId === demoUser.uid)
+      : undefined;
+
+  const [selectedStars, setSelectedStars] = useState<number>(
+    myExistingRating?.rating || 0
+  );
+  const [hoverStars, setHoverStars] = useState<number>(0);
+  const [reviewComment, setReviewComment] = useState<string>(
+    myExistingRating?.comment || ''
+  );
+  const [isSubmittingRating, setIsSubmittingRating] = useState<boolean>(false);
+  const [ratingError, setRatingError] = useState<string | null>(null);
+  const pendingAutoSubmitRef = useRef<boolean>(false);
+
   // Reset variant & gallery when navigating between products
   useEffect(() => {
     if (!product) return;
@@ -63,7 +90,32 @@ export const ProductDetailsPage: React.FC = () => {
     setSelectedInkId(inks[0]?.id || 'black');
     setActiveImage(defaultColor?.image || product.images[0] || '');
     setQuantity(1);
-  }, [product]);
+    setRatingError(null);
+  }, [product?.id]);
+
+  // Sync customer's saved rating when signing in or switching products
+  useEffect(() => {
+    if (pendingAutoSubmitRef.current) return;
+    setSelectedStars(myExistingRating?.rating || 0);
+    setReviewComment(myExistingRating?.comment || '');
+    setHoverStars(0);
+    setRatingError(null);
+  }, [product?.id, myExistingRating?.id, myExistingRating?.rating, myExistingRating?.comment]);
+
+  // Auto-submit pending rating right after customer completes Google sign-in
+  useEffect(() => {
+    if (!isCustomerSignedIn || !pendingAutoSubmitRef.current || !product) return;
+    pendingAutoSubmitRef.current = false;
+    if (selectedStars < 1) return;
+    setIsSubmittingRating(true);
+    void submitProductRating(product.id, selectedStars, reviewComment).then((res) => {
+      setIsSubmittingRating(false);
+      if (!res.ok && res.error) {
+        setRatingError(res.error);
+      }
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isCustomerSignedIn, product?.id]);
 
   if (!product) {
     return (
@@ -244,11 +296,37 @@ export const ProductDetailsPage: React.FC = () => {
                 {product.categoryLabel}
               </span>
               <span aria-hidden="true">·</span>
-              <span className="inline-flex items-center gap-1 font-mono-num">
-                <Star className="w-3.5 h-3.5 text-accent-bright fill-accent-bright" />
-                <span>{product.rating.toFixed(1)}</span>
-                <span className="text-[var(--text-muted)]">({product.reviewCount} sample reviews)</span>
-              </span>
+              <button
+                type="button"
+                onClick={() => {
+                  const el = document.getElementById('customer-ratings-section');
+                  if (el) el.scrollIntoView({ behavior: 'smooth' });
+                }}
+                className="inline-flex items-center gap-1.5 font-mono-num hover:text-accent dark:hover:text-accent-bright transition-colors"
+              >
+                <Star
+                  className={`w-3.5 h-3.5 ${
+                    product.reviewCount > 0 && product.rating > 0
+                      ? 'text-accent-bright fill-accent-bright'
+                      : 'text-[var(--text-muted)]'
+                  }`}
+                />
+                {product.reviewCount > 0 && product.rating > 0 ? (
+                  <>
+                    <span className="font-semibold text-[var(--text-main)]">
+                      {product.rating.toFixed(1)}
+                    </span>
+                    <span className="text-[var(--text-muted)]">
+                      ({product.reviewCount} {product.reviewCount === 1 ? 'rating' : 'ratings'})
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-[var(--text-muted)]">No ratings yet</span>
+                )}
+                <span className="text-accent dark:text-accent-bright font-sans font-semibold underline-offset-2 hover:underline">
+                  · Rate {otherItem ? 'product' : 'pen'}
+                </span>
+              </button>
             </div>
 
             <h1 className="font-display text-2xl sm:text-3xl font-bold text-[var(--text-main)] leading-tight">
@@ -619,33 +697,261 @@ export const ProductDetailsPage: React.FC = () => {
           </dl>
         </div>
 
-        <div className="lg:col-span-6 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 sm:p-6 space-y-4">
-          <div className="flex items-center justify-between">
-            <h2 className="font-display text-lg font-bold text-[var(--text-main)]">
-              Customer Reviews
-            </h2>
-            <span className="text-xs text-[var(--text-muted)]">Sample demonstration reviews</span>
-          </div>
-          <div className="space-y-4">
-            {product.sampleReviews.map((rev) => (
-              <div
-                key={rev.id}
-                className="p-4 rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-secondary)] space-y-2"
-              >
-                <div className="flex items-center justify-between text-xs">
-                  <span className="font-semibold text-[var(--text-main)]">
-                    {rev.author} · {rev.city}
+        <div
+          id="customer-ratings-section"
+          className="lg:col-span-6 rounded-2xl border border-[var(--border-subtle)] bg-[var(--bg-card)] p-4 sm:p-6 space-y-5"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h2 className="font-display text-lg font-bold text-[var(--text-main)]">
+                Customer Ratings &amp; Reviews
+              </h2>
+              <p className="text-xs text-[var(--text-muted)]">
+                Ratings directly power Popularity sorting in the catalogue
+              </p>
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-accent/40 bg-accent/10 font-mono-num text-xs">
+              <Star
+                className={`w-4 h-4 ${
+                  product.reviewCount > 0 && product.rating > 0
+                    ? 'text-accent-bright fill-accent-bright'
+                    : 'text-[var(--text-muted)]'
+                }`}
+              />
+              {product.reviewCount > 0 && product.rating > 0 ? (
+                <>
+                  <span className="font-bold text-[var(--text-main)]">
+                    {product.rating.toFixed(1)} / 5
                   </span>
-                  <span className="font-mono-num text-[var(--text-muted)]">{rev.date}</span>
-                </div>
-                <div className="flex items-center gap-0.5">
-                  {Array.from({ length: rev.rating }).map((_, idx) => (
-                    <Star key={idx} className="w-3.5 h-3.5 text-accent-bright fill-accent-bright" />
-                  ))}
-                </div>
-                <p className="text-sm text-[var(--text-secondary)]">{rev.comment}</p>
+                  <span className="text-[var(--text-muted)]">
+                    ({product.reviewCount} {product.reviewCount === 1 ? 'rating' : 'ratings'})
+                  </span>
+                </>
+              ) : (
+                <span className="text-[var(--text-secondary)]">No ratings yet</span>
+              )}
+            </div>
+          </div>
+
+          {/* Interactive Rating Submission Box */}
+          <form
+            onSubmit={async (e) => {
+              e.preventDefault();
+              setRatingError(null);
+              if (selectedStars < 1 || selectedStars > 5) {
+                setRatingError('Please tap 1 to 5 stars before submitting.');
+                return;
+              }
+              if (!isCustomerSignedIn) {
+                pendingAutoSubmitRef.current = true;
+                const authRes = await loginCustomerWithGoogle();
+                if (!authRes.ok) {
+                  pendingAutoSubmitRef.current = false;
+                  setRatingError(authRes.error || 'Google sign-in is required to rate.');
+                }
+                return;
+              }
+              setIsSubmittingRating(true);
+              const res = await submitProductRating(product.id, selectedStars, reviewComment);
+              setIsSubmittingRating(false);
+              if (!res.ok && res.error) {
+                setRatingError(res.error);
+              }
+            }}
+            className="p-4 rounded-xl border border-accent/35 bg-[var(--bg-secondary)] space-y-3"
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-[var(--text-main)]">
+                {myExistingRating
+                  ? 'Your Rating'
+                  : `Rate This ${otherItem ? 'Product' : 'Pen'}`}
+              </span>
+              {(hoverStars || selectedStars) > 0 && (
+                <span className="text-xs font-semibold text-accent dark:text-accent-bright">
+                  {['', 'Poor (1/5)', 'Fair (2/5)', 'Good (3/5)', 'Very Good (4/5)', 'Excellent (5/5)'][
+                    hoverStars || selectedStars
+                  ]}
+                </span>
+              )}
+            </div>
+
+            <div
+              className="flex items-center gap-1.5"
+              onMouseLeave={() => setHoverStars(0)}
+              role="group"
+              aria-label={`Select star rating for ${product.name}`}
+            >
+              {[1, 2, 3, 4, 5].map((starVal) => {
+                const active = starVal <= (hoverStars || selectedStars);
+                return (
+                  <button
+                    key={starVal}
+                    type="button"
+                    onMouseEnter={() => setHoverStars(starVal)}
+                    onClick={() => {
+                      setSelectedStars(starVal);
+                      setRatingError(null);
+                    }}
+                    aria-label={`Rate ${starVal} out of 5 stars`}
+                    aria-pressed={selectedStars === starVal}
+                    className="min-w-[44px] min-h-[44px] rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-card)] hover:border-accent/65 flex items-center justify-center transition-transform hover:scale-105 cursor-pointer"
+                  >
+                    <Star
+                      className={`w-5 h-5 transition-colors ${
+                        active
+                          ? 'text-accent-bright fill-accent-bright'
+                          : 'text-[var(--text-muted)]'
+                      }`}
+                    />
+                  </button>
+                );
+              })}
+            </div>
+
+            <textarea
+              value={reviewComment}
+              onChange={(e) => setReviewComment(e.target.value)}
+              maxLength={400}
+              rows={2}
+              placeholder={
+                otherItem
+                  ? 'Share a short review (optional)...'
+                  : 'Share how smoothly this pen writes or feels (optional)...'
+              }
+              aria-label="Optional review comment"
+              className="w-full px-3.5 py-2.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-accent resize-y"
+            />
+
+            {ratingError && (
+              <p className="text-xs font-medium text-rose-500">{ratingError}</p>
+            )}
+
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  type="submit"
+                  disabled={isSubmittingRating}
+                  className="min-h-[40px] px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold cta-glow-red disabled:opacity-60"
+                >
+                  {isSubmittingRating
+                    ? 'Saving...'
+                    : !isCustomerSignedIn
+                    ? 'Sign in with Google & Submit'
+                    : myExistingRating
+                    ? 'Update Rating'
+                    : 'Submit Rating'}
+                </button>
+                {myExistingRating && (
+                  <button
+                    type="button"
+                    disabled={isSubmittingRating}
+                    onClick={async () => {
+                      setIsSubmittingRating(true);
+                      const res = await deleteProductRating(myExistingRating.id);
+                      setIsSubmittingRating(false);
+                      if (res.ok) {
+                        setSelectedStars(0);
+                        setReviewComment('');
+                      }
+                    }}
+                    className="min-h-[40px] px-3 py-2 rounded-xl border border-[var(--border-subtle)] text-xs font-semibold text-[var(--text-secondary)] hover:text-rose-500 hover:border-rose-500/50 inline-flex items-center gap-1.5 transition-colors"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                    <span>Remove</span>
+                  </button>
+                )}
               </div>
-            ))}
+              {isCustomerSignedIn && demoUser && (
+                <span className="text-[11px] text-[var(--text-muted)] truncate max-w-[200px]">
+                  Rating as {demoUser.name}
+                </span>
+              )}
+            </div>
+          </form>
+
+          {/* Customer Reviews Feed */}
+          <div className="space-y-3">
+            {liveProductReviews.length > 0 ? (
+              liveProductReviews.map((rev) => {
+                const isOwn = Boolean(demoUser?.uid && rev.userId === demoUser.uid);
+                const dateLabel = rev.updatedAtMs || rev.createdAtMs
+                  ? new Date(rev.updatedAtMs || rev.createdAtMs || 0).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })
+                  : 'Verified';
+                return (
+                  <div
+                    key={rev.id}
+                    className="p-4 rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-secondary)] space-y-2"
+                  >
+                    <div className="flex items-center justify-between gap-2 text-xs">
+                      <span className="font-semibold text-[var(--text-main)] inline-flex items-center gap-2">
+                        <span>{rev.customerName}</span>
+                        {isOwn && (
+                          <span className="px-1.5 py-0.5 rounded bg-accent/15 border border-accent/40 text-[10px] font-bold text-accent dark:text-accent-bright">
+                            You
+                          </span>
+                        )}
+                      </span>
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono-num text-[var(--text-muted)]">{dateLabel}</span>
+                        {(isOwn || isFirebaseAdmin) && (
+                          <button
+                            type="button"
+                            onClick={() => void deleteProductRating(rev.id)}
+                            aria-label="Delete rating"
+                            className="text-[var(--text-muted)] hover:text-rose-500 transition-colors"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-0.5" aria-label={`${rev.rating} out of 5 stars`}>
+                      {Array.from({ length: 5 }).map((_, idx) => (
+                        <Star
+                          key={idx}
+                          className={`w-3.5 h-3.5 ${
+                            idx < rev.rating
+                              ? 'text-accent-bright fill-accent-bright'
+                              : 'text-[var(--text-muted)]/40'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    {rev.comment && (
+                      <p className="text-sm text-[var(--text-secondary)]">{rev.comment}</p>
+                    )}
+                  </div>
+                );
+              })
+            ) : product.sampleReviews.length > 0 ? (
+              product.sampleReviews.map((rev) => (
+                <div
+                  key={rev.id}
+                  className="p-4 rounded-xl border border-[var(--border-subtle)]/70 bg-[var(--bg-secondary)] space-y-2"
+                >
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-semibold text-[var(--text-main)]">
+                      {rev.author} · {rev.city}
+                    </span>
+                    <span className="font-mono-num text-[var(--text-muted)]">{rev.date}</span>
+                  </div>
+                  <div className="flex items-center gap-0.5">
+                    {Array.from({ length: rev.rating }).map((_, idx) => (
+                      <Star key={idx} className="w-3.5 h-3.5 text-accent-bright fill-accent-bright" />
+                    ))}
+                  </div>
+                  <p className="text-sm text-[var(--text-secondary)]">{rev.comment}</p>
+                </div>
+              ))
+            ) : (
+              <p className="text-xs sm:text-sm text-[var(--text-muted)] text-center py-3">
+                No customer ratings yet — be the first to rate this {otherItem ? 'product' : 'pen'}!
+              </p>
+            )}
           </div>
         </div>
       </div>

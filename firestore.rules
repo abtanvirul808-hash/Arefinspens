@@ -185,6 +185,23 @@ service cloud.firestore {
         );
     }
 
+    function isValidProductRating(data) {
+      return data.keys().hasAll([
+        'id', 'productId', 'userId', 'customerName', 'rating', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'id', 'productId', 'userId', 'customerName', 'rating', 'comment', 'createdAt', 'updatedAt'
+      ]) &&
+      isValidId(data.id) &&
+      isValidId(data.productId) &&
+      isValidId(data.userId) &&
+      data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 80 &&
+      data.rating is int && data.rating >= 1 && data.rating <= 5 &&
+      (!('comment' in data) || (data.comment is string && data.comment.size() <= 400)) &&
+      data.createdAt is timestamp &&
+      data.updatedAt is timestamp;
+    }
+
     // Storefront products: public read, admin-full write, verified-customer atomic stock deduction on checkout
     match /products/{productId} {
       allow get, list: if true;
@@ -203,6 +220,33 @@ service cloud.firestore {
           isCustomerOrderStockDeduction()
         );
       allow delete: if isValidId(productId) && isAdmin();
+    }
+
+    // Customer product ratings & public reviews (no PII stored)
+    match /productRatings/{ratingId} {
+      allow get, list: if true;
+      allow create: if isVerified() &&
+        isValidId(ratingId) &&
+        isValidProductRating(incoming()) &&
+        incoming().id == ratingId &&
+        incoming().userId == request.auth.uid &&
+        ratingId == (incoming().productId + '__' + request.auth.uid) &&
+        exists(/databases/$(database)/documents/products/$(incoming().productId)) &&
+        incoming().createdAt == request.time &&
+        incoming().updatedAt == request.time;
+      allow update: if isVerified() &&
+        isValidId(ratingId) &&
+        isValidProductRating(incoming()) &&
+        incoming().id == existing().id &&
+        incoming().productId == existing().productId &&
+        incoming().userId == existing().userId &&
+        existing().userId == request.auth.uid &&
+        incoming().createdAt == existing().createdAt &&
+        incoming().updatedAt == request.time;
+      allow delete: if isValidId(ratingId) && (
+        isAdmin() ||
+        (isVerified() && existing().userId == request.auth.uid)
+      );
     }
 
     // Customer orders (contains PII): strictly isolated to owner (matching uid or verified sign-in email) or verified admin
