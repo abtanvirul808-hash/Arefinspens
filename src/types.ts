@@ -166,9 +166,17 @@ export type AccentThemeColor =
   | 'sky-blue'
   | 'monochrome';
 
+export type LiquidGlassColorMode =
+  | 'theme'
+  | 'clear'
+  | 'custom'
+  | AccentThemeColor;
+
 export interface StorePreferences {
   theme: 'dark' | 'light';
   accentColor: AccentThemeColor;
+  liquidGlassColor?: LiquidGlassColorMode;
+  customLiquidGlassHex?: string;
   reducedMotion: boolean;
   textSize: 'compact' | 'standard' | 'comfortable';
 }
@@ -178,4 +186,65 @@ export interface DemoUser {
   name: string;
   email: string;
   phone: string;
+}
+
+export type FloatingChatIconStyle =
+  | 'whatsapp-classic'
+  | 'whatsapp-bubble'
+  | 'chat-spark'
+  | 'headset'
+  | 'send'
+  | 'custom-image';
+
+export type ChannelIconStyle =
+  | 'platform'
+  | 'whatsapp-classic'
+  | 'whatsapp-bubble'
+  | 'chat-spark'
+  | 'headset'
+  | 'send'
+  | 'phone'
+  | 'custom-image';
+
+export type MessagingPlatform =
+  | 'whatsapp'
+  | 'messenger'
+  | 'telegram'
+  | 'imo'
+  | 'viber'
+  | 'wechat'
+  | 'line'
+  | 'discord'
+  | 'signal'
+  | 'instagram'
+  | 'facebook'
+  | 'phone'
+  | 'email'
+  | 'custom';
+
+export interface MessagingChannel {
+  id: string;
+  platform: MessagingPlatform;
+  label: string;
+  handle: string;
+  url: string;
+  prefillMessage?: string;
+  iconStyle?: ChannelIconStyle;
+  customIconUrl?: string;
+  color?: string;
+  enabled: boolean;
+}
+
+export interface ChatWidgetConfig {
+  enabled: boolean;
+  whatsappNumber: string;
+  whatsappLink?: string;
+  whatsappLabel?: string;
+  prefillMessage: string;
+  buttonLabel?: string;
+  iconStyle: FloatingChatIconStyle;
+  customIconUrl?: string;
+  buttonColor: string;
+  buttonSize?: number;
+  channels: MessagingChannel[];
 }

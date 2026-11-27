@@ -15,6 +15,7 @@ import {
   ToastBanner,
 } from './components/StoreOverlays';
 import { AdminModal } from './components/AdminModal';
+import { FloatingChatButton } from './components/FloatingChatButton';
 import { SearchOverlay } from './components/SearchOverlay';
 import { HomePage } from './pages/HomePage';
 import { CataloguePage } from './pages/CataloguePage';
@@ -57,6 +58,7 @@ const StorefrontShell: React.FC = () => {
       <Header />
       <main className="flex-1 relative z-10">{renderPage()}</main>
       <Footer />
+      <FloatingChatButton />
       <CartDrawer />
       <SettingsPanel />
       <AuthModal />

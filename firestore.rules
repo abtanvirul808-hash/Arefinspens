@@ -288,12 +288,120 @@ service cloud.firestore {
       allow delete: if isValidId(orderId) && isAdmin();
     }
 
+    function isValidChatPlatform(platform) {
+      return platform in [
+        'whatsapp',
+        'messenger',
+        'telegram',
+        'imo',
+        'viber',
+        'wechat',
+        'line',
+        'discord',
+        'signal',
+        'instagram',
+        'facebook',
+        'phone',
+        'email',
+        'custom'
+      ];
+    }
+
+    function isValidChatChannel(ch) {
+      return ch is map &&
+        ch.keys().hasAll(['id', 'platform', 'label', 'handle', 'url', 'enabled']) &&
+        ch.keys().hasOnly([
+          'id', 'platform', 'label', 'handle', 'url',
+          'prefillMessage', 'iconStyle', 'customIconUrl', 'color', 'enabled'
+        ]) &&
+        isValidId(ch.id) &&
+        ch.platform is string && isValidChatPlatform(ch.platform) &&
+        ch.label is string && ch.label.size() >= 1 && ch.label.size() <= 60 &&
+        ch.handle is string && ch.handle.size() <= 180 &&
+        ch.url is string && ch.url.size() <= 400 &&
+        (
+          ch.url.size() == 0 ||
+          ch.url.matches('^https?://.*') ||
+          ch.url.matches('^mailto:.*') ||
+          ch.url.matches('^tel:.*') ||
+          ch.url.matches('^viber://.*') ||
+          ch.url.matches('^tg://.*')
+        ) &&
+        (!('prefillMessage' in ch) || (ch.prefillMessage is string && ch.prefillMessage.size() <= 300)) &&
+        (!('iconStyle' in ch) || (
+          ch.iconStyle is string &&
+          ch.iconStyle in [
+            'platform', 'whatsapp-classic', 'whatsapp-bubble',
+            'chat-spark', 'headset', 'send', 'phone', 'custom-image'
+          ]
+        )) &&
+        (!('customIconUrl' in ch) || (
+          ch.customIconUrl is string &&
+          ch.customIconUrl.size() <= 80000 &&
+          (
+            ch.customIconUrl.size() == 0 ||
+            ch.customIconUrl.matches('^https?://.*') ||
+            ch.customIconUrl.matches('^data:image/(png|jpeg|jpg|webp|gif);base64,.*')
+          )
+        )) &&
+        (!('color' in ch) || (ch.color is string && (ch.color.matches('^#[0-9a-fA-F]{6}$') || ch.color == 'liquid-glass'))) &&
+        ch.enabled is bool;
+    }
+
+    function isValidChatWidget(data) {
+      return data.keys().hasAll([
+        'enabled', 'whatsappNumber', 'prefillMessage', 'iconStyle', 'buttonColor', 'channels', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'enabled', 'whatsappNumber', 'whatsappLink', 'whatsappLabel', 'prefillMessage',
+        'buttonLabel', 'iconStyle', 'customIconUrl', 'buttonColor', 'buttonSize', 'channels', 'updatedAt'
+      ]) &&
+      data.enabled is bool &&
+      data.whatsappNumber is string && data.whatsappNumber.size() <= 30 &&
+      (!('whatsappLink' in data) || (
+        data.whatsappLink is string &&
+        data.whatsappLink.size() <= 400 &&
+        (data.whatsappLink.size() == 0 || data.whatsappLink.matches('^https?://.*'))
+      )) &&
+      (!('whatsappLabel' in data) || (data.whatsappLabel is string && data.whatsappLabel.size() <= 60)) &&
+      data.prefillMessage is string && data.prefillMessage.size() <= 300 &&
+      (!('buttonLabel' in data) || (data.buttonLabel is string && data.buttonLabel.size() <= 60)) &&
+      data.iconStyle is string && data.iconStyle in [
+        'whatsapp-classic', 'whatsapp-bubble', 'chat-spark', 'headset', 'send', 'custom-image'
+      ] &&
+      (!('customIconUrl' in data) || (
+        data.customIconUrl is string &&
+        data.customIconUrl.size() <= 260000 &&
+        (
+          data.customIconUrl.size() == 0 ||
+          data.customIconUrl.matches('^https?://.*') ||
+          data.customIconUrl.matches('^data:image/(png|jpeg|jpg|webp|gif);base64,.*')
+        )
+      )) &&
+      data.buttonColor is string && (data.buttonColor.matches('^#[0-9a-fA-F]{6}$') || data.buttonColor == 'liquid-glass') &&
+      (!('buttonSize' in data) || (data.buttonSize is int && data.buttonSize >= 40 && data.buttonSize <= 96)) &&
+      data.channels is list &&
+      data.channels.size() <= 10 &&
+      (data.channels.size() == 0 || isValidChatChannel(data.channels[0])) &&
+      data.updatedAt is timestamp;
+    }
+
+    // Floating WhatsApp & multi-messaging launcher config: public read, verified admin write
+    match /meta/chatWidget {
+      allow get: if true;
+      allow list, delete: if false;
+      allow create, update: if isAdmin() &&
+        isValidChatWidget(incoming()) &&
+        incoming().updatedAt == request.time;
+    }
+
     // Storefront metadata (serial counter starting from 1 + catalog seed flag)
     match /meta/{metaId} {
-      allow get: if isValidId(metaId);
+      allow get: if isValidId(metaId) && metaId != 'chatWidget';
       allow list: if false;
       allow create: if isVerified() &&
         isValidId(metaId) &&
+        metaId != 'chatWidget' &&
         isValidStoreMeta(incoming()) &&
         incoming().updatedAt == request.time &&
         (
@@ -302,6 +410,7 @@ service cloud.firestore {
         );
       allow update: if isVerified() &&
         isValidId(metaId) &&
+        metaId != 'chatWidget' &&
         isValidStoreMeta(incoming()) &&
         incoming().updatedAt == request.time &&
         (

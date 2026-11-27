@@ -18,6 +18,7 @@ import {
 import {
   CartItem,
   CategoryId,
+  ChatWidgetConfig,
   DemoUser,
   InfoTopic,
   InkColorOption,
@@ -46,6 +47,10 @@ import {
   OperationType,
 } from '../firebase';
 import { parseOrderSummaryItems } from '../utils/orderItems';
+import {
+  DEFAULT_CHAT_WIDGET_CONFIG,
+  sanitizeChatWidgetConfig,
+} from '../utils/chatWidget';
 import { applyDynamicFavicon } from '../utils/themeFavicon';
 
 interface ToastState {
@@ -194,6 +199,11 @@ interface StoreContextValue {
   isSearchOpen: boolean;
   setIsSearchOpen: (open: boolean) => void;
 
+  chatWidgetConfig: ChatWidgetConfig;
+  updateChatWidgetConfig: (
+    next: ChatWidgetConfig
+  ) => Promise<{ ok: boolean; error?: string }>;
+
   toast: ToastState | null;
   showToast: (message: string) => void;
 }
@@ -213,6 +223,7 @@ const STORAGE_KEYS = {
   deletedProducts: 'arefin_pen_deleted_products_v1',
   catalogDraftAt: 'arefin_pen_catalog_draft_at_v1',
   userPhones: 'arefin_pen_user_phones_v1',
+  chatWidget: 'arefin_pen_chat_widget_v1',
 };
 
 const ADMIN_ACCOUNT = {
@@ -231,6 +242,8 @@ const STAGE_LABELS = [
 const DEFAULT_PREFS: StorePreferences = {
   theme: 'dark',
   accentColor: 'red',
+  liquidGlassColor: 'theme',
+  customLiquidGlassHex: '#ff1428',
   reducedMotion: false,
   textSize: 'standard',
 };
@@ -534,6 +547,12 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const [catalogSeeded, setCatalogSeeded] = useState<boolean>(false);
   const [cloudLastOrderNumber, setCloudLastOrderNumber] = useState<number>(0);
   const [cloudOrders, setCloudOrders] = useState<TrackedOrder[]>([]);
+  const [localChatWidgetConfig, setLocalChatWidgetConfig] = useState<ChatWidgetConfig>(() =>
+    sanitizeChatWidgetConfig(
+      readStorage<Partial<ChatWidgetConfig>>(STORAGE_KEYS.chatWidget, DEFAULT_CHAT_WIDGET_CONFIG)
+    )
+  );
+  const [cloudChatWidgetConfig, setCloudChatWidgetConfig] = useState<ChatWidgetConfig | null>(null);
   const [cloudAdminOrders, setCloudAdminOrders] = useState<TrackedOrder[]>([]);
   const [adminOrdersLoaded, setAdminOrdersLoaded] = useState<boolean>(false);
 
@@ -700,11 +719,30 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       }
     );
 
+    const unsubChatWidget = onSnapshot(
+      doc(db, 'meta', 'chatWidget'),
+      (snap) => {
+        if (!snap.exists()) {
+          setCloudChatWidgetConfig(null);
+          return;
+        }
+        const normalized = sanitizeChatWidgetConfig(
+          snap.data() as Partial<ChatWidgetConfig>
+        );
+        setCloudChatWidgetConfig(normalized);
+        setLocalChatWidgetConfig(normalized);
+      },
+      () => {
+        // Ignore offline/meta chatWidget listener issues cleanly
+      }
+    );
+
     return () => {
       unsubMeta();
       unsubCounter();
       unsubProducts();
       unsubRatings();
+      unsubChatWidget();
     };
   }, []);
 
@@ -824,6 +862,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       root.classList.remove('dark');
     }
     root.setAttribute('data-accent', preferences.accentColor || 'red');
+    root.setAttribute('data-glass-color', 'theme');
+    root.style.removeProperty('--glass-rgb');
     root.setAttribute('data-reduced-motion', String(preferences.reducedMotion));
     root.setAttribute('data-text-size', preferences.textSize);
     applyDynamicFavicon(preferences.theme, preferences.accentColor || 'red');
@@ -865,6 +905,14 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       // ignore
     }
   }, [savedPhonesByUid]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEYS.chatWidget, JSON.stringify(localChatWidgetConfig));
+    } catch {
+      // ignore
+    }
+  }, [localChatWidgetConfig]);
 
   useEffect(() => {
     try {
@@ -2648,6 +2696,59 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     }
   };
 
+  const chatWidgetConfig = cloudChatWidgetConfig ?? localChatWidgetConfig;
+
+  const updateChatWidgetConfig = async (
+    next: ChatWidgetConfig
+  ): Promise<{ ok: boolean; error?: string }> => {
+    if (!isAdmin) {
+      return { ok: false, error: 'Admin sign-in is required to customize the chat widget.' };
+    }
+    const sanitized = sanitizeChatWidgetConfig(next);
+    setLocalChatWidgetConfig(sanitized);
+
+    if (isFirebaseAdmin) {
+      try {
+        const firestorePayload: Record<string, unknown> = {
+          enabled: sanitized.enabled,
+          whatsappNumber: sanitized.whatsappNumber,
+          whatsappLink: sanitized.whatsappLink || '',
+          whatsappLabel: sanitized.whatsappLabel || 'WhatsApp',
+          prefillMessage: sanitized.prefillMessage,
+          buttonLabel: sanitized.buttonLabel || 'Chat with us',
+          iconStyle: sanitized.iconStyle,
+          customIconUrl: sanitized.customIconUrl || '',
+          buttonColor: sanitized.buttonColor,
+          buttonSize: sanitized.buttonSize ?? 56,
+          channels: sanitized.channels.map((ch) => ({
+            id: ch.id,
+            platform: ch.platform,
+            label: ch.label,
+            handle: ch.handle,
+            url: ch.url,
+            prefillMessage: ch.prefillMessage || '',
+            iconStyle: ch.iconStyle || 'platform',
+            customIconUrl: ch.customIconUrl || '',
+            color: ch.color || '#25D366',
+            enabled: ch.enabled,
+          })),
+          updatedAt: serverTimestamp(),
+        };
+        await setDoc(doc(db, 'meta', 'chatWidget'), firestorePayload);
+        setCloudChatWidgetConfig(sanitized);
+        showToast('Saved live WhatsApp & chat launcher settings');
+        return { ok: true };
+      } catch (err) {
+        const message = formatLiveSyncError(err, 'Could not sync chat settings to cloud.');
+        showToast(message);
+        return { ok: false, error: message };
+      }
+    }
+
+    showToast('Chat settings saved locally — connect Google Sync to publish across all devices');
+    return { ok: true };
+  };
+
   const loginCustomerWithGoogle = async (phone?: string) => {
     try {
       const cred = await signInWithPopup(auth, googleProvider);
@@ -2839,6 +2940,8 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         setIsAdminModalOpen,
         isSearchOpen,
         setIsSearchOpen,
+        chatWidgetConfig,
+        updateChatWidgetConfig,
         loginAdmin,
         loginAdminWithGoogle,
         logoutAdmin,

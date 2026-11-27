@@ -163,6 +163,50 @@
         "createdAt",
         "updatedAt"
       ]
+    },
+    "ChatWidgetConfig": {
+      "title": "ChatWidgetConfig",
+      "description": "Public storefront floating WhatsApp and multi-app messaging launcher configuration managed by admins.",
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "whatsappNumber": { "type": "string", "maxLength": 30 },
+        "whatsappLink": { "type": "string", "maxLength": 400 },
+        "whatsappLabel": { "type": "string", "maxLength": 60 },
+        "prefillMessage": { "type": "string", "maxLength": 300 },
+        "buttonLabel": { "type": "string", "maxLength": 60 },
+        "iconStyle": {
+          "type": "string",
+          "enum": [
+            "whatsapp-classic",
+            "whatsapp-bubble",
+            "chat-spark",
+            "headset",
+            "send",
+            "custom-image"
+          ]
+        },
+        "customIconUrl": { "type": "string", "maxLength": 260000 },
+        "buttonColor": { "type": "string", "pattern": "^(#[0-9a-fA-F]{6}|liquid-glass)$" },
+        "buttonSize": {
+          "type": "integer",
+          "description": "Optional diameter in pixels (40 to 96) for the floating circle chat button."
+        },
+        "channels": {
+          "type": "array",
+          "description": "Optional additional messaging apps (WhatsApp, Messenger, Telegram, imo, Viber, WeChat, LINE, Discord, Signal, Instagram, Facebook, Phone, Email, Custom Link) up to 10 entries, each supporting custom label, handle, URL, colour (hex or liquid-glass), iconStyle, customIconUrl, and prefillMessage."
+        },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "enabled",
+        "whatsappNumber",
+        "prefillMessage",
+        "iconStyle",
+        "buttonColor",
+        "channels",
+        "updatedAt"
+      ]
     }
   },
   "firestore": {
@@ -177,6 +221,10 @@
     "/orders/{orderId}": {
       "schema": { "$ref": "#/entities/Order" },
       "description": "Customer orders isolated strictly to the placing user (userId == auth.uid or userEmail == auth.token.email) and verified admins."
+    },
+    "/meta/chatWidget": {
+      "schema": { "$ref": "#/entities/ChatWidgetConfig" },
+      "description": "Publicly readable floating WhatsApp & messaging launcher settings customizable exclusively by verified admins."
     },
     "/meta/{metaId}": {
       "schema": { "$ref": "#/entities/StoreMeta" },

@@ -1,9 +1,17 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ArrowUpDown,
+  Check,
+  CheckCircle2,
+  ChevronDown,
+  Clock,
+  Flame,
   RotateCcw,
   Search,
   SlidersHorizontal,
   Star,
+  TrendingDown,
+  TrendingUp,
   X,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
@@ -19,25 +27,64 @@ import { BrandPackageLogo, CategoryVectorIcon } from '../components/BrandIcons';
 import { ProductCard } from '../components/ProductCard';
 import { fuzzySearchProducts } from '../utils/fuzzySearch';
 
+const SORT_OPTIONS: {
+  id: SortOption;
+  label: string;
+  icon: React.FC<{ className?: string }>;
+}[] = [
+  { id: 'popularity', label: 'Popularity', icon: Flame },
+  { id: 'newest', label: 'Newest', icon: Clock },
+  { id: 'price-asc', label: 'Price: Low to High', icon: TrendingUp },
+  { id: 'price-desc', label: 'Price: High to Low', icon: TrendingDown },
+  { id: 'rating', label: 'Highest Rated', icon: Star },
+];
+
 export const CataloguePage: React.FC = () => {
   const { selectedCategory, navigate, searchQuery, setSearchQuery, products } = useStore();
 
-  const sliderMax = useMemo(
-    () => Math.max(3000, ...products.map((p) => Math.ceil(p.priceBdt / 50) * 50)),
-    [products]
-  );
-
+  const sliderMin = 20;
+  const sliderMax = 500;
   const [maxPrice, setMaxPrice] = useState<number>(sliderMax);
+  const [isDraggingPrice, setIsDraggingPrice] = useState<boolean>(false);
 
-  useEffect(() => {
-    setMaxPrice((prev) => (prev < sliderMax ? sliderMax : prev));
-  }, [sliderMax]);
+  const snapPriceTo10 = (raw: number) =>
+    Math.min(sliderMax, Math.max(sliderMin, Math.round(raw / 10) * 10));
+  const pricePercent = Math.min(
+    100,
+    Math.max(0, ((maxPrice - sliderMin) / (sliderMax - sliderMin)) * 100)
+  );
   const [selectedColors, setSelectedColors] = useState<string[]>([]);
   const [selectedInkColors, setSelectedInkColors] = useState<string[]>([]);
   const [minRating, setMinRating] = useState<number>(0);
   const [inStockOnly, setInStockOnly] = useState<boolean>(false);
   const [sortBy, setSortBy] = useState<SortOption>('popularity');
+  const [sortMenuOpen, setSortMenuOpen] = useState<boolean>(false);
   const [mobileFilterOpen, setMobileFilterOpen] = useState<boolean>(false);
+  const sortDropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!sortMenuOpen) return;
+    const handleClickOutside = (e: MouseEvent) => {
+      if (sortDropdownRef.current && !sortDropdownRef.current.contains(e.target as Node)) {
+        setSortMenuOpen(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSortMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+      document.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [sortMenuOpen]);
+
+  const activeSortOption =
+    SORT_OPTIONS.find((opt) => opt.id === sortBy) || SORT_OPTIONS[0];
+  const ActiveSortIcon = activeSortOption.icon;
 
   const otherProductsCount = useMemo(
     () => products.filter((p) => isOtherProduct(p)).length,
@@ -308,19 +355,41 @@ export const CataloguePage: React.FC = () => {
             Up to ৳{maxPrice.toLocaleString('en-US')}
           </span>
         </div>
-        <input
-          type="range"
-          min={50}
-          max={sliderMax}
-          step={50}
-          value={maxPrice}
-          onChange={(e) => setMaxPrice(Number(e.target.value))}
-          className="w-full accent-accent"
-          aria-label="Maximum price in Bangladeshi Taka"
-        />
+        <div className="relative h-8 flex items-center select-none">
+          <div className="relative w-full mx-2.5 h-2.5 liquid-glass-slider-rail overflow-visible">
+            <div
+              className="absolute inset-y-0 left-0 liquid-glass-slider-fill"
+              style={{ width: `${pricePercent}%` }}
+            />
+            <span
+              aria-hidden="true"
+              className={`absolute top-1/2 -translate-y-1/2 -translate-x-1/2 w-5 h-5 pointer-events-none liquid-glass-slider-thumb ${
+                isDraggingPrice ? 'scale-115' : ''
+              }`}
+              style={{ left: `${pricePercent}%` }}
+            />
+          </div>
+          <input
+            type="range"
+            min={sliderMin}
+            max={sliderMax}
+            step={10}
+            value={maxPrice}
+            onInput={(e) =>
+              setMaxPrice(snapPriceTo10(Number((e.target as HTMLInputElement).value)))
+            }
+            onChange={(e) => setMaxPrice(snapPriceTo10(Number(e.target.value)))}
+            onPointerDown={() => setIsDraggingPrice(true)}
+            onPointerUp={() => setIsDraggingPrice(false)}
+            onPointerCancel={() => setIsDraggingPrice(false)}
+            onBlur={() => setIsDraggingPrice(false)}
+            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10 touch-none"
+            aria-label="Maximum price in Bangladeshi Taka"
+          />
+        </div>
         <div className="flex justify-between text-[11px] font-mono-num text-[var(--text-muted)]">
-          <span>৳50</span>
-          <span>৳{Math.round(sliderMax / 2).toLocaleString('en-US')}</span>
+          <span>৳{sliderMin}</span>
+          <span>৳{Math.round((sliderMin + sliderMax) / 2).toLocaleString('en-US')}</span>
           <span>৳{sliderMax.toLocaleString('en-US')}</span>
         </div>
       </div>
@@ -413,15 +482,41 @@ export const CataloguePage: React.FC = () => {
 
       {/* Availability Filter */}
       <div className="pt-2 border-t border-[var(--border-subtle)]">
-        <label className="flex items-center justify-between gap-2 text-sm text-[var(--text-main)] cursor-pointer">
-          <span>In Stock Only</span>
-          <input
-            type="checkbox"
-            checked={inStockOnly}
-            onChange={(e) => setInStockOnly(e.target.checked)}
-            className="w-4 h-4 accent-accent"
-          />
-        </label>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={inStockOnly}
+          onClick={() => setInStockOnly((prev) => !prev)}
+          className={`w-full min-h-[46px] px-3.5 py-2.5 flex items-center justify-between gap-3 text-left cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent liquid-glass-toggle-card ${
+            inStockOnly ? 'liquid-glass-toggle-card-active' : ''
+          }`}
+        >
+          <span className="inline-flex items-center gap-2 min-w-0">
+            <CheckCircle2
+              className={`w-4 h-4 shrink-0 transition-colors ${
+                inStockOnly
+                  ? 'text-accent dark:text-accent-bright'
+                  : 'text-[var(--text-muted)]'
+              }`}
+            />
+            <span className="text-sm font-semibold text-[var(--text-main)] truncate">
+              In Stock Only
+            </span>
+          </span>
+
+          <span
+            aria-hidden="true"
+            className={`w-11 h-6 p-0.5 shrink-0 inline-flex items-center liquid-glass-switch-track ${
+              inStockOnly ? 'liquid-glass-switch-track-on' : ''
+            }`}
+          >
+            <span
+              className={`w-[18px] h-[18px] block liquid-glass-switch-thumb ${
+                inStockOnly ? 'translate-x-5' : 'translate-x-0'
+              }`}
+            />
+          </span>
+        </button>
       </div>
     </div>
   );
@@ -507,21 +602,88 @@ export const CataloguePage: React.FC = () => {
               </button>
 
               <div className="flex items-center gap-2 flex-1 sm:flex-none min-w-0">
-                <label htmlFor="catalogue-sort" className="text-xs text-[var(--text-muted)] whitespace-nowrap shrink-0">
+                <label
+                  htmlFor="catalogue-sort"
+                  className="text-xs text-[var(--text-muted)] whitespace-nowrap shrink-0"
+                >
                   Sort by:
                 </label>
-                <select
-                  id="catalogue-sort"
-                  value={sortBy}
-                  onChange={(e) => setSortBy(e.target.value as SortOption)}
-                  className="w-full sm:w-auto min-h-[44px] px-3.5 py-2.5 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
-                >
-                  <option value="popularity">Popularity</option>
-                  <option value="newest">Newest</option>
-                  <option value="price-asc">Price: Low to High</option>
-                  <option value="price-desc">Price: High to Low</option>
-                  <option value="rating">Highest Rated</option>
-                </select>
+                <div className="relative z-30 flex-1 sm:flex-none min-w-0" ref={sortDropdownRef}>
+                  <div className="liquid-glass-dock w-full sm:w-auto">
+                    <button
+                      id="catalogue-sort"
+                      type="button"
+                      onClick={() => setSortMenuOpen((prev) => !prev)}
+                      aria-haspopup="listbox"
+                      aria-expanded={sortMenuOpen}
+                      className={`liquid-glass-item w-full sm:w-auto min-h-[38px] px-3.5 py-1.5 text-xs sm:text-sm font-semibold inline-flex items-center justify-between gap-2 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent ${
+                        sortMenuOpen ? 'liquid-glass-item-active' : 'text-[var(--text-main)]'
+                      }`}
+                    >
+                      <span className="inline-flex items-center gap-1.5 min-w-0">
+                        <ActiveSortIcon
+                          className={`w-3.5 h-3.5 shrink-0 ${
+                            sortMenuOpen ? 'text-current' : 'text-accent dark:text-accent-bright'
+                          }`}
+                        />
+                        <span className="truncate">{activeSortOption.label}</span>
+                      </span>
+                      <ChevronDown
+                        className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
+                          sortMenuOpen ? 'rotate-180' : ''
+                        }`}
+                      />
+                    </button>
+                  </div>
+
+                  {sortMenuOpen && (
+                    <div
+                      className="liquid-glass-menu absolute right-0 mt-2.5 w-64 max-w-[calc(100vw-2rem)] p-2.5 z-50 space-y-1.5"
+                      role="listbox"
+                      aria-labelledby="catalogue-sort"
+                    >
+                      <div className="flex items-center justify-between gap-2 px-3 py-1.5 mb-1 rounded-xl bg-accent/15 border border-accent/55 shadow-[0_0_14px_rgba(var(--accent-rgb),0.24)]">
+                        <span className="inline-flex items-center gap-2 text-[11px] font-extrabold uppercase tracking-wider text-accent dark:text-accent-bright">
+                          <ArrowUpDown className="w-3.5 h-3.5 shrink-0" />
+                          <span>Sort By</span>
+                        </span>
+                        <span className="text-[10px] font-bold uppercase tracking-wide text-accent dark:text-accent-bright opacity-90">
+                          Order
+                        </span>
+                      </div>
+
+                      <div className="space-y-1">
+                        {SORT_OPTIONS.map((opt) => {
+                          const Icon = opt.icon;
+                          const active = sortBy === opt.id;
+                          return (
+                            <button
+                              key={opt.id}
+                              type="button"
+                              role="option"
+                              aria-selected={active}
+                              onClick={() => {
+                                setSortBy(opt.id);
+                                setSortMenuOpen(false);
+                              }}
+                              className={`w-full text-left px-3 py-2 rounded-xl text-sm flex items-center justify-between gap-2 transition-colors ${
+                                active
+                                  ? 'bg-accent/20 text-accent dark:text-accent-bright font-semibold border border-accent/35'
+                                  : 'text-[var(--text-secondary)] hover:bg-accent/10 hover:text-[var(--text-main)] border border-transparent'
+                              }`}
+                            >
+                              <span className="inline-flex items-center gap-2.5 min-w-0">
+                                <Icon className="w-4 h-4 text-accent dark:text-accent-bright shrink-0" />
+                                <span className="truncate whitespace-nowrap">{opt.label}</span>
+                              </span>
+                              {active && <Check className="w-3.5 h-3.5 shrink-0" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

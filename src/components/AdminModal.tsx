@@ -22,6 +22,7 @@ import {
   LogOut,
   MapPin,
   Maximize2,
+  MessageCircle,
   Package,
   Pencil,
   PenTool,
@@ -53,6 +54,7 @@ import {
 import { formatLiveSyncError } from '../firebase';
 import { CategoryId, InkColorOption, Product } from '../types';
 import { parseOrderSummaryItems } from '../utils/orderItems';
+import { AdminChatTab } from './AdminChatTab';
 import { ImageLightboxModal, LightboxSlide } from './ImageLightboxModal';
 import { SafeImage } from './SafeImage';
 
@@ -287,7 +289,7 @@ export const AdminModal: React.FC = () => {
   const [savingProduct, setSavingProduct] = useState(false);
 
   // Admin modal tabs
-  const [activeTab, setActiveTab] = useState<'orders' | 'products'>('orders');
+  const [activeTab, setActiveTab] = useState<'orders' | 'products' | 'chat'>('orders');
 
   // Order management state
   const [searchTerm, setSearchTerm] = useState('');
@@ -1288,11 +1290,11 @@ export const AdminModal: React.FC = () => {
             )}
 
             {/* Navigation Tabs */}
-            <div className="grid grid-cols-2 p-1 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] shrink-0 gap-1">
+            <div className="grid grid-cols-3 p-1 rounded-xl bg-[var(--bg-card)] border border-[var(--border-subtle)] shrink-0 gap-1">
               <button
                 type="button"
                 onClick={() => setActiveTab('orders')}
-                className={`min-h-[44px] py-2 px-2 sm:px-3 rounded-lg text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 sm:gap-2 transition-colors whitespace-nowrap ${
+                className={`min-h-[44px] py-2 px-1.5 sm:px-3 rounded-lg text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 sm:gap-2 transition-colors whitespace-nowrap ${
                   activeTab === 'orders'
                     ? 'bg-accent text-[var(--accent-cta-text)] shadow-[0_0_12px_rgba(var(--accent-rgb),0.4)]'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-main)]'
@@ -1305,7 +1307,7 @@ export const AdminModal: React.FC = () => {
               <button
                 type="button"
                 onClick={() => setActiveTab('products')}
-                className={`min-h-[44px] py-2 px-2 sm:px-3 rounded-lg text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 sm:gap-2 transition-colors whitespace-nowrap ${
+                className={`min-h-[44px] py-2 px-1.5 sm:px-3 rounded-lg text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 sm:gap-2 transition-colors whitespace-nowrap ${
                   activeTab === 'products'
                     ? 'bg-accent text-[var(--accent-cta-text)] shadow-[0_0_12px_rgba(var(--accent-rgb),0.4)]'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-main)]'
@@ -1314,6 +1316,19 @@ export const AdminModal: React.FC = () => {
                 <FolderPlus className="w-4 h-4 shrink-0" />
                 <span className="sm:hidden">Products ({products.length})</span>
                 <span className="hidden sm:inline">Set Category &amp; Product ({products.length})</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('chat')}
+                className={`min-h-[44px] py-2 px-1.5 sm:px-3 rounded-lg text-xs sm:text-sm font-semibold inline-flex items-center justify-center gap-1.5 sm:gap-2 transition-colors whitespace-nowrap ${
+                  activeTab === 'chat'
+                    ? 'bg-accent text-[var(--accent-cta-text)] shadow-[0_0_12px_rgba(var(--accent-rgb),0.4)]'
+                    : 'text-[var(--text-secondary)] hover:text-[var(--text-main)]'
+                }`}
+              >
+                <MessageCircle className="w-4 h-4 shrink-0" />
+                <span className="sm:hidden">Chat</span>
+                <span className="hidden sm:inline">Chat &amp; WhatsApp</span>
               </button>
             </div>
 
@@ -1868,7 +1883,7 @@ export const AdminModal: React.FC = () => {
                   )}
                 </div>
               </div>
-            ) : (
+            ) : activeTab === 'products' ? (
               /* Set Category & Manage Products Tab */
               <div
                 ref={productsTabScrollRef}
@@ -3906,6 +3921,8 @@ export const AdminModal: React.FC = () => {
                   )}
                 </div>
               </div>
+            ) : (
+              <AdminChatTab />
             )}
           </>
         )}

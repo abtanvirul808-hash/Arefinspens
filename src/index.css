@@ -425,43 +425,119 @@
   background: linear-gradient(90deg, transparent 0%, rgba(var(--accent-rgb), 0.65) 50%, transparent 100%);
 }
 
-/* Unified Frosted Liquid Glass Navigation Dock */
+/* Unified Coloured Liquid Glass Token Sync (matches Theme Colour by default) */
+:root,
+html[data-glass-color="theme"] {
+  --glass-rgb: var(--accent-rgb);
+  --glass-deep-rgb: var(--accent-deep-rgb);
+}
+
+html[data-glass-color="red"] {
+  --glass-rgb: 217, 15, 34;
+  --glass-deep-rgb: 101, 0, 8;
+}
+html.dark[data-glass-color="red"] {
+  --glass-rgb: 255, 20, 40;
+  --glass-deep-rgb: 155, 0, 16;
+}
+
+html[data-glass-color="purple"] {
+  --glass-rgb: 126, 34, 206;
+  --glass-deep-rgb: 59, 7, 100;
+}
+html.dark[data-glass-color="purple"] {
+  --glass-rgb: 168, 85, 247;
+  --glass-deep-rgb: 107, 33, 168;
+}
+
+html[data-glass-color="yellow"] {
+  --glass-rgb: 202, 138, 4;
+  --glass-deep-rgb: 113, 63, 18;
+}
+html.dark[data-glass-color="yellow"] {
+  --glass-rgb: 250, 204, 21;
+  --glass-deep-rgb: 161, 98, 7;
+}
+
+html[data-glass-color="green"] {
+  --glass-rgb: 5, 150, 105;
+  --glass-deep-rgb: 6, 78, 59;
+}
+html.dark[data-glass-color="green"] {
+  --glass-rgb: 16, 185, 129;
+  --glass-deep-rgb: 6, 95, 70;
+}
+
+html[data-glass-color="sky-blue"] {
+  --glass-rgb: 2, 132, 199;
+  --glass-deep-rgb: 12, 74, 110;
+}
+html.dark[data-glass-color="sky-blue"] {
+  --glass-rgb: 56, 189, 248;
+  --glass-deep-rgb: 7, 89, 133;
+}
+
+html[data-glass-color="monochrome"] {
+  --glass-rgb: 24, 24, 27;
+  --glass-deep-rgb: 63, 63, 70;
+}
+html.dark[data-glass-color="monochrome"] {
+  --glass-rgb: 255, 255, 255;
+  --glass-deep-rgb: 113, 113, 122;
+}
+
+/* Unified Frosted Coloured Liquid Glass Navigation Dock */
 .liquid-glass-dock {
   position: relative;
   border-radius: 9999px;
   padding: 4px;
   background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.86) 0%,
-    rgba(255, 255, 255, 0.58) 100%
+    145deg,
+    rgba(var(--glass-rgb), 0.22) 0%,
+    rgba(255, 255, 255, 0.78) 55%,
+    rgba(var(--glass-rgb), 0.14) 100%
   );
-  border: 1px solid rgba(var(--accent-rgb), 0.2);
+  border: 1px solid rgba(var(--glass-rgb), 0.4);
   box-shadow:
-    0 10px 28px -10px rgba(18, 13, 14, 0.14),
-    inset 0 1px 0 rgba(255, 255, 255, 0.98),
-    inset 0 -1px 0 rgba(18, 13, 14, 0.05);
-  backdrop-filter: blur(22px) saturate(185%);
-  -webkit-backdrop-filter: blur(22px) saturate(185%);
+    0 12px 30px -10px rgba(var(--glass-rgb), 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(var(--glass-rgb), 0.14);
+  backdrop-filter: blur(22px) saturate(190%);
+  -webkit-backdrop-filter: blur(22px) saturate(190%);
+  transition: background 220ms ease, border-color 220ms ease, box-shadow 220ms ease;
 }
 
 .dark .liquid-glass-dock {
   background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.14) 0%,
-    rgba(255, 255, 255, 0.05) 100%
+    145deg,
+    rgba(var(--glass-rgb), 0.28) 0%,
+    rgba(16, 12, 16, 0.62) 58%,
+    rgba(var(--glass-rgb), 0.16) 100%
   );
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(var(--glass-rgb), 0.45);
   box-shadow:
-    0 12px 32px -10px rgba(0, 0, 0, 0.7),
-    0 0 28px -12px rgba(var(--accent-rgb), 0.32),
+    0 14px 34px -10px rgba(0, 0, 0, 0.76),
+    0 0 28px -8px rgba(var(--glass-rgb), 0.38),
     inset 0 1px 0 rgba(255, 255, 255, 0.26),
-    inset 0 -1px 0 rgba(255, 255, 255, 0.06);
+    inset 0 -1px 0 rgba(var(--glass-rgb), 0.16);
+}
+
+html[data-glass-color="clear"] .liquid-glass-dock {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.86) 0%, rgba(255, 255, 255, 0.58) 100%);
+  border: 1px solid rgba(18, 13, 14, 0.14);
+  box-shadow: 0 10px 28px -10px rgba(18, 13, 14, 0.14), inset 0 1px 0 rgba(255, 255, 255, 0.98);
+}
+
+html.dark[data-glass-color="clear"] .liquid-glass-dock {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14) 0%, rgba(255, 255, 255, 0.05) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  box-shadow: 0 12px 32px -10px rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 255, 255, 0.24);
 }
 
 .liquid-glass-item {
   position: relative;
   border-radius: 9999px;
-  color: var(--text-secondary);
+  color: var(--text-main);
   transition:
     color 180ms ease,
     background-color 180ms ease,
@@ -470,16 +546,16 @@
 
 .liquid-glass-item:hover {
   color: var(--text-main);
-  background: rgba(var(--accent-rgb), 0.08);
+  background: rgba(var(--glass-rgb), 0.14);
 }
 
 .dark .liquid-glass-item {
-  color: rgba(255, 255, 255, 0.78);
+  color: rgba(255, 255, 255, 0.86);
 }
 
 .dark .liquid-glass-item:hover {
   color: #ffffff;
-  background: rgba(255, 255, 255, 0.09);
+  background: rgba(var(--glass-rgb), 0.22);
 }
 
 .liquid-glass-item-active {
@@ -506,8 +582,12 @@
 
 .liquid-glass-drawer-tile {
   border-radius: 12px;
-  background: rgba(var(--accent-rgb), 0.04);
-  border: 1px solid rgba(var(--accent-rgb), 0.12);
+  background: linear-gradient(
+    145deg,
+    rgba(var(--glass-rgb), 0.14) 0%,
+    rgba(255, 255, 255, 0.72) 100%
+  );
+  border: 1px solid rgba(var(--glass-rgb), 0.26);
   color: var(--text-main);
   transition:
     background-color 180ms ease,
@@ -516,19 +596,33 @@
 }
 
 .liquid-glass-drawer-tile:hover {
-  background: rgba(var(--accent-rgb), 0.1);
-  border-color: rgba(var(--accent-rgb), 0.3);
+  background: rgba(var(--glass-rgb), 0.18);
+  border-color: rgba(var(--glass-rgb), 0.45);
 }
 
 .dark .liquid-glass-drawer-tile {
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.88);
+  background: linear-gradient(
+    145deg,
+    rgba(var(--glass-rgb), 0.2) 0%,
+    rgba(16, 12, 16, 0.55) 100%
+  );
+  border: 1px solid rgba(var(--glass-rgb), 0.32);
+  color: rgba(255, 255, 255, 0.92);
 }
 
 .dark .liquid-glass-drawer-tile:hover {
-  background: rgba(255, 255, 255, 0.1);
-  border-color: rgba(255, 255, 255, 0.22);
+  background: rgba(var(--glass-rgb), 0.28);
+  border-color: rgba(var(--glass-rgb), 0.5);
+}
+
+html[data-glass-color="clear"] .liquid-glass-drawer-tile {
+  background: rgba(255, 255, 255, 0.68);
+  border: 1px solid rgba(18, 13, 14, 0.12);
+}
+
+html.dark[data-glass-color="clear"] .liquid-glass-drawer-tile {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.12);
 }
 
 .liquid-glass-drawer-tile-active {
@@ -548,29 +642,251 @@
 .liquid-glass-menu {
   border-radius: 16px;
   background: linear-gradient(
-    160deg,
-    rgba(255, 255, 255, 0.94) 0%,
-    rgba(255, 255, 255, 0.82) 100%
+    155deg,
+    rgba(var(--glass-rgb), 0.24) 0%,
+    rgba(255, 255, 255, 0.88) 45%,
+    rgba(var(--glass-rgb), 0.16) 100%
   );
-  border: 1px solid rgba(var(--accent-rgb), 0.24);
+  border: 1px solid rgba(var(--glass-rgb), 0.42);
   box-shadow:
-    0 20px 48px -14px rgba(18, 13, 14, 0.22),
-    inset 0 1px 0 rgba(255, 255, 255, 0.98);
-  backdrop-filter: blur(24px) saturate(190%);
-  -webkit-backdrop-filter: blur(24px) saturate(190%);
+    0 20px 48px -14px rgba(var(--glass-rgb), 0.3),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96);
+  backdrop-filter: blur(26px) saturate(195%);
+  -webkit-backdrop-filter: blur(26px) saturate(195%);
 }
 
 .dark .liquid-glass-menu {
   background: linear-gradient(
-    160deg,
-    rgba(28, 16, 22, 0.86) 0%,
-    rgba(10, 6, 9, 0.92) 100%
+    155deg,
+    rgba(var(--glass-rgb), 0.3) 0%,
+    rgba(14, 10, 14, 0.86) 55%,
+    rgba(var(--glass-rgb), 0.2) 100%
   );
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid rgba(var(--glass-rgb), 0.46);
   box-shadow:
     0 24px 56px -12px rgba(0, 0, 0, 0.88),
-    0 0 32px -12px rgba(var(--accent-rgb), 0.35),
-    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+    0 0 36px -10px rgba(var(--glass-rgb), 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24);
+}
+
+html[data-glass-color="clear"] .liquid-glass-menu {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.94) 0%, rgba(255, 255, 255, 0.82) 100%);
+  border: 1px solid rgba(18, 13, 14, 0.14);
+}
+
+html.dark[data-glass-color="clear"] .liquid-glass-menu {
+  background: linear-gradient(160deg, rgba(24, 24, 28, 0.86) 0%, rgba(10, 10, 14, 0.92) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+}
+
+/* Coloured Liquid Glass Filter Toggle Row & Switch */
+.liquid-glass-toggle-card {
+  position: relative;
+  border-radius: 16px;
+  background: linear-gradient(
+    150deg,
+    rgba(var(--glass-rgb), 0.2) 0%,
+    rgba(255, 255, 255, 0.78) 58%,
+    rgba(var(--glass-rgb), 0.12) 100%
+  );
+  border: 1px solid rgba(var(--glass-rgb), 0.38);
+  box-shadow:
+    0 10px 26px -10px rgba(var(--glass-rgb), 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.96),
+    inset 0 -1px 0 rgba(var(--glass-rgb), 0.12);
+  backdrop-filter: blur(22px) saturate(190%);
+  -webkit-backdrop-filter: blur(22px) saturate(190%);
+  transition:
+    border-color 180ms ease,
+    box-shadow 180ms ease,
+    background 180ms ease;
+}
+
+.liquid-glass-toggle-card:hover {
+  border-color: rgba(var(--glass-rgb), 0.6);
+}
+
+.dark .liquid-glass-toggle-card {
+  background: linear-gradient(
+    150deg,
+    rgba(var(--glass-rgb), 0.26) 0%,
+    rgba(18, 14, 18, 0.58) 58%,
+    rgba(var(--glass-rgb), 0.16) 100%
+  );
+  border: 1px solid rgba(var(--glass-rgb), 0.42);
+  box-shadow:
+    0 12px 30px -10px rgba(0, 0, 0, 0.7),
+    0 0 22px -10px rgba(var(--glass-rgb), 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    inset 0 -1px 0 rgba(var(--glass-rgb), 0.14);
+}
+
+.dark .liquid-glass-toggle-card:hover {
+  border-color: rgba(var(--glass-rgb), 0.65);
+}
+
+html[data-glass-color="clear"] .liquid-glass-toggle-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.88) 0%, rgba(255, 255, 255, 0.58) 100%);
+  border: 1px solid rgba(18, 13, 14, 0.14);
+}
+
+html.dark[data-glass-color="clear"] .liquid-glass-toggle-card {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.13) 0%, rgba(255, 255, 255, 0.04) 100%);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.liquid-glass-toggle-card-active {
+  background: linear-gradient(
+    145deg,
+    rgba(var(--glass-rgb), 0.3) 0%,
+    rgba(255, 255, 255, 0.7) 100%
+  );
+  border-color: rgba(var(--glass-rgb), 0.65);
+  box-shadow:
+    0 12px 28px -10px rgba(var(--glass-rgb), 0.38),
+    inset 0 1px 0 rgba(255, 255, 255, 0.95);
+}
+
+.dark .liquid-glass-toggle-card-active {
+  background: linear-gradient(
+    145deg,
+    rgba(var(--glass-rgb), 0.36) 0%,
+    rgba(18, 14, 18, 0.6) 100%
+  );
+  border-color: rgba(var(--glass-rgb), 0.72);
+  box-shadow:
+    0 12px 32px -10px rgba(0, 0, 0, 0.75),
+    0 0 28px -8px rgba(var(--glass-rgb), 0.48),
+    inset 0 1px 0 rgba(255, 255, 255, 0.28);
+}
+
+.liquid-glass-switch-track {
+  position: relative;
+  border-radius: 9999px;
+  background: rgba(var(--glass-rgb), 0.18);
+  border: 1px solid rgba(var(--glass-rgb), 0.32);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.16);
+  transition:
+    background 200ms ease,
+    border-color 200ms ease,
+    box-shadow 200ms ease;
+}
+
+.dark .liquid-glass-switch-track {
+  background: rgba(var(--glass-rgb), 0.22);
+  border: 1px solid rgba(var(--glass-rgb), 0.36);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.45);
+}
+
+.liquid-glass-switch-track-on {
+  background: linear-gradient(135deg, var(--accent-cta-start) 0%, var(--accent-cta-end) 100%);
+  border-color: transparent;
+  box-shadow:
+    0 4px 14px -3px rgba(var(--accent-rgb), 0.65),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.dark .liquid-glass-switch-track-on {
+  background: linear-gradient(135deg, var(--accent-cta-start) 0%, var(--accent-cta-end) 100%);
+  border-color: transparent;
+  box-shadow:
+    0 4px 16px -3px rgba(var(--accent-rgb), 0.7),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+}
+
+.liquid-glass-switch-thumb {
+  border-radius: 9999px;
+  background: linear-gradient(180deg, #ffffff 0%, #f3f4f6 100%);
+  box-shadow:
+    0 2px 6px rgba(0, 0, 0, 0.26),
+    inset 0 1px 0 rgba(255, 255, 255, 1);
+  transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html.dark[data-accent="monochrome"] .liquid-glass-switch-track-on .liquid-glass-switch-thumb {
+  background: linear-gradient(180deg, #18181b 0%, #09090b 100%);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+}
+
+/* Smooth Liquid Glass Range Slider */
+.liquid-glass-slider-rail {
+  border-radius: 9999px;
+  background: rgba(var(--glass-rgb), 0.16);
+  border: 1px solid rgba(var(--glass-rgb), 0.34);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.14);
+}
+
+.dark .liquid-glass-slider-rail {
+  background: rgba(var(--glass-rgb), 0.18);
+  border: 1px solid rgba(var(--glass-rgb), 0.36);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.55);
+}
+
+.liquid-glass-circle {
+  background: linear-gradient(
+    145deg,
+    rgba(var(--glass-rgb), 0.34) 0%,
+    rgba(255, 255, 255, 0.76) 48%,
+    rgba(var(--glass-rgb), 0.24) 100%
+  );
+  border: 1.5px solid rgba(var(--glass-rgb), 0.58);
+  color: var(--text-main);
+  box-shadow:
+    0 12px 28px -6px rgba(var(--glass-rgb), 0.44),
+    0 4px 12px rgba(0, 0, 0, 0.16),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.94),
+    inset 0 -2px 6px rgba(var(--glass-rgb), 0.18);
+  backdrop-filter: blur(22px) saturate(195%);
+  -webkit-backdrop-filter: blur(22px) saturate(195%);
+}
+
+.dark .liquid-glass-circle {
+  background: linear-gradient(
+    145deg,
+    rgba(var(--glass-rgb), 0.42) 0%,
+    rgba(16, 12, 16, 0.58) 55%,
+    rgba(var(--glass-rgb), 0.28) 100%
+  );
+  border: 1.5px solid rgba(var(--glass-rgb), 0.62);
+  color: #ffffff;
+  box-shadow:
+    0 14px 34px -6px rgba(var(--glass-rgb), 0.52),
+    0 6px 16px rgba(0, 0, 0, 0.65),
+    inset 0 1.5px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -2px 8px rgba(var(--glass-rgb), 0.24);
+}
+
+html[data-glass-color="clear"] .liquid-glass-circle {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.9) 0%, rgba(241, 245, 249, 0.65) 100%);
+  border: 1.5px solid rgba(18, 13, 14, 0.18);
+  color: #120d0e;
+}
+
+html.dark[data-glass-color="clear"] .liquid-glass-circle {
+  background: linear-gradient(145deg, rgba(255, 255, 255, 0.18) 0%, rgba(255, 255, 255, 0.06) 100%);
+  border: 1.5px solid rgba(255, 255, 255, 0.24);
+  color: #ffffff;
+}
+
+.liquid-glass-slider-fill {
+  border-radius: 9999px;
+  background: linear-gradient(90deg, var(--accent-cta-start) 0%, var(--accent-cta-end) 100%);
+  box-shadow: 0 0 12px rgba(var(--accent-rgb), 0.45);
+  transition: width 120ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.liquid-glass-slider-thumb {
+  border-radius: 9999px;
+  background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+  border: 2px solid var(--accent-primary);
+  box-shadow:
+    0 4px 12px -2px rgba(var(--accent-rgb), 0.5),
+    0 2px 6px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 #ffffff;
+  transition:
+    left 120ms cubic-bezier(0.22, 1, 0.36, 1),
+    transform 140ms ease,
+    box-shadow 140ms ease;
 }
 
 .mart-logo-img {
@@ -591,3 +907,23 @@ html[data-accent="monochrome"] .mart-logo-tint {
   opacity: 0;
 }
 
+@keyframes chatExpandUp {
+  0% {
+    opacity: 0;
+    transform: translateY(12px) scale(0.92);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.chat-expand-item {
+  animation: chatExpandUp 200ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-expand-item {
+    animation: none;
+  }
+}
