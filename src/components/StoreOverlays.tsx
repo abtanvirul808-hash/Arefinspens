@@ -113,11 +113,17 @@ export const CartDrawer: React.FC = () => {
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="font-mono-num font-bold text-accent shrink-0">03.</span>
-                  <span>Enter your name, phone number, and select Al Amanah Academy or Home Delivery.</span>
+                  <span>Enter your name, phone number, and select Al Amanah Academy or Sylhet Uposhahr Home Delivery.</span>
                 </li>
                 <li className="flex items-start gap-2">
                   <span className="font-mono-num font-bold text-accent shrink-0">04.</span>
                   <span>Click Place Order to get your Order ID (#1, #2…) — pay Cash on Delivery.</span>
+                </li>
+                <li className="flex items-start gap-2">
+                  <span className="font-mono-num font-bold text-accent shrink-0">05.</span>
+                  <span className="font-medium text-[var(--text-main)]">
+                    After ordering, please message us with your Order ID to confirm.
+                  </span>
                 </li>
               </ol>
             </div>
@@ -325,7 +331,7 @@ export const CartDrawer: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-xs text-[var(--text-muted)]">
-                  Cash on Delivery available across Bangladesh · Zero extra delivery fee.
+                  Cash on Delivery available in Sylhet Uposhahr only · Zero extra delivery fee.
                 </p>
               </div>
 
@@ -370,11 +376,17 @@ export const CartDrawer: React.FC = () => {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="font-mono-num font-bold text-accent shrink-0">03.</span>
-                    <span>Fill in your name, phone, and pick Al Amanah Academy or Home Delivery.</span>
+                    <span>Fill in your name, phone, and pick Al Amanah Academy or Sylhet Uposhahr Home Delivery.</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="font-mono-num font-bold text-accent shrink-0">04.</span>
                     <span>Tap Place Order to receive your Order ID (#1, #2…) — pay Cash on Delivery.</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="font-mono-num font-bold text-accent shrink-0">05.</span>
+                    <span className="font-medium text-[var(--text-main)]">
+                      After ordering, please message us with your Order ID to confirm.
+                    </span>
                   </li>
                 </ol>
               </div>

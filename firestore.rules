@@ -267,6 +267,7 @@ service cloud.firestore {
       allow create: if isVerified() &&
         isValidId(orderId) &&
         isValidOrder(incoming()) &&
+        incoming().city in ['Sylhet Uposhahr', 'Al Amanah Academy'] &&
         incoming().userId == request.auth.uid &&
         incoming().userEmail == request.auth.token.email &&
         incoming().currentStageIndex == 1 &&

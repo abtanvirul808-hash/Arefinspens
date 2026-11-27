@@ -630,15 +630,15 @@ export const ProductDetailsPage: React.FC = () => {
             <div className="flex items-start gap-3">
               <Truck className="w-4 h-4 text-accent-bright mt-0.5 shrink-0" />
               <div className="space-y-1 text-[var(--text-secondary)]">
-                <p className="font-semibold text-[var(--text-main)]">Bangladesh Delivery</p>
+                <p className="font-semibold text-[var(--text-main)]">Sylhet Uposhahr Delivery Only</p>
                 <p>
-                  Inside Dhaka: 1–2 business days · Outside Dhaka: 2–4 business days.
+                  Delivery is available exclusively in Sylhet Uposhahr (including Al Amanah Academy).
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-3 pt-2 border-t border-[var(--border-subtle)]/50 text-[var(--text-secondary)]">
               <ShieldCheck className="w-4 h-4 text-accent-bright shrink-0" />
-              <span>Cash on Delivery supported across Bangladesh.</span>
+              <span>Cash on Delivery available within Sylhet Uposhahr only.</span>
             </div>
           </div>
         </div>

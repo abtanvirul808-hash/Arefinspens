@@ -5,13 +5,24 @@ import {
   Check,
   CheckCircle2,
   Copy,
+  ExternalLink,
   Lock,
+  MapPin,
+  MessageCircle,
   ShieldCheck,
   Truck,
 } from 'lucide-react';
 import { useStore } from '../context/StoreContext';
 import { getColorAvailableCount, isOtherProduct } from '../data/products';
 import { OrderLineItem, TrackedOrder } from '../types';
+import {
+  buildChannelChatUrl,
+  buildWhatsAppChatUrl,
+  isLightHexColor,
+  isLiquidGlassColor,
+  MESSAGING_PLATFORM_META,
+  normalizeChatColor,
+} from '../utils/chatWidget';
 
 type DeliveryLocationOption = 'Al Amanah Academy' | 'Home Delivery';
 type AcademyClassOption = '' | '5' | '6' | '7';
@@ -29,6 +40,7 @@ export const CheckoutPage: React.FC = () => {
     navigate,
     showToast,
     products,
+    chatWidgetConfig,
   } = useStore();
 
   const orderNumber = nextOrderId;
@@ -122,13 +134,26 @@ export const CheckoutPage: React.FC = () => {
     }
 
     if (locationOption === 'Al Amanah Academy' && !['5', '6', '7'].includes(academyClass)) {
-      failValidation('Please select your Class (5, 6, or 7) for Al Amanah Academy.');
+      failValidation('Please select your Class (5, 6, or 7) for Al Amanah Academy (Sylhet Uposhahr).');
       return;
     }
 
-    if (locationOption === 'Home Delivery' && customLocation.trim().length < 3) {
-      failValidation('Please write your custom location for Home Delivery.');
-      return;
+    if (locationOption === 'Home Delivery') {
+      const cleanedLoc = customLocation.trim();
+      if (cleanedLoc.length < 3) {
+        failValidation('Please write your Block, Road, or House address inside Sylhet Uposhahr.');
+        return;
+      }
+      if (
+        /\b(dhaka|chattogram|chittagong|rajshahi|khulna|barishal|barisal|rangpur|mymensingh|cumilla|comilla|gazipur|narayanganj|savar|uttara|dhanmondi|mirpur|gulshan|banani)\b/i.test(
+          cleanedLoc
+        )
+      ) {
+        failValidation(
+          'Sorry, delivery is available only in Sylhet Uposhahr. Please enter a Sylhet Uposhahr address.'
+        );
+        return;
+      }
     }
 
     const requestedByColor = new Map<string, { label: string; qty: number; available: number }>();
@@ -190,15 +215,15 @@ export const CheckoutPage: React.FC = () => {
 
     const fullAddress =
       locationOption === 'Al Amanah Academy'
-        ? `Al Amanah Academy — Class ${academyClass}`
-        : `Home Delivery — ${customLocation.trim()}`;
+        ? `Al Amanah Academy, Sylhet Uposhahr — Class ${academyClass}`
+        : `Sylhet Uposhahr — ${customLocation.trim()}`;
 
     const draftOrder: TrackedOrder = {
       orderId: orderNumber,
       phone: normalizedPhone,
       userEmail: email.trim() || undefined,
       customerName: fullName.trim(),
-      city: locationOption,
+      city: locationOption === 'Al Amanah Academy' ? 'Al Amanah Academy' : 'Sylhet Uposhahr',
       academyClass:
         locationOption === 'Al Amanah Academy' ? (academyClass as '5' | '6' | '7') : undefined,
       address: fullAddress,
@@ -279,6 +304,101 @@ export const CheckoutPage: React.FC = () => {
             </div>
           </div>
 
+          {/* Post-Order Disclaimer: Please Message Us */}
+          {(() => {
+            const orderMsg = `Assalamu Alaikum! I just placed Order ${confirmedOrder.orderId} (Total: ৳${confirmedOrder.totalBdt.toLocaleString('en-US')}) on Arefin Mart.`;
+            const whatsappHref = buildWhatsAppChatUrl({
+              ...chatWidgetConfig,
+              prefillMessage: orderMsg,
+            });
+            const msgOptions: {
+              id: string;
+              label: string;
+              href: string;
+              color: string;
+            }[] = [];
+            if (whatsappHref) {
+              msgOptions.push({
+                id: 'primary-whatsapp',
+                label: chatWidgetConfig.whatsappLabel?.trim() || 'WhatsApp',
+                href: whatsappHref,
+                color: normalizeChatColor(chatWidgetConfig.buttonColor, '#25D366'),
+              });
+            }
+            for (const ch of chatWidgetConfig.channels || []) {
+              if (!ch.enabled) continue;
+              const href = buildChannelChatUrl(
+                { ...ch, prefillMessage: orderMsg },
+                orderMsg
+              );
+              if (!href) continue;
+              const meta = MESSAGING_PLATFORM_META[ch.platform];
+              msgOptions.push({
+                id: ch.id,
+                label: ch.label || meta.defaultLabel,
+                href,
+                color: normalizeChatColor(ch.color, meta.color),
+              });
+            }
+
+            return (
+              <div className="rounded-2xl border border-amber-500/45 bg-amber-500/10 p-4 sm:p-5 text-left space-y-3">
+                <div className="flex items-start gap-2.5">
+                  <MessageCircle className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-xs font-bold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                      Disclaimer · Important Step
+                    </p>
+                    <p className="text-sm font-medium text-[var(--text-main)] leading-relaxed">
+                      After ordering, please message us with your Order ID ({confirmedOrder.orderId}) so we can confirm your order and arrange fast delivery.
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex flex-wrap gap-2 pt-0.5">
+                  {msgOptions.length > 0 ? (
+                    msgOptions.map((opt) => {
+                      const isGlass = isLiquidGlassColor(opt.color);
+                      const lightText = !isGlass && !isLightHexColor(opt.color);
+                      return (
+                        <a
+                          key={opt.id}
+                          href={opt.href}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className={`min-h-[40px] px-4 py-2 rounded-xl text-xs font-bold inline-flex items-center gap-2 transition-transform hover:scale-[1.02] ${
+                            isGlass ? 'liquid-glass-circle' : ''
+                          }`}
+                          style={
+                            isGlass
+                              ? undefined
+                              : {
+                                  backgroundColor: opt.color,
+                                  color: lightText ? '#ffffff' : '#111827',
+                                }
+                          }
+                        >
+                          <MessageCircle className="w-3.5 h-3.5 shrink-0" />
+                          <span>Message on {opt.label}</span>
+                          <ExternalLink className="w-3 h-3 shrink-0 opacity-85" />
+                        </a>
+                      );
+                    })
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => navigate('contact')}
+                      className="min-h-[40px] px-4 py-2 rounded-xl border border-accent/50 bg-accent/15 text-xs font-bold text-[var(--text-main)] inline-flex items-center gap-2 hover:bg-accent/25"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5 text-accent" />
+                      <span>Contact Us Now</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            );
+          })()}
+
           <div className="flex flex-col sm:flex-row gap-3 pt-2 justify-center">
             <button
               type="button"
@@ -306,7 +426,7 @@ export const CheckoutPage: React.FC = () => {
         <div>
           <h1 className="font-display text-3xl font-bold text-[var(--text-main)]">Checkout</h1>
           <p className="text-sm text-[var(--text-secondary)]">
-            Complete your delivery details for Bangladesh Cash on Delivery.
+            Complete your delivery details for Cash on Delivery in Sylhet Uposhahr.
           </p>
         </div>
         <button
@@ -317,6 +437,18 @@ export const CheckoutPage: React.FC = () => {
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Cart</span>
         </button>
+      </div>
+
+      <div className="rounded-2xl border border-accent/45 bg-accent/[0.08] px-4 sm:px-5 py-3.5 flex items-start gap-3">
+        <MapPin className="w-5 h-5 text-accent shrink-0 mt-0.5" />
+        <div className="space-y-0.5">
+          <p className="text-sm font-bold text-[var(--text-main)]">
+            Delivery Available Only in Sylhet Uposhahr
+          </p>
+          <p className="text-xs text-[var(--text-secondary)]">
+            We currently deliver orders exclusively within Sylhet Uposhahr (Al Amanah Academy or Uposhahr home addresses).
+          </p>
+        </div>
       </div>
 
       {!isCustomerSignedIn && (
@@ -444,7 +576,7 @@ export const CheckoutPage: React.FC = () => {
                   htmlFor="checkout-location-option"
                   className="block text-xs font-medium text-[var(--text-secondary)] mb-1"
                 >
-                  Location *
+                  Delivery Area (Sylhet Uposhahr Only) *
                 </label>
                 <select
                   id="checkout-location-option"
@@ -459,8 +591,8 @@ export const CheckoutPage: React.FC = () => {
                   }}
                   className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
                 >
-                  <option value="Al Amanah Academy">Al Amanah Academy</option>
-                  <option value="Home Delivery">Home Delivery</option>
+                  <option value="Al Amanah Academy">Al Amanah Academy (Sylhet Uposhahr)</option>
+                  <option value="Home Delivery">Sylhet Uposhahr (Home Delivery)</option>
                 </select>
               </div>
 
@@ -496,17 +628,26 @@ export const CheckoutPage: React.FC = () => {
                     htmlFor="checkout-custom-location"
                     className="block text-xs font-medium text-[var(--text-secondary)] mb-1"
                   >
-                    Location *
+                    Address inside Sylhet Uposhahr *
                   </label>
-                  <input
-                    id="checkout-custom-location"
-                    type="text"
-                    required
-                    value={customLocation}
-                    onChange={(e) => setCustomLocation(e.target.value)}
-                    placeholder="Write your custom location (House, Road, Area, City)"
-                    className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
-                  />
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <span className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-subtle)] text-xs font-semibold text-[var(--text-main)] shrink-0">
+                      <MapPin className="w-3.5 h-3.5 text-accent" />
+                      <span>Sylhet Uposhahr</span>
+                    </span>
+                    <input
+                      id="checkout-custom-location"
+                      type="text"
+                      required
+                      value={customLocation}
+                      onChange={(e) => setCustomLocation(e.target.value)}
+                      placeholder="Block, Road & House No. in Sylhet Uposhahr"
+                      className="w-full min-h-[44px] px-3.5 py-2.5 rounded-xl bg-[var(--bg-input)] border border-[var(--border-subtle)] text-sm text-[var(--text-main)] focus:outline-none focus:border-accent"
+                    />
+                  </div>
+                  <p className="text-[11px] text-[var(--text-muted)] mt-1">
+                    Only addresses within Sylhet Uposhahr are eligible for delivery.
+                  </p>
                 </div>
               )}
 
@@ -547,7 +688,7 @@ export const CheckoutPage: React.FC = () => {
                   </span>
                 </div>
                 <p className="text-xs text-[var(--text-secondary)]">
-                  Pay in Bangladeshi Taka (৳) directly when your parcel arrives at your address.
+                  Pay in Bangladeshi Taka (৳) directly when your parcel arrives in Sylhet Uposhahr.
                 </p>
               </div>
             </label>
@@ -664,6 +805,18 @@ export const CheckoutPage: React.FC = () => {
           >
             {submittingOrder ? 'Placing Order...' : `Confirm Order (${orderNumber})`}
           </button>
+
+          <div className="rounded-xl border border-amber-500/40 bg-amber-500/[0.08] p-3.5 flex items-start gap-2.5">
+            <MessageCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+            <div className="space-y-0.5 text-xs">
+              <p className="font-bold text-[var(--text-main)]">
+                Disclaimer: Please Message Us After Ordering
+              </p>
+              <p className="text-[var(--text-secondary)] leading-relaxed">
+                After placing your order, please message us using the chat button with your Order ID ({orderNumber}) to confirm quickly.
+              </p>
+            </div>
+          </div>
 
           <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
             <ShieldCheck className="w-4 h-4 text-accent-bright shrink-0" />

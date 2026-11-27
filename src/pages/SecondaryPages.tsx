@@ -33,7 +33,7 @@ export const AboutPage: React.FC = () => {
           <p className="text-sm sm:text-base text-[var(--text-secondary)] leading-relaxed">
             Arefin Mart is dedicated to bringing reliable writing instruments and curated everyday
             products to students, educators, office professionals, artists, and collectors
-            throughout Bangladesh.
+            in Sylhet Uposhahr.
           </p>
           <p className="text-sm sm:text-base text-[var(--text-secondary)] leading-relaxed">
             Whether you need a smear-free 0.5mm gel pen for university exams, a knurled mechanical
@@ -279,12 +279,12 @@ export const InfoPage: React.FC = () => {
       title: 'Shopping & Delivery Information',
       sections: [
         {
-          heading: 'Delivery Across Bangladesh',
-          body: 'Inside Dhaka Metropolitan Area: estimated 1–2 business days. Outside Dhaka: estimated 2–4 business days.',
+          heading: 'Sylhet Uposhahr Delivery Only',
+          body: 'Delivery is currently available exclusively inside Sylhet Uposhahr (including Al Amanah Academy and Uposhahr residential blocks and roads). Orders outside Sylhet Uposhahr are not supported right now.',
         },
         {
           heading: 'Payment Support',
-          body: 'Cash on Delivery (COD) is available across Bangladesh.',
+          body: 'Cash on Delivery (COD) is available throughout Sylhet Uposhahr.',
         },
       ],
     },

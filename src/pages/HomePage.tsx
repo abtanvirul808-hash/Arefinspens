@@ -268,14 +268,13 @@ export const HomePage: React.FC = () => {
               About <span className="text-accent">Arefin Mart</span>
             </h2>
             <p className="text-sm sm:text-base text-[var(--text-secondary)] leading-relaxed">
-              Arefin Mart was created for people across Bangladesh who care about reliable
-              pens and thoughtful everyday essentials—from university students preparing for exams
-              and teachers annotating essays to artists, journal keepers, and collectors.
+              Arefin Mart was created for students, teachers, artists, and stationery lovers in
+              Sylhet Uposhahr who care about reliable pens and thoughtful everyday essentials.
             </p>
             <p className="text-sm sm:text-base text-[var(--text-secondary)] leading-relaxed">
               Every item in our collection is evaluated for writing precision, ink consistency,
               grip comfort, and durable construction—paired with transparent pricing in Bangladeshi
-              Taka and straightforward nationwide delivery.
+              Taka and fast delivery exclusively within Sylhet Uposhahr.
             </p>
             <div className="pt-2 flex flex-wrap items-center gap-3">
               <button
@@ -427,7 +426,7 @@ export const HomePage: React.FC = () => {
             </h2>
             <p className="text-sm text-[#B8B8B8]">
               Filter by pen category, other essentials, colour, or budget in BDT—with Cash on Delivery
-              across Bangladesh.
+              available exclusively in Sylhet Uposhahr.
             </p>
           </div>
           <button

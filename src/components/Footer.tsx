@@ -53,7 +53,7 @@ export const Footer: React.FC = () => {
             </a>
             <p className="text-sm text-[#B8B8B8] leading-relaxed max-w-xs">
               Curated writing instruments and everyday essentials for students, educators, artists,
-              and shoppers across Bangladesh.
+              and shoppers in Sylhet Uposhahr.
             </p>
             <div className="flex items-center gap-2.5 pt-1">
               <button
@@ -235,7 +235,7 @@ export const Footer: React.FC = () => {
 
         <div className="mt-12 pt-6 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-[#858585]">
           <p>&copy; 2026 Arefin Mart. All rights reserved.</p>
-          <p>Currency: Bangladeshi Taka (৳ BDT) · Bangladesh</p>
+          <p>Currency: Bangladeshi Taka (৳ BDT) · Delivery: Sylhet Uposhahr Only</p>
         </div>
         </FadeUp>
       </div>

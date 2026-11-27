@@ -95,7 +95,11 @@
         "phone": { "type": "string", "minLength": 8, "maxLength": 20 },
         "phoneSuffix": { "type": "string", "minLength": 6, "maxLength": 10 },
         "customerName": { "type": "string", "minLength": 2, "maxLength": 100 },
-        "city": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "city": {
+          "type": "string",
+          "enum": ["Sylhet Uposhahr", "Al Amanah Academy"],
+          "description": "Delivery zone restricted strictly to Sylhet Uposhahr (Home Delivery or Al Amanah Academy)."
+        },
         "academyClass": { "type": "string", "enum": ["5", "6", "7"] },
         "address": { "type": "string", "minLength": 3, "maxLength": 400 },
         "paymentMethod": { "type": "string", "enum": ["cod"] },

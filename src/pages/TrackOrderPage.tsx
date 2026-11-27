@@ -3,8 +3,10 @@ import {
   CheckCircle2,
   Clock,
   Droplets,
+  ExternalLink,
   Lock,
   Maximize2,
+  MessageCircle,
   Package,
   Search,
   Truck,
@@ -15,6 +17,7 @@ import { isOtherProduct } from '../data/products';
 import { ImageLightboxModal, LightboxSlide } from '../components/ImageLightboxModal';
 import { SafeImage } from '../components/SafeImage';
 import { TrackedOrder } from '../types';
+import { buildChannelChatUrl, buildWhatsAppChatUrl } from '../utils/chatWidget';
 import { parseOrderSummaryItems } from '../utils/orderItems';
 
 const STAGES = [
@@ -37,6 +40,7 @@ export const TrackOrderPage: React.FC = () => {
     isAdmin,
     setIsAdminModalOpen,
     navigate,
+    chatWidgetConfig,
   } = useStore();
   const [orderIdInput, setOrderIdInput] = useState('');
   const [phoneInput, setPhoneInput] = useState('');
@@ -241,6 +245,43 @@ export const TrackOrderPage: React.FC = () => {
                   <p className="text-xs text-[var(--text-muted)]">{result.placedAt}</p>
                 </div>
               </div>
+
+              {/* Order Disclaimer: Please Message Us */}
+              {(() => {
+                const orderMsg = `Assalamu Alaikum! Checking on my Order ${result.orderId} (Total: ৳${result.totalBdt.toLocaleString('en-US')}) on Arefin Mart.`;
+                const whatsappHref = buildWhatsAppChatUrl({
+                  ...chatWidgetConfig,
+                  prefillMessage: orderMsg,
+                });
+                const fallbackChannelHref = (chatWidgetConfig.channels || [])
+                  .filter((ch) => ch.enabled)
+                  .map((ch) => buildChannelChatUrl({ ...ch, prefillMessage: orderMsg }, orderMsg))
+                  .find(Boolean);
+                const messageHref = whatsappHref || fallbackChannelHref || '';
+
+                return (
+                  <div className="rounded-xl border border-amber-500/40 bg-amber-500/[0.08] px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                    <div className="flex items-start gap-2.5">
+                      <MessageCircle className="w-4 h-4 text-amber-500 shrink-0 mt-0.5" />
+                      <p className="text-xs text-[var(--text-main)] leading-relaxed">
+                        <span className="font-bold">Disclaimer:</span> After ordering, please message us with your Order ID ({result.orderId}) for quick confirmation.
+                      </p>
+                    </div>
+                    {messageHref && (
+                      <a
+                        href={messageHref}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="min-h-[36px] px-3.5 py-1.5 rounded-lg bg-accent text-[var(--accent-cta-text)] text-xs font-bold inline-flex items-center justify-center gap-1.5 shrink-0 hover:opacity-90 transition-opacity"
+                      >
+                        <MessageCircle className="w-3.5 h-3.5" />
+                        <span>Message Us</span>
+                        <ExternalLink className="w-3 h-3" />
+                      </a>
+                    )}
+                  </div>
+                );
+              })()}
 
               {/* Visual Ordered Pens: Pen Image, Name, Body Colour & Ink Colour */}
               {(() => {
